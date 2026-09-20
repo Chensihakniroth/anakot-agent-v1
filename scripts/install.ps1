@@ -2870,7 +2870,7 @@ function Install-Venv {
                 Write-Warn "Rename-Item on venv failed: $renameErr"
                 Write-Info "Checking whether any files inside venv are actually locked..."
 
-                # Scan for files that cannot be opened exclusively — those are
+                # Scan for files that cannot be opened exclusively -- those are
                 # genuinely held by a running process (loaded .pyd/.dll).
                 $lockedFiles = @()
                 Get-ChildItem "venv" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
@@ -2884,7 +2884,7 @@ function Install-Venv {
                 }
 
                 if ($lockedFiles.Count -gt 0) {
-                    # Real locks — a process is holding .pyd files open. The user
+                    # Real locks -- a process is holding .pyd files open. The user
                     # must close it before we can proceed.
                     Write-Err "$($lockedFiles.Count) file(s) still locked:"
                     foreach ($lf in $lockedFiles) { Write-Host "  $lf" }
@@ -2900,8 +2900,8 @@ function Install-Venv {
                 # observer (Windows Search Indexer, antivirus real-time scanner,
                 # OneDrive filter driver, or similar). These release the handle
                 # once the directory is empty. Wipe contents in-place and delete
-                # the resulting empty directory — uv venv creates it fresh.
-                Write-Info "No locked files found — wiping venv contents in-place (phantom directory handle)..."
+                # the resulting empty directory -- uv venv creates it fresh.
+                Write-Info "No locked files found -- wiping venv contents in-place (phantom directory handle)..."
                 Get-ChildItem "venv" -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                 $remainingItems = @(Get-ChildItem "venv" -Force -ErrorAction SilentlyContinue)
                 if ($remainingItems.Count -gt 0) {
@@ -2917,10 +2917,10 @@ function Install-Venv {
                     Write-Info "Empty venv directory removed."
                 }
                 catch {
-                    # The empty dir may still be held — uv venv can overwrite it.
+                    # The empty dir may still be held -- uv venv can overwrite it.
                     Write-Warn "Could not remove empty venv dir; uv venv will overwrite it."
                 }
-                # No rollback source for in-place wipe — $venvParked stays $false.
+                # No rollback source for in-place wipe -- $venvParked stays $false.
                 Write-Info "Venv cleared via in-place wipe fallback."
             }
         }
