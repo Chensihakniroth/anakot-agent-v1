@@ -886,7 +886,8 @@ def _pull_updates(
     remote_head = _git_run(git_cmd, ["rev-parse", f"origin/{branch}"]).stdout.strip()
     if local_head == remote_head:
         print("  ✓ Tree already updated via fresh-tree approach — skipping merge.")
-        return pre_pull_sha
+        # Return the NEW HEAD SHA so _apply_pulled_update() doesn't think it's a no-op
+        return local_head
 
     try:
         # merge --ff-only the already-fetched ref instead of `git pull`, which would do a
