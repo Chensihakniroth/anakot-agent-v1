@@ -99,7 +99,8 @@ $ProgressPreference = "SilentlyContinue"
 # exits and the host's console encoding is restored.
 try {
     [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new()
-} catch {
+}
+catch {
     # Some constrained PowerShell hosts disallow encoding mutation.
     # Mojibake on output is then cosmetic-only, install still works.
 }
@@ -197,7 +198,8 @@ function Get-LongProfileRoot {
                 $script:LongProfileRoot = $candidate
                 break
             }
-        } catch {
+        }
+        catch {
             # Unreadable candidate (denied, malformed): try the next one.
         }
     }
@@ -207,7 +209,8 @@ function Get-LongProfileRoot {
     # where an alias actually showed up.
     if ($script:LongProfileRoot) {
         Write-PathDiag "long profile root: $script:LongProfileRoot"
-    } else {
+    }
+    else {
         Write-PathDiag "no long profile root found; 8.3 paths left as-is (tried: $($candidates -join ', '))"
     }
     return $script:LongProfileRoot
@@ -275,7 +278,8 @@ public static extern int GetLongPathNameW(string lpszShortPath, System.Text.Stri
                 return $expanded
             }
         }
-    } catch {
+    }
+    catch {
         # Not Windows, or P/Invoke denied by policy: try the next resolver.
     }
 
@@ -288,13 +292,14 @@ public static extern int GetLongPathNameW(string lpszShortPath, System.Text.Stri
     try {
         $fso = New-Object -ComObject Scripting.FileSystemObject
         $resolved = $null
-        if ($fso.FolderExists($Path))   { $resolved = $fso.GetFolder($Path).Path }
+        if ($fso.FolderExists($Path)) { $resolved = $fso.GetFolder($Path).Path }
         elseif ($fso.FileExists($Path)) { $resolved = $fso.GetFile($Path).Path }
         if ($resolved -and $resolved -notmatch '~\d') {
             $script:LastResolver = 'com'
             return $resolved
         }
-    } catch {
+    }
+    catch {
         # COM unavailable / locked-down host: try the next resolver.
     }
 
@@ -343,14 +348,16 @@ $script:NormalizedProfilePaths = Set-LongProfileEnvVars
 # $PSBoundParameters is only meaningful at script scope, so this stays inline.
 if ($PSBoundParameters.ContainsKey('AnakotHome')) {
     $AnakotHome = ConvertTo-LongPath $AnakotHome
-} else {
+}
+else {
     $AnakotHome = ConvertTo-LongPath $(
         if ($env:ANAKOT_HOME) { $env:ANAKOT_HOME } else { "$env:LOCALAPPDATA\anakot" }
     )
 }
 if ($PSBoundParameters.ContainsKey('InstallDir')) {
     $InstallDir = ConvertTo-LongPath $InstallDir
-} else {
+}
+else {
     $InstallDir = ConvertTo-LongPath $(
         if ($env:ANAKOT_HOME) { "$env:ANAKOT_HOME\anakot-agent" } else { "$env:LOCALAPPDATA\anakot\anakot-agent" }
     )
@@ -428,26 +435,28 @@ $InstallStageProtocolVersion = 1
 function Get-WindowsArch {
     try {
         $proc = Get-CimInstance -ClassName Win32_Processor -ErrorAction Stop |
-            Select-Object -First 1
+        Select-Object -First 1
         switch ([int]$proc.Architecture) {
             12 { return "arm64" }
-            9  { return "x64" }
-            0  { return "x86" }
-            5  { return "arm" }
+            9 { return "x64" }
+            0 { return "x86" }
+            5 { return "arm" }
         }
-    } catch {
+    }
+    catch {
         # CIM unavailable -- fall through to env-var path
     }
 
     $envArch = if ($env:PROCESSOR_ARCHITEW6432) {
         $env:PROCESSOR_ARCHITEW6432
-    } else {
+    }
+    else {
         $env:PROCESSOR_ARCHITECTURE
     }
     switch ($envArch) {
         "ARM64" { return "arm64" }
         "AMD64" { return "x64" }
-        "x86"   { return "x86" }
+        "x86" { return "x86" }
         default {
             # Last-resort: respect 64-bitness so we don't ship a 32-bit
             # toolchain to anyone.
@@ -495,7 +504,8 @@ function Invoke-NativeWithRelaxedErrorAction {
     $ErrorActionPreference = "Continue"
     try {
         & $Script
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
     }
 }
@@ -530,7 +540,8 @@ function Discard-LockfileChurn {
                 $ws = $rootPkg.workspaces
                 if ($ws -and $ws.PSObject.Properties["packages"]) { $ws = $ws.packages }
                 $workspaceGlobs = @($ws | Where-Object { $_ })
-            } catch { }
+            }
+            catch { }
             foreach ($dir in $dirtyPackageDirs) {
                 foreach ($glob in $workspaceGlobs) {
                     if ($dir -like ([string]$glob)) { $rootLockProtected = $true }
@@ -544,7 +555,8 @@ function Discard-LockfileChurn {
             $lockDir = (Split-Path $path -Parent) -replace '\\', '/'
             if ($lockDir -eq "") {
                 if ($rootLockProtected) { continue }
-            } elseif ($dirtyPackageDirs.Contains($lockDir)) { continue }
+            }
+            elseif ($dirtyPackageDirs.Contains($lockDir)) { continue }
             $dirtyLocks.Add($path)
         }
 
@@ -553,7 +565,8 @@ function Discard-LockfileChurn {
         if ($LASTEXITCODE -eq 0) {
             Write-Info "Discarded npm lockfile churn ($($dirtyLocks.Count) file(s))"
         }
-    } catch {
+    }
+    catch {
         # Best-effort only; never let cleanup block the installer update path.
     }
 }
@@ -619,12 +632,13 @@ function Write-NpmDebugLogTail {
                     $logsDir = Join-Path ("$cacheDir").Trim() "_logs"
                     if (Test-Path -LiteralPath $logsDir) {
                         $newest = Get-ChildItem -LiteralPath $logsDir -Filter "*-debug-*.log" -ErrorAction SilentlyContinue |
-                            Sort-Object LastWriteTime -Descending | Select-Object -First 1
+                        Sort-Object LastWriteTime -Descending | Select-Object -First 1
                         if ($newest) { $logPath = $newest.FullName }
                     }
                 }
             }
-        } catch { }
+        }
+        catch { }
     }
     if (-not $logPath) {
         Write-Warn "npm debug log could not be located -- no further npm detail available"
@@ -633,7 +647,8 @@ function Write-NpmDebugLogTail {
     $tail = $null
     try {
         $tail = Get-Content -LiteralPath $logPath -Tail $TailLines -ErrorAction Stop
-    } catch {
+    }
+    catch {
         Write-Warn "Could not read npm debug log ${logPath}: $($_.Exception.Message)"
         return
     }
@@ -755,10 +770,11 @@ function Get-PowerShellHostExe {
             # `-ExecutionPolicy`/`-Command`).
             if ($leaf -match '^(?i:powershell|pwsh)\.exe$') { return $hostExe }
         }
-    } catch { }
+    }
+    catch { }
     foreach ($candidate in @("powershell", "pwsh")) {
         $cmd = Get-Command $candidate -CommandType Application -ErrorAction SilentlyContinue |
-            Select-Object -First 1
+        Select-Object -First 1
         if ($cmd -and $cmd.Source) { return $cmd.Source }
     }
     # Last-ditch: hand back the bare name so the spawn surfaces its own error.
@@ -779,9 +795,11 @@ function Test-ManagedUvBinary {
         $global:LASTEXITCODE = 0
         $output = @(& $Path --version 2>&1 | ForEach-Object { "$_" })
         $exitCode = $LASTEXITCODE
-    } catch {
+    }
+    catch {
         return $null
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
     }
     if ($exitCode -ne 0) { return $null }
@@ -815,7 +833,7 @@ function Resolve-UvShimTarget {
     $sidecar = Join-Path $dir "$stem.shim"
     if (Test-Path -LiteralPath $sidecar -PathType Leaf) {
         $pathLine = @(Get-Content -LiteralPath $sidecar -ErrorAction SilentlyContinue) |
-            Where-Object { $_ -match '^\s*path\s*=\s*"?([^"]+?)"?\s*$' } | Select-Object -First 1
+        Where-Object { $_ -match '^\s*path\s*=\s*"?([^"]+?)"?\s*$' } | Select-Object -First 1
         if ($pathLine -and ($pathLine -match '^\s*path\s*=\s*"?([^"]+?)"?\s*$')) { $targets += $Matches[1] }
     }
     $targets += Join-Path (Split-Path $dir -Parent) "lib\$stem\tools\$stem.exe"
@@ -873,7 +891,8 @@ function Install-Uv {
         $installerOutput += @($astralOut | ForEach-Object { "$_" })
         if (Test-Path $managedUv) {
             Write-Info "uv installer succeeded via astral.sh"
-        } else {
+        }
+        else {
             Write-Info "astral.sh uv installer did not produce $managedUv; trying GitHub releases mirror ..."
             $ghOut = @()
             & $psHostExe -ExecutionPolicy ByPass -c "irm https://github.com/astral-sh/uv/releases/latest/download/uv-installer.ps1 | iex" 2>&1 | Tee-Object -Variable ghOut | Out-Null
@@ -893,7 +912,7 @@ function Install-Uv {
         if (-not (Test-Path $managedUv)) {
             $existingUv = $null
             $uvOnPath = Get-Command uv -CommandType Application -ErrorAction SilentlyContinue |
-                Select-Object -First 1
+            Select-Object -First 1
             if ($uvOnPath -and $uvOnPath.Source -and (Test-Path $uvOnPath.Source)) {
                 $existingUv = $uvOnPath.Source
             }
@@ -909,9 +928,11 @@ function Install-Uv {
                 $salvageSource = Resolve-UvShimTarget $existingUv
                 if (-not $salvageSource) {
                     Write-Info "Existing uv at $existingUv is an app-execution alias; cannot be copied"
-                } elseif (-not (Test-ManagedUvBinary $salvageSource)) {
+                }
+                elseif (-not (Test-ManagedUvBinary $salvageSource)) {
                     Write-Info "Existing uv at $salvageSource does not run; not salvaging it"
-                } else {
+                }
+                else {
                     Write-Info "Salvaging existing uv from $salvageSource"
                     try {
                         Copy-Item $salvageSource $managedUv -Force
@@ -919,7 +940,8 @@ function Install-Uv {
                             Write-Info "Copied uv at $managedUv failed validation; continuing fallback"
                             Remove-Item $managedUv -Force -ErrorAction SilentlyContinue
                         }
-                    } catch {
+                    }
+                    catch {
                         Write-Info "Existing uv at $salvageSource could not be salvaged: $_"
                         Remove-Item $managedUv -Force -ErrorAction SilentlyContinue
                     }
@@ -947,7 +969,8 @@ function Install-Uv {
         }
         Write-Info "Install manually: https://docs.astral.sh/uv/getting-started/installation/"
         return $false
-    } catch {
+    }
+    catch {
         if ($prevEAP) { $ErrorActionPreference = $prevEAP }
         Write-Err "Failed to install uv: $_"
         Write-Info "Install manually: https://docs.astral.sh/uv/getting-started/installation/"
@@ -1032,7 +1055,8 @@ function Get-NpmRange {
         try {
             $engines = (Get-Content $manifest -Raw | ConvertFrom-Json).engines
             if ($engines -and $engines.npm) { return [string]$engines.npm }
-        } catch { }
+        }
+        catch { }
     }
     return $NpmRange
 }
@@ -1056,7 +1080,8 @@ function ConvertTo-NpmVersion {
 
     try {
         return [version]($parts -join '.')
-    } catch {
+    }
+    catch {
         return $null
     }
 }
@@ -1101,9 +1126,9 @@ function Test-NpmVersionOk {
             }
 
             $matchesComparator = switch ($comparator.Groups[1].Value) {
-                '<'  { $actual -lt $target }
+                '<' { $actual -lt $target }
                 '<=' { $actual -le $target }
-                '>'  { $actual -gt $target }
+                '>' { $actual -gt $target }
                 '>=' { $actual -ge $target }
                 default { $false }
             }
@@ -1149,7 +1174,8 @@ function Update-ManagedNpm {
     try {
         $have = (& $npmCmd --version 2>$null | Select-Object -First 1)
         if ($have -and (Test-NpmVersionOk $have $range)) { return $true }
-    } catch { }
+    }
+    catch { }
 
     # In-app updates run while the desktop app's Node processes are alive.
     # The managed npm lives inside the very tree they execute from, so an
@@ -1178,9 +1204,11 @@ function Update-ManagedNpm {
         & $npmCmd install --global --prefix $NodeDir "npm@$range" `
             --no-fund --no-audit --progress=false 2>&1 | Out-Null
         $exit = $LASTEXITCODE
-    } catch {
+    }
+    catch {
         $exit = 1
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
         Pop-Location
         $env:npm_config_min_release_age = $prevAge
@@ -1214,10 +1242,10 @@ function Test-ManagedNodeInUse {
     # single CIM query beats a per-process property access loop.
     return @(
         Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
-            Where-Object {
-                ($_.ExecutablePath -like "$NodeDir\*") -or
-                ($_.CommandLine -like "*$NodeDir*")
-            }
+        Where-Object {
+            ($_.ExecutablePath -like "$NodeDir\*") -or
+            ($_.CommandLine -like "*$NodeDir*")
+        }
     ).Count -gt 0
 }
 
@@ -1237,7 +1265,8 @@ function Resolve-UvCmd {
             # "uv" on PATH -- verify it's still resolvable (PATH could have
             # changed mid-session; cheap to recheck).
             if (Get-Command uv -ErrorAction SilentlyContinue) { return }
-        } elseif (Test-Path $script:UvCmd) {
+        }
+        elseif (Test-Path $script:UvCmd) {
             return
         }
         # Stale; fall through to re-discover.
@@ -1273,10 +1302,10 @@ function Initialize-ManagedPythonEnvironment {
     # application or a user-level uv configuration. Keep this aligned with
     # anakot_cli.managed_uv.managed_python_env(), which owns the update path.
     foreach ($name in @(
-        "CONDA_DEFAULT_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT",
-        "UV_NO_MANAGED_PYTHON", "UV_PYTHON", "UV_PYTHON_DOWNLOADS",
-        "UV_SYSTEM_PYTHON", "VIRTUAL_ENV", "PYTHONHOME", "PYTHONPATH"
-    )) {
+            "CONDA_DEFAULT_ENV", "CONDA_PREFIX", "UV_PROJECT_ENVIRONMENT",
+            "UV_NO_MANAGED_PYTHON", "UV_PYTHON", "UV_PYTHON_DOWNLOADS",
+            "UV_SYSTEM_PYTHON", "VIRTUAL_ENV", "PYTHONHOME", "PYTHONPATH"
+        )) {
         Remove-Item -Path "Env:$name" -ErrorAction SilentlyContinue
     }
 
@@ -1336,14 +1365,16 @@ function Resolve-AvailablePythonVersion {
                 $absolute = [System.IO.Path]::GetFullPath($foundPath)
                 if ($absolute.StartsWith($managedPrefix, [System.StringComparison]::OrdinalIgnoreCase)) {
                     return [PSCustomObject]@{
-                        Path = $absolute
+                        Path    = $absolute
                         Version = $ver
                     }
                 }
             }
-        } catch {
+        }
+        catch {
             throw "Failed to resolve Anakot-managed Python $ver`: $_"
-        } finally {
+        }
+        finally {
             if ($process) { $process.Dispose() }
         }
     }
@@ -1362,7 +1393,8 @@ function Test-Python {
             Write-Success "Python found: $ver"
             return $true
         }
-    } catch { }
+    }
+    catch { }
     
     # Python not found -- use uv to install it (no admin needed!)
     Write-Info "Python $PythonVersion not found, installing via uv..."
@@ -1399,7 +1431,8 @@ function Test-Python {
             Write-Warn "uv python install output:"
             Write-Host $uvOutput -ForegroundColor DarkGray
         }
-    } catch {
+    }
+    catch {
         # Restore EAP in case the try block threw before the assignment
         if ($prevEAP) { $ErrorActionPreference = $prevEAP }
         Write-Warn "uv python install error: $_"
@@ -1421,7 +1454,8 @@ function Test-Python {
                 Write-Success "Python fallback installed: $ver"
                 return $true
             }
-        } catch {
+        }
+        catch {
             if ($previousFallbackEAP) { $ErrorActionPreference = $previousFallbackEAP }
         }
     }
@@ -1475,10 +1509,12 @@ function Test-GitBashCompatibility {
         $stderr = $process.StandardError.ReadToEnd()
         $script:GitBashProbeOutput = ("$stdout`n$stderr").Trim()
         return ($process.ExitCode -eq 0)
-    } catch {
+    }
+    catch {
         $script:GitBashProbeOutput = $_.Exception.Message
         return $false
-    } finally {
+    }
+    finally {
         $process.Dispose()
     }
 }
@@ -1491,7 +1527,8 @@ function Test-MandatoryAslrEnabled {
         $mitigations = & $cmd -System
         $value = $mitigations.Aslr.ForceRelocateImages
         return ($null -ne $value -and $value.ToString().ToUpperInvariant() -eq "ON")
-    } catch {
+    }
+    catch {
         return $false
     }
 }
@@ -1578,7 +1615,8 @@ function Install-Git {
         if ($script:GitBashPath) {
             $probeDetail = if ($script:GitBashProbeOutput) { ": $script:GitBashProbeOutput" } else { "" }
             Write-Warn "System Git Bash could not launch required MSYS programs$probeDetail"
-        } else {
+        }
+        else {
             Write-Warn "Git is on PATH, but its Git Bash installation could not be located."
         }
         Write-Info "Trying a Anakot-managed PortableGit install instead..."
@@ -1595,10 +1633,12 @@ function Install-Git {
         if ($arch -eq 'arm64') {
             $assetTag = 'arm64'
             $downloadIsZip = $false
-        } elseif ($arch -eq 'x64') {
+        }
+        elseif ($arch -eq 'x64') {
             $assetTag = '64-bit'
             $downloadIsZip = $false
-        } else {
+        }
+        else {
             # PortableGit does not ship 32-bit / arm builds -- fall back to MinGit
             # 32-bit with a warning that bash-based features will be unavailable.
             $assetTag = '32-bit-mingit'
@@ -1612,19 +1652,21 @@ function Install-Git {
         # routinely hit the limit, breaking the installer.
         # Static github.com/.../releases/download/<tag>/<asset> URLs
         # are not subject to the API rate limit.
-        $gitTag    = "v2.54.0.windows.1"
-        $gitVer    = "2.54.0"
+        $gitTag = "v2.54.0.windows.1"
+        $gitVer = "2.54.0"
         $gitVerTag = "$gitVer.windows.1"
 
         if ($arch -eq "32-bit-mingit") {
             Write-Warn "32-bit Windows detected -- PortableGit is 64-bit only.  Installing MinGit 32-bit as a last resort; bash-dependent Anakot features (terminal tool, agent-browser) will not work on this machine."
-            $assetName    = "MinGit-$gitVer-32-bit.zip"
+            $assetName = "MinGit-$gitVer-32-bit.zip"
             $downloadIsZip = $true
-        } elseif ($arch -eq "arm64") {
-            $assetName    = "PortableGit-$gitVer-arm64.7z.exe"
+        }
+        elseif ($arch -eq "arm64") {
+            $assetName = "PortableGit-$gitVer-arm64.7z.exe"
             $downloadIsZip = $false
-        } else {
-            $assetName    = "PortableGit-$gitVer-64-bit.7z.exe"
+        }
+        else {
+            $assetName = "PortableGit-$gitVer-64-bit.7z.exe"
             $downloadIsZip = $false
         }
 
@@ -1644,7 +1686,8 @@ function Install-Git {
 
         if ($downloadIsZip) {
             Expand-Archive -Path $tmpFile -DestinationPath $gitDir -Force
-        } else {
+        }
+        else {
             # PortableGit is a self-extracting 7z archive.  Invoke it with
             # `-o<target> -y` (silent) to extract to $gitDir.  No 7z install
             # required; it's fully self-contained.
@@ -1698,7 +1741,8 @@ function Install-Git {
         if (-not (Test-GitBashCompatibility -BashPath $script:GitBashPath)) {
             if (Test-MandatoryAslrEnabled) {
                 $script:GitInstallFailureReason = New-GitBashAslrFailureReason -BashPath $script:GitBashPath
-            } else {
+            }
+            else {
                 $probeDetail = if ($script:GitBashProbeOutput) { " Probe output: $script:GitBashProbeOutput" } else { "" }
                 $script:GitInstallFailureReason = "Git Bash at $script:GitBashPath exists but cannot launch required MSYS programs.$probeDetail"
             }
@@ -1706,7 +1750,8 @@ function Install-Git {
         }
         Write-Success "Git Bash can launch MSYS programs"
         return $true
-    } catch {
+    }
+    catch {
         if ($script:GitInstallFailureReason) {
             Write-Err $script:GitInstallFailureReason
             return $false
@@ -1784,7 +1829,8 @@ function Test-NodeVersionOk {
     if ($Version -match '-') { return $false }
     try {
         $v = [version]($Version -replace '^v', '')
-    } catch {
+    }
+    catch {
         return $false
     }
     if ($v.Major -eq 22) { return ($v.Minor -ge 22) }
@@ -1801,7 +1847,8 @@ function Test-SystemNodeReady {
     $version = node --version
     if (Test-NodeVersionOk $version) {
         Ensure-NodeExeOnPath | Out-Null
-    } else {
+    }
+    else {
         Write-Warn "Node.js $version is unsupported (Anakot requires Node 22.22+, 24.11+, or 26+)"
         return $false
     }
@@ -1816,7 +1863,8 @@ function Test-SystemNodeReady {
     if ($npmCmd) {
         try {
             $npmVersion = (& $npmCmd --version 2>$null | Select-Object -First 1)
-        } catch { }
+        }
+        catch { }
     }
 
     if ($npmVersion -and (Test-NpmVersionOk $npmVersion $npmRange)) {
@@ -1826,7 +1874,8 @@ function Test-SystemNodeReady {
 
     if ($npmVersion) {
         Write-Warn "Node.js $version uses npm $npmVersion, which does not satisfy Anakot requirement $npmRange"
-    } else {
+    }
+    else {
         Write-Warn "Node.js $version was found, but npm is missing or could not report its version"
     }
     return $false
@@ -1897,11 +1946,11 @@ function Test-Node {
                 # dirs older than 10 minutes are removed so a concurrent
                 # heal's in-flight swap is never disturbed.
                 Get-ChildItem "$AnakotHome" -Directory -Filter "node.old-*" -ErrorAction SilentlyContinue |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddMinutes(-10) } |
-                    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddMinutes(-10) } |
+                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                 Get-ChildItem "$AnakotHome" -Directory -Filter "node.new-*" -ErrorAction SilentlyContinue |
-                    Where-Object { $_.LastWriteTime -lt (Get-Date).AddMinutes(-10) } |
-                    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                Where-Object { $_.LastWriteTime -lt (Get-Date).AddMinutes(-10) } |
+                Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
                 $stamp = [Guid]::NewGuid().ToString("N")
                 $staged = "$AnakotHome\node.new-$stamp"
                 $backup = "$AnakotHome\node.old-$stamp"
@@ -1911,7 +1960,8 @@ function Test-Node {
                 # broken tree).  Move from $env:TEMP here, rename below.
                 try {
                     Move-Item $extractedDir.FullName $staged -ErrorAction Stop
-                } catch {
+                }
+                catch {
                     Write-Warn "Failed to stage the new Node.js tree; aborting the Node upgrade."
                     Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
                     Remove-Item -Force $tmpZip -ErrorAction SilentlyContinue
@@ -1920,7 +1970,8 @@ function Test-Node {
                 if (Test-Path "$AnakotHome\node") {
                     try {
                         Rename-Item "$AnakotHome\node" $backup -ErrorAction Stop
-                    } catch {
+                    }
+                    catch {
                         Write-Warn "Anakot-managed Node.js is in use by a running app; deferring its upgrade. Close the app and re-run the update."
                         Remove-Item -Recurse -Force $staged -ErrorAction SilentlyContinue
                         Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
@@ -1933,10 +1984,12 @@ function Test-Node {
                     # (best-effort) so the in-flight backup is never swept.
                     try {
                         (Get-Item $backup).LastWriteTime = Get-Date
-                    } catch { }
+                    }
+                    catch { }
                     try {
                         Rename-Item $staged "$AnakotHome\node" -ErrorAction Stop
-                    } catch {
+                    }
+                    catch {
                         # Restore the live tree before bailing.  The swap is a
                         # same-volume rename, so a failure leaves no partial
                         # target to clear.
@@ -1947,10 +2000,12 @@ function Test-Node {
                         return $false
                     }
                     Remove-Item -Recurse -Force $backup -ErrorAction SilentlyContinue
-                } else {
+                }
+                else {
                     try {
                         Rename-Item $staged "$AnakotHome\node" -ErrorAction Stop
-                    } catch {
+                    }
+                    catch {
                         Remove-Item -Recurse -Force $staged -ErrorAction SilentlyContinue
                         Remove-Item -Recurse -Force $tmpDir -ErrorAction SilentlyContinue
                         Remove-Item -Force $tmpZip -ErrorAction SilentlyContinue
@@ -1979,7 +2034,8 @@ function Test-Node {
                 return $true
             }
         }
-    } catch {
+    }
+    catch {
         Write-Warn "Portable Node.js download failed: $_"
     }
 
@@ -2005,11 +2061,11 @@ function Test-Node {
             # even after a "successful" install.  The OpenJS manifest does
             # publish an arm64 installer, so this is safe.
             $wingetArgs = @(
-                'install','OpenJS.NodeJS','--silent',
-                '--accept-package-agreements','--accept-source-agreements'
+                'install', 'OpenJS.NodeJS', '--silent',
+                '--accept-package-agreements', '--accept-source-agreements'
             )
             if ((Get-WindowsArch) -eq 'arm64') {
-                $wingetArgs += @('--architecture','arm64')
+                $wingetArgs += @('--architecture', 'arm64')
             }
             winget @wingetArgs 2>&1 | Out-Null
             $ErrorActionPreference = $prevEAP
@@ -2019,7 +2075,8 @@ function Test-Node {
                 $script:HasNode = $true
                 return $true
             }
-        } catch {
+        }
+        catch {
             if ($prevEAP) { $ErrorActionPreference = $prevEAP }
         }
     }
@@ -2077,7 +2134,8 @@ function Install-SystemPackages {
         $version = rg --version | Select-Object -First 1
         Write-Success "$version found"
         $script:HasRipgrep = $true
-    } else {
+    }
+    else {
         $needRipgrep = $true
     }
 
@@ -2085,7 +2143,8 @@ function Install-SystemPackages {
     if (Get-Command ffmpeg -ErrorAction SilentlyContinue) {
         Write-Success "ffmpeg found"
         $script:HasFfmpeg = $true
-    } else {
+    }
+    else {
         $needFfmpeg = $true
     }
 
@@ -2153,7 +2212,8 @@ function Install-SystemPackages {
                     $output | Out-File -FilePath $log -Encoding utf8 -Append
                     "winget exit (force): $LASTEXITCODE" | Out-File -FilePath $log -Encoding utf8 -Append
                 }
-            } catch {
+            }
+            catch {
                 $_ | Out-File -FilePath $log -Encoding utf8 -Append
                 "winget exit: <exception>" | Out-File -FilePath $log -Encoding utf8 -Append
             }
@@ -2167,7 +2227,8 @@ function Install-SystemPackages {
             $script:HasRipgrep = $true
             $needRipgrep = $false
             Remove-Item -Path $pkgLogs["BurntSushi.ripgrep.MSVC"] -ErrorAction SilentlyContinue
-        } elseif ($pkgLogs.ContainsKey("BurntSushi.ripgrep.MSVC")) {
+        }
+        elseif ($pkgLogs.ContainsKey("BurntSushi.ripgrep.MSVC")) {
             Write-Warn "winget could not install ripgrep; details: $($pkgLogs['BurntSushi.ripgrep.MSVC'])"
         }
         if ($needFfmpeg -and (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
@@ -2175,7 +2236,8 @@ function Install-SystemPackages {
             $script:HasFfmpeg = $true
             $needFfmpeg = $false
             Remove-Item -Path $pkgLogs["Gyan.FFmpeg"] -ErrorAction SilentlyContinue
-        } elseif ($pkgLogs.ContainsKey("Gyan.FFmpeg")) {
+        }
+        elseif ($pkgLogs.ContainsKey("Gyan.FFmpeg")) {
             Write-Warn "winget could not install ffmpeg; details: $($pkgLogs['Gyan.FFmpeg'])"
         }
         if (-not $needRipgrep -and -not $needFfmpeg) { return }
@@ -2275,7 +2337,8 @@ function Install-Repository {
                 if ($revParseOk -and $statusOk -and $hasCommit) {
                     $repoValid = $true
                 }
-            } catch {}
+            }
+            catch {}
             Pop-Location
         }
 
@@ -2360,15 +2423,18 @@ function Install-Repository {
                     if ($skipRollback) {
                         Write-Warn "Ignoring -Commit $Commit`: the checkout is already newer."
                         Write-Warn "Pinning to it would roll this install back. Pass -ForceCommit to override."
-                    } else {
+                    }
+                    else {
                         git -c windows.appendAtomically=false checkout --detach $Commit
                         if ($LASTEXITCODE -ne 0) { throw "git checkout $Commit failed (exit $LASTEXITCODE)" }
                     }
-                } elseif ($Tag) {
+                }
+                elseif ($Tag) {
                     git -c windows.appendAtomically=false fetch origin "refs/tags/${Tag}:refs/tags/${Tag}"
                     git -c windows.appendAtomically=false checkout --detach "refs/tags/$Tag"
                     if ($LASTEXITCODE -ne 0) { throw "git checkout tag $Tag failed (exit $LASTEXITCODE)" }
-                } else {
+                }
+                else {
                     git -c windows.appendAtomically=false checkout $Branch
                     if ($LASTEXITCODE -ne 0) { throw "git checkout $Branch failed (exit $LASTEXITCODE)" }
                     # Managed installs should follow origin/$Branch exactly. If
@@ -2396,11 +2462,12 @@ function Install-Repository {
                     try {
                         $hasConsole = (
                             [Environment]::UserInteractive `
-                            -and (-not [Console]::IsInputRedirected) `
-                            -and (-not [Console]::IsOutputRedirected) `
-                            -and ($Host.Name -eq "ConsoleHost")
+                                -and (-not [Console]::IsInputRedirected) `
+                                -and (-not [Console]::IsOutputRedirected) `
+                                -and ($Host.Name -eq "ConsoleHost")
                         )
-                    } catch { $hasConsole = $false }
+                    }
+                    catch { $hasConsole = $false }
                     if ($hasConsole) {
                         Write-Warn "Local changes were stashed before updating."
                         Write-Warn "Restoring them may reapply local customizations onto the updated codebase."
@@ -2419,7 +2486,8 @@ function Install-Repository {
                             git -c windows.appendAtomically=false stash drop $autostashRef 2>$null
                             Write-Warn "Local changes were restored on top of the updated codebase."
                             Write-Warn "Review git diff / git status if Anakot behaves unexpectedly."
-                        } else {
+                        }
+                        else {
                             Write-Err "Update pulled new code, but restoring local changes hit conflicts."
                             foreach ($line in $restoreOutput) {
                                 if ($line -and $line.ToString().Trim()) {
@@ -2440,14 +2508,16 @@ function Install-Repository {
                             Write-Info "Working tree reset to clean state."
                             Write-Info "Restore your changes later with: git stash apply $autostashRef"
                         }
-                    } else {
+                    }
+                    else {
                         Write-Info "Skipped restoring local changes."
                         Write-Info "Your changes are still preserved in git stash."
                         Write-Info "Restore manually with: git stash apply $autostashRef"
                     }
                     $autostashRef = ""
                 }
-            } finally {
+            }
+            finally {
                 if ($autostashRef) {
                     # We stashed but never reached the restore block (a fetch/
                     # checkout/pull failure threw). Leave the stash in place and
@@ -2459,7 +2529,8 @@ function Install-Repository {
                 Pop-Location
             }
             $didUpdate = $true
-        } else {
+        }
+        else {
             # Directory exists but isn't a usable git repo -- e.g. an
             # interrupted clone with no initial commit (#40998), or a leftover
             # ``.git`` stub from a partial uninstall that used to lock the
@@ -2471,7 +2542,8 @@ function Install-Repository {
             Write-Warn "Moving it aside to $backupDir before re-cloning."
             try {
                 Move-Item -LiteralPath $InstallDir -Destination $backupDir -ErrorAction Stop
-            } catch {
+            }
+            catch {
                 Write-Err "Could not move $InstallDir aside : $_"
                 Write-Info "Close any programs that might be using files in $InstallDir (editors,"
                 Write-Info "terminals, running anakot processes) and try again."
@@ -2499,7 +2571,8 @@ function Install-Repository {
         try {
             Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlSsh $InstallDir }
             if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
-        } catch { }
+        }
+        catch { }
         $env:GIT_SSH_COMMAND = $null
 
         if (-not $cloneSuccess) {
@@ -2508,7 +2581,8 @@ function Install-Repository {
             try {
                 Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlHttps $InstallDir }
                 if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
-            } catch { }
+            }
+            catch { }
         }
 
         # Fallback: download ZIP archive (bypasses git file I/O issues entirely)
@@ -2522,10 +2596,12 @@ function Install-Repository {
                 if ($Commit) {
                     $zipUrl = "https://github.com/Chensihakniroth/anakot-agent-v1/archive/$Commit.zip"
                     $zipLabel = $Commit
-                } elseif ($Tag) {
+                }
+                elseif ($Tag) {
                     $zipUrl = "https://github.com/Chensihakniroth/anakot-agent-v1/archive/refs/tags/$Tag.zip"
                     $zipLabel = $Tag
-                } else {
+                }
+                else {
                     $zipUrl = "https://github.com/Chensihakniroth/anakot-agent-v1/archive/refs/heads/$Branch.zip"
                     $zipLabel = $Branch
                 }
@@ -2570,25 +2646,30 @@ function Install-Repository {
                         if ($LASTEXITCODE -eq 0) {
                             if ($Commit -or $Tag) {
                                 git -c windows.appendAtomically=false checkout -f --detach FETCH_HEAD 2>&1 | Out-Null
-                            } else {
+                            }
+                            else {
                                 git -c windows.appendAtomically=false checkout -f -B $Branch FETCH_HEAD 2>&1 | Out-Null
                             }
                             if ($LASTEXITCODE -eq 0) {
                                 Write-Success "ZIP checkout pinned to $fetchRef"
-                            } else {
+                            }
+                            else {
                                 # Checkout blocked, but FETCH_HEAD still has a SHA we can stamp with.
                                 $fetchSha = & git -c windows.appendAtomically=false rev-parse FETCH_HEAD 2>$null
                                 if ($LASTEXITCODE -eq 0 -and $fetchSha) {
                                     if (-not $env:GITHUB_SHA) { $env:GITHUB_SHA = ("$fetchSha").Trim() }
                                     Write-Warn "ZIP checkout failed; seeded GITHUB_SHA from FETCH_HEAD for desktop stamp"
-                                } else {
+                                }
+                                else {
                                     Write-Warn "ZIP extract succeeded but git checkout failed -- desktop build may need `$env:GITHUB_SHA"
                                 }
                             }
-                        } else {
+                        }
+                        else {
                             Write-Warn "ZIP extract succeeded but git fetch of $fetchRef failed -- desktop build may need `$env:GITHUB_SHA"
                         }
-                    } finally {
+                    }
+                    finally {
                         $ErrorActionPreference = $prevZipEAP
                     }
                     Pop-Location
@@ -2600,7 +2681,8 @@ function Install-Repository {
                 # Cleanup temp files
                 Remove-Item -Force $zipPath -ErrorAction SilentlyContinue
                 Remove-Item -Recurse -Force $extractPath -ErrorAction SilentlyContinue
-            } catch {
+            }
+            catch {
                 Write-Err "ZIP download also failed: $_"
             }
         }
@@ -2637,7 +2719,8 @@ function Install-Repository {
                 if ($LASTEXITCODE -ne 0) {
                     throw "git checkout $Commit failed (exit $LASTEXITCODE)"
                 }
-            } elseif ($Tag) {
+            }
+            elseif ($Tag) {
                 Write-Info "Pinning to tag $Tag..."
                 git -c windows.appendAtomically=false fetch origin "refs/tags/${Tag}:refs/tags/${Tag}"
                 git -c windows.appendAtomically=false checkout --detach "refs/tags/$Tag"
@@ -2645,7 +2728,8 @@ function Install-Repository {
                     throw "git checkout tag $Tag failed (exit $LASTEXITCODE)"
                 }
             }
-        } finally {
+        }
+        finally {
             $ErrorActionPreference = $prevEAP
         }
     }
@@ -2682,76 +2766,77 @@ function Install-Venv {
     $venvBackupName = $null
     $venvParked = $false
     try {
-    if (Test-Path -LiteralPath "venv") {
-        $venvHadExistingVenv = $true
-        Write-Info "Virtual environment already exists, recreating..."
-        # On Windows, native Python extensions (e.g. _bcrypt.pyd, tornado's
-        # speedups.pyd) are loaded as DLLs by any running anakot process.
-        # Windows denies deletion of loaded DLLs, so every process running out
-        # of this venv must be stopped before retiring it. This keeps cleanup
-        # from accumulating locked stale trees and avoids carrying a live
-        # gateway into the replacement venv.
-        if ($env:OS -eq "Windows_NT") {
-            $myPid = $PID
-            Write-Info "Stopping any running anakot processes before recreating venv..."
-            # Disarm the respawner FIRST: the gateway autostart Scheduled Task
-            # relaunches a killed gateway within seconds, and losing that race
-            # re-locks the venv's .pyd files between our kill sweep and
-            # venv parking/cleanup (the July 2026 _brotlicffi.pyd incident). schtasks
-            # /End stops a running task instance; /Change /DISABLE stops it
-            # from re-firing mid-install. (The Startup-folder .vbs fallback is
-            # NOT touched: it only fires at logon, so it cannot respawn a
-            # gateway mid-install.) Re-enabled in the finally below -- including
-            # on failure -- but only for tasks that were enabled to begin with.
-            # Best-effort: a missing task just errors quietly.
-            try {
-                schtasks /Query /FO CSV 2>$null | ConvertFrom-Csv | Where-Object { $_.TaskName -like '*Anakot_Gateway*' } | ForEach-Object {
-                    $tn = $_.TaskName
-                    if ($_.Status -eq 'Disabled') {
-                        Write-Info "  gateway autostart task $tn is already disabled; leaving it that way"
-                        return
-                    }
-                    schtasks /End /TN $tn 2>$null | Out-Null
-                    schtasks /Change /TN $tn /DISABLE 2>$null | Out-Null
-                    $gatewayTasksDisabled += $tn
-                    Write-Info "  disabled gateway autostart task $tn for the duration of the install"
-                }
-            } catch {
-                Write-Warn "Could not enumerate gateway scheduled tasks: $($_.Exception.Message)"
-            }
-            # The launcher CLI (anakot.exe) plus its child tree.
-            & taskkill /F /T /IM anakot.exe /FI "PID ne $myPid" 2>$null | Out-Null
-            # taskkill /IM anakot.exe is NOT enough: the gateway/agent that a
-            # scheduled task or watchdog autostarts runs as
-            # `pythonw.exe -m anakot_cli.main gateway run` straight out of
-            # venv\Scripts\, so its image name is python/pythonw, not anakot.exe.
-            # That process holds the venv's .pyd files open and re-triggers the
-            # access-denied failure. Select only roots whose executable lives
-            # under this venv, then stop each root's whole process tree. Some
-            # Anakot children re-exec through .anakot-runtime, so killing only
-            # the selected venv process can leave its child holding the install
-            # open. The path-prefix check still keeps unrelated Python processes
-            # outside this venv untouched.
-            #
-            # The gateway autostart task registers with /RL LIMITED as the current
-            # user (see anakot_cli/gateway_windows.py), so the installer always
-            # runs at equal-or-higher integrity and can read its executable path.
-            # Get-CimInstance is used over Get-Process because it returns a null
-            # ExecutablePath for a process it cannot inspect (a different session)
-            # instead of throwing, so an unreadable process is skipped rather than
-            # aborting the whole sweep.
-            #
-            # The sweep is a bounded LOOP, not single-shot: supervised processes
-            # (the Desktop app's backend, a watchdog-managed gateway) respawn in
-            # the window between one kill pass and venv parking. Each pass re-
-            # enumerates; three consecutive clean passes (or the attempt cap)
-            # ends the loop.
-            $venvPrefix = [System.IO.Path]::GetFullPath((Join-Path $InstallDir "venv")).TrimEnd('\') + '\'
-            $cleanPasses = 0
-            for ($sweep = 0; $sweep -lt 10 -and $cleanPasses -lt 3; $sweep++) {
-                $found = 0
+        if (Test-Path -LiteralPath "venv") {
+            $venvHadExistingVenv = $true
+            Write-Info "Virtual environment already exists, recreating..."
+            # On Windows, native Python extensions (e.g. _bcrypt.pyd, tornado's
+            # speedups.pyd) are loaded as DLLs by any running anakot process.
+            # Windows denies deletion of loaded DLLs, so every process running out
+            # of this venv must be stopped before retiring it. This keeps cleanup
+            # from accumulating locked stale trees and avoids carrying a live
+            # gateway into the replacement venv.
+            if ($env:OS -eq "Windows_NT") {
+                $myPid = $PID
+                Write-Info "Stopping any running anakot processes before recreating venv..."
+                # Disarm the respawner FIRST: the gateway autostart Scheduled Task
+                # relaunches a killed gateway within seconds, and losing that race
+                # re-locks the venv's .pyd files between our kill sweep and
+                # venv parking/cleanup (the July 2026 _brotlicffi.pyd incident). schtasks
+                # /End stops a running task instance; /Change /DISABLE stops it
+                # from re-firing mid-install. (The Startup-folder .vbs fallback is
+                # NOT touched: it only fires at logon, so it cannot respawn a
+                # gateway mid-install.) Re-enabled in the finally below -- including
+                # on failure -- but only for tasks that were enabled to begin with.
+                # Best-effort: a missing task just errors quietly.
                 try {
-                    Get-CimInstance Win32_Process -ErrorAction Stop |
+                    schtasks /Query /FO CSV 2>$null | ConvertFrom-Csv | Where-Object { $_.TaskName -like '*Anakot_Gateway*' } | ForEach-Object {
+                        $tn = $_.TaskName
+                        if ($_.Status -eq 'Disabled') {
+                            Write-Info "  gateway autostart task $tn is already disabled; leaving it that way"
+                            return
+                        }
+                        schtasks /End /TN $tn 2>$null | Out-Null
+                        schtasks /Change /TN $tn /DISABLE 2>$null | Out-Null
+                        $gatewayTasksDisabled += $tn
+                        Write-Info "  disabled gateway autostart task $tn for the duration of the install"
+                    }
+                }
+                catch {
+                    Write-Warn "Could not enumerate gateway scheduled tasks: $($_.Exception.Message)"
+                }
+                # The launcher CLI (anakot.exe) plus its child tree.
+                & taskkill /F /T /IM anakot.exe /FI "PID ne $myPid" 2>$null | Out-Null
+                # taskkill /IM anakot.exe is NOT enough: the gateway/agent that a
+                # scheduled task or watchdog autostarts runs as
+                # `pythonw.exe -m anakot_cli.main gateway run` straight out of
+                # venv\Scripts\, so its image name is python/pythonw, not anakot.exe.
+                # That process holds the venv's .pyd files open and re-triggers the
+                # access-denied failure. Select only roots whose executable lives
+                # under this venv, then stop each root's whole process tree. Some
+                # Anakot children re-exec through .anakot-runtime, so killing only
+                # the selected venv process can leave its child holding the install
+                # open. The path-prefix check still keeps unrelated Python processes
+                # outside this venv untouched.
+                #
+                # The gateway autostart task registers with /RL LIMITED as the current
+                # user (see anakot_cli/gateway_windows.py), so the installer always
+                # runs at equal-or-higher integrity and can read its executable path.
+                # Get-CimInstance is used over Get-Process because it returns a null
+                # ExecutablePath for a process it cannot inspect (a different session)
+                # instead of throwing, so an unreadable process is skipped rather than
+                # aborting the whole sweep.
+                #
+                # The sweep is a bounded LOOP, not single-shot: supervised processes
+                # (the Desktop app's backend, a watchdog-managed gateway) respawn in
+                # the window between one kill pass and venv parking. Each pass re-
+                # enumerates; three consecutive clean passes (or the attempt cap)
+                # ends the loop.
+                $venvPrefix = [System.IO.Path]::GetFullPath((Join-Path $InstallDir "venv")).TrimEnd('\') + '\'
+                $cleanPasses = 0
+                for ($sweep = 0; $sweep -lt 10 -and $cleanPasses -lt 3; $sweep++) {
+                    $found = 0
+                    try {
+                        Get-CimInstance Win32_Process -ErrorAction Stop |
                         Where-Object { $_.ProcessId -ne $myPid -and $_.ExecutablePath -and $_.ExecutablePath.StartsWith($venvPrefix, [System.StringComparison]::OrdinalIgnoreCase) } |
                         ForEach-Object {
                             $found++
@@ -2759,107 +2844,160 @@ function Install-Venv {
                             Write-Info "  stopping process tree at PID $treePid ($($_.Name)) running from venv"
                             & taskkill /F /T /PID $treePid 2>$null | Out-Null
                         }
-                } catch {
-                    Write-Warn "Could not enumerate venv processes: $($_.Exception.Message)"
-                    break
+                    }
+                    catch {
+                        Write-Warn "Could not enumerate venv processes: $($_.Exception.Message)"
+                        break
+                    }
+                    if ($found -eq 0) { $cleanPasses++ } else { $cleanPasses = 0 }
+                    Start-Sleep -Milliseconds 400
                 }
-                if ($found -eq 0) { $cleanPasses++ } else { $cleanPasses = 0 }
-                Start-Sleep -Milliseconds 400
+            }
+            # Move the old venv aside before creating its replacement. A directory
+            # rename is atomic on the same volume and does not require deleting
+            # files mapped as DLLs. NEVER fall back to deleting the live venv
+            # (#83149): Remove-Item -Recurse can delete most of site-packages and
+            # then fail on one locked .pyd, leaving a gutted venv with no usable
+            # interpreter and no rollback source. Abort with the previous install
+            # intact so the user can close holders and retry.
+            $venvBackupName = "venv.stale.{0}-{1}" -f (Get-Date -Format "yyyyMMddHHmmss"), ([Guid]::NewGuid().ToString("N"))
+            try {
+                Rename-Item -LiteralPath "venv" -NewName $venvBackupName -ErrorAction Stop
+                $venvParked = $true
+            }
+            catch {
+                $renameErr = $_.Exception.Message
+                Write-Warn "Rename-Item on venv failed: $renameErr"
+                Write-Info "Checking whether any files inside venv are actually locked..."
+
+                # Scan for files that cannot be opened exclusively — those are
+                # genuinely held by a running process (loaded .pyd/.dll).
+                $lockedFiles = @()
+                Get-ChildItem "venv" -Recurse -File -ErrorAction SilentlyContinue | ForEach-Object {
+                    try {
+                        $stream = [System.IO.File]::Open($_.FullName, 'Open', 'ReadWrite', 'None')
+                        $stream.Close()
+                    }
+                    catch {
+                        $lockedFiles += $_.FullName
+                    }
+                }
+
+                if ($lockedFiles.Count -gt 0) {
+                    # Real locks — a process is holding .pyd files open. The user
+                    # must close it before we can proceed.
+                    Write-Err "$($lockedFiles.Count) file(s) still locked:"
+                    foreach ($lf in $lockedFiles) { Write-Host "  $lf" }
+                    throw (
+                        "Could not move the existing venv aside ($renameErr). " +
+                        "A process still has the install directory open (often a non-Anakot " +
+                        "python.exe that resolved into this venv via PATH). Close those " +
+                        "processes and retry - the previous install was left intact."
+                    )
+                }
+
+                # No files are locked. The directory handle is held by a phantom
+                # observer (Windows Search Indexer, antivirus real-time scanner,
+                # OneDrive filter driver, or similar). These release the handle
+                # once the directory is empty. Wipe contents in-place and delete
+                # the resulting empty directory — uv venv creates it fresh.
+                Write-Info "No locked files found — wiping venv contents in-place (phantom directory handle)..."
+                Get-ChildItem "venv" -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+                $remainingItems = @(Get-ChildItem "venv" -Force -ErrorAction SilentlyContinue)
+                if ($remainingItems.Count -gt 0) {
+                    throw (
+                        "Could not move the existing venv aside ($renameErr) and " +
+                        "$($remainingItems.Count) item(s) remain after in-place wipe. " +
+                        "Close any program browsing $InstallDir and retry."
+                    )
+                }
+                # Try deleting the now-empty directory.
+                try {
+                    Remove-Item -LiteralPath "venv" -Force -ErrorAction Stop
+                    Write-Info "Empty venv directory removed."
+                }
+                catch {
+                    # The empty dir may still be held — uv venv can overwrite it.
+                    Write-Warn "Could not remove empty venv dir; uv venv will overwrite it."
+                }
+                # No rollback source for in-place wipe — $venvParked stays $false.
+                Write-Info "Venv cleared via in-place wipe fallback."
             }
         }
-        # Move the old venv aside before creating its replacement. A directory
-        # rename is atomic on the same volume and does not require deleting
-        # files mapped as DLLs. NEVER fall back to deleting the live venv
-        # (#83149): Remove-Item -Recurse can delete most of site-packages and
-        # then fail on one locked .pyd, leaving a gutted venv with no usable
-        # interpreter and no rollback source. Abort with the previous install
-        # intact so the user can close holders and retry.
-        $venvBackupName = "venv.stale.{0}-{1}" -f (Get-Date -Format "yyyyMMddHHmmss"), ([Guid]::NewGuid().ToString("N"))
-        try {
-            Rename-Item -LiteralPath "venv" -NewName $venvBackupName -ErrorAction Stop
-            $venvParked = $true
-        } catch {
-            $renameErr = $_.Exception.Message
-            throw (
-                "Could not move the existing venv aside ($renameErr). " +
-                "A process still has the install directory open (often a non-Anakot " +
-                "python.exe that resolved into this venv via PATH). Close those " +
-                "processes and retry - the previous install was left intact."
-            )
-        }
-    }
     
-    # Pass the already-validated private interpreter path and prohibit uv from
-    # resolving or downloading a different Python during venv creation. Use
-    # ProcessStartInfo because the desktop bootstrapper redirects this script;
-    # Windows PowerShell 5.1 can otherwise lose nested native output/exit state.
-    $venvProcess = New-Object System.Diagnostics.Process
-    try {
-        $venvStartInfo = New-Object System.Diagnostics.ProcessStartInfo
-        $venvStartInfo.FileName = $UvCmd
-        $venvStartInfo.Arguments = "venv venv --python `"$($resolvedPython.Path)`" --managed-python --no-python-downloads --no-config"
-        $venvStartInfo.WorkingDirectory = $InstallDir
-        $venvStartInfo.UseShellExecute = $false
-        $venvStartInfo.CreateNoWindow = $true
-        $venvStartInfo.RedirectStandardOutput = $true
-        $venvStartInfo.RedirectStandardError = $true
-        $venvProcess.StartInfo = $venvStartInfo
-        if (-not $venvProcess.Start()) {
-            throw "Failed to start uv while creating the virtual environment"
+        # Pass the already-validated private interpreter path and prohibit uv from
+        # resolving or downloading a different Python during venv creation. Use
+        # ProcessStartInfo because the desktop bootstrapper redirects this script;
+        # Windows PowerShell 5.1 can otherwise lose nested native output/exit state.
+        $venvProcess = New-Object System.Diagnostics.Process
+        try {
+            $venvStartInfo = New-Object System.Diagnostics.ProcessStartInfo
+            $venvStartInfo.FileName = $UvCmd
+            $venvStartInfo.Arguments = "venv venv --python `"$($resolvedPython.Path)`" --managed-python --no-python-downloads --no-config"
+            $venvStartInfo.WorkingDirectory = $InstallDir
+            $venvStartInfo.UseShellExecute = $false
+            $venvStartInfo.CreateNoWindow = $true
+            $venvStartInfo.RedirectStandardOutput = $true
+            $venvStartInfo.RedirectStandardError = $true
+            $venvProcess.StartInfo = $venvStartInfo
+            if (-not $venvProcess.Start()) {
+                throw "Failed to start uv while creating the virtual environment"
+            }
+            $venvStdoutTask = $venvProcess.StandardOutput.ReadToEndAsync()
+            $venvStderrTask = $venvProcess.StandardError.ReadToEndAsync()
+            $venvProcess.WaitForExit()
+            $venvStdout = $venvStdoutTask.Result
+            $venvStderr = $venvStderrTask.Result
+            $venvExitCode = $venvProcess.ExitCode
+            if ($venvStdout) { Write-Host $venvStdout.TrimEnd() }
+            if ($venvStderr) { Write-Host $venvStderr.TrimEnd() }
         }
-        $venvStdoutTask = $venvProcess.StandardOutput.ReadToEndAsync()
-        $venvStderrTask = $venvProcess.StandardError.ReadToEndAsync()
-        $venvProcess.WaitForExit()
-        $venvStdout = $venvStdoutTask.Result
-        $venvStderr = $venvStderrTask.Result
-        $venvExitCode = $venvProcess.ExitCode
-        if ($venvStdout) { Write-Host $venvStdout.TrimEnd() }
-        if ($venvStderr) { Write-Host $venvStderr.TrimEnd() }
-    } finally {
-        $venvProcess.Dispose()
-    }
-    # Fail fast so the stage cannot report ok=true when uv failed.
-    if ($venvExitCode -ne 0) {
-        throw "Failed to create virtual environment (uv venv exited with $venvExitCode)"
-    }
+        finally {
+            $venvProcess.Dispose()
+        }
+        # Fail fast so the stage cannot report ok=true when uv failed.
+        if ($venvExitCode -ne 0) {
+            throw "Failed to create virtual environment (uv venv exited with $venvExitCode)"
+        }
 
-    # uv can return success without leaving the interpreter expected by the
-    # installer (for example after an interrupted filesystem operation). Treat
-    # that as a failed transaction so the previous venv can be restored.
-    $venvPythonExe = Join-Path $InstallDir "venv\Scripts\python.exe"
-    if (-not (Test-Path -LiteralPath $venvPythonExe -PathType Leaf)) {
-        throw "uv reported success but venv interpreter is missing at $venvPythonExe"
-    }
+        # uv can return success without leaving the interpreter expected by the
+        # installer (for example after an interrupted filesystem operation). Treat
+        # that as a failed transaction so the previous venv can be restored.
+        $venvPythonExe = Join-Path $InstallDir "venv\Scripts\python.exe"
+        if (-not (Test-Path -LiteralPath $venvPythonExe -PathType Leaf)) {
+            throw "uv reported success but venv interpreter is missing at $venvPythonExe"
+        }
 
-    # The replacement has a working interpreter, but the transaction is only
-    # committed after Install-Dependencies' baseline-import gate passes -- the
-    # bootstrap runs the stages as separate processes, and every dependency
-    # tier (or the import validation) can still fail after this stage
-    # succeeds. Record the parked backup so the dependency stage can restore
-    # it on failure and commit its cleanup only after validation (#83149).
-    if ($venvParked) {
-        Set-Content -LiteralPath (Join-Path $InstallDir "venv.pending-backup") -Value $venvBackupName -Encoding ascii
-        Write-Info "Previous venv parked at $venvBackupName until the dependency install is verified"
-    }
+        # The replacement has a working interpreter, but the transaction is only
+        # committed after Install-Dependencies' baseline-import gate passes -- the
+        # bootstrap runs the stages as separate processes, and every dependency
+        # tier (or the import validation) can still fail after this stage
+        # succeeds. Record the parked backup so the dependency stage can restore
+        # it on failure and commit its cleanup only after validation (#83149).
+        if ($venvParked) {
+            Set-Content -LiteralPath (Join-Path $InstallDir "venv.pending-backup") -Value $venvBackupName -Encoding ascii
+            Write-Info "Previous venv parked at $venvBackupName until the dependency install is verified"
+        }
 
-    # Clean up parked venvs from previous installs whose handles have since
-    # been released. Best-effort -- a still-held tree just stays for next time.
-    # The backup parked THIS run is excluded: it is the rollback source until
-    # Install-Dependencies commits the transaction.
-    Get-ChildItem -Directory -Filter "venv.stale.*" -ErrorAction SilentlyContinue |
+        # Clean up parked venvs from previous installs whose handles have since
+        # been released. Best-effort -- a still-held tree just stays for next time.
+        # The backup parked THIS run is excluded: it is the rollback source until
+        # Install-Dependencies commits the transaction.
+        Get-ChildItem -Directory -Filter "venv.stale.*" -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -ne $venvBackupName } | ForEach-Object {
             Remove-Item -Recurse -Force $_.FullName -ErrorAction SilentlyContinue
         }
 
-    # Neutralize any inherited UV_PYTHON (e.g. $env:UV_PYTHON = "3.14" left in
-    # the user's shell). uv honours UV_PYTHON over an existing venv for the
-    # later `uv sync` / `uv pip install` tiers, so without this it would
-    # silently delete this 3.11 venv and recreate it at the inherited version
-    # -- building Rust transitives that have no wheel for that version from
-    # source via maturin, which fails. Pinning UV_PYTHON to the interpreter we
-    # just created forces every subsequent uv command onto it.
-    $env:UV_PYTHON = $venvPythonExe
-    } catch {
+        # Neutralize any inherited UV_PYTHON (e.g. $env:UV_PYTHON = "3.14" left in
+        # the user's shell). uv honours UV_PYTHON over an existing venv for the
+        # later `uv sync` / `uv pip install` tiers, so without this it would
+        # silently delete this 3.11 venv and recreate it at the inherited version
+        # -- building Rust transitives that have no wheel for that version from
+        # source via maturin, which fails. Pinning UV_PYTHON to the interpreter we
+        # just created forces every subsequent uv command onto it.
+        $env:UV_PYTHON = $venvPythonExe
+    }
+    catch {
         $originalError = $_
         $rollbackError = $null
 
@@ -2872,21 +3010,24 @@ function Install-Venv {
                 }
                 Rename-Item -LiteralPath $venvBackupName -NewName "venv" -ErrorAction Stop
                 Write-Warn "Restored previous virtual environment after failed recreate"
-            } catch {
+            }
+            catch {
                 $rollbackError = $_.Exception.Message
             }
 
             if ($rollbackError) {
                 throw "Virtual environment recreate failed: $($originalError.Exception.Message). Rollback failed: $rollbackError. Previous venv remains at $venvBackupName."
             }
-        } elseif (-not $venvHadExistingVenv -and (Test-Path -LiteralPath "venv")) {
+        }
+        elseif (-not $venvHadExistingVenv -and (Test-Path -LiteralPath "venv")) {
             # Preserve a partial first install too. This branch must not touch a
             # pre-existing venv whose move-aside failed above.
             try {
                 $failedVenvName = "venv.failed.{0}-{1}" -f (Get-Date -Format "yyyyMMddHHmmss"), ([Guid]::NewGuid().ToString("N"))
                 Rename-Item -LiteralPath "venv" -NewName $failedVenvName -ErrorAction Stop
                 Write-Warn "Partial virtual environment parked at $failedVenvName"
-            } catch {
+            }
+            catch {
                 $rollbackError = $_.Exception.Message
             }
             if ($rollbackError) {
@@ -2895,7 +3036,8 @@ function Install-Venv {
         }
 
         throw $originalError
-    } finally {
+    }
+    finally {
         Pop-Location
         # Re-arm the gateway autostart tasks disabled during the venv teardown
         # -- in a finally so a failed teardown/creation can never strand the
@@ -2959,7 +3101,8 @@ function Restore-VenvBackup {
         Rename-Item -LiteralPath (Join-Path $InstallDir $backupName) -NewName "venv" -ErrorAction Stop
         Remove-Item -LiteralPath (Join-Path $InstallDir "venv.pending-backup") -Force -ErrorAction SilentlyContinue
         Write-Warn "Restored previous virtual environment after failed dependency install"
-    } catch {
+    }
+    catch {
         Write-Warn "Could not restore previous venv (still parked at $backupName): $($_.Exception.Message)"
     }
 }
@@ -3004,64 +3147,66 @@ function Install-Dependencies {
     # previous venv is restored before the error propagates, and the parked
     # tree is deleted only after the imports prove the replacement usable.
     try {
-    if (Test-Path "uv.lock") {
-        Write-Info "Trying tier: hash-verified (uv.lock) ..."
-        # Critical flag choice: `--extra all`, NOT `--all-extras`.
-        #   --all-extras = every [project.optional-dependencies] key,
-        #                  bypassing the curated [all] extra. On Windows
-        #                  that means [matrix] -> python-olm (no wheel,
-        #                  needs `make` to build from sdist) and the
-        #                  install fails.
-        #   --extra all  = just the [all] extra's contents (curated).
-        #
-        # UV_PROJECT_ENVIRONMENT pins the sync target to our venv\.
-        # Without it, modern uv (>=0.5) ignores VIRTUAL_ENV for `sync`
-        # and creates a sibling .venv\ inside the repo -- leaving venv\
-        # empty and producing the broken state where `anakot.exe` exists
-        # in the wrong directory and imports fail with ModuleNotFoundError.
-        # (Mirrors the same flag in scripts/install.sh::install_deps.)
-        $env:UV_PROJECT_ENVIRONMENT = "$InstallDir\venv"
-        Invoke-NativeWithRelaxedErrorAction { & $UvCmd sync --extra all --locked }
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "Main package installed (hash-verified via uv.lock)"
-            $script:InstalledTier = "hash-verified (uv.lock)"
-            # Skip the rest of the tiered cascade -- we already have a
-            # complete, hash-verified install.
-            $skipPipFallback = $true
-        } else {
-            Write-Warn "uv.lock sync failed (lockfile may be stale), falling back to PyPI resolve..."
+        if (Test-Path "uv.lock") {
+            Write-Info "Trying tier: hash-verified (uv.lock) ..."
+            # Critical flag choice: `--extra all`, NOT `--all-extras`.
+            #   --all-extras = every [project.optional-dependencies] key,
+            #                  bypassing the curated [all] extra. On Windows
+            #                  that means [matrix] -> python-olm (no wheel,
+            #                  needs `make` to build from sdist) and the
+            #                  install fails.
+            #   --extra all  = just the [all] extra's contents (curated).
+            #
+            # UV_PROJECT_ENVIRONMENT pins the sync target to our venv\.
+            # Without it, modern uv (>=0.5) ignores VIRTUAL_ENV for `sync`
+            # and creates a sibling .venv\ inside the repo -- leaving venv\
+            # empty and producing the broken state where `anakot.exe` exists
+            # in the wrong directory and imports fail with ModuleNotFoundError.
+            # (Mirrors the same flag in scripts/install.sh::install_deps.)
+            $env:UV_PROJECT_ENVIRONMENT = "$InstallDir\venv"
+            Invoke-NativeWithRelaxedErrorAction { & $UvCmd sync --extra all --locked }
+            if ($LASTEXITCODE -eq 0) {
+                Write-Success "Main package installed (hash-verified via uv.lock)"
+                $script:InstalledTier = "hash-verified (uv.lock)"
+                # Skip the rest of the tiered cascade -- we already have a
+                # complete, hash-verified install.
+                $skipPipFallback = $true
+            }
+            else {
+                Write-Warn "uv.lock sync failed (lockfile may be stale), falling back to PyPI resolve..."
+                $skipPipFallback = $false
+            }
+        }
+        else {
+            Write-Info "uv.lock not found -- falling back to PyPI resolve (no hash verification)"
             $skipPipFallback = $false
         }
-    } else {
-        Write-Info "uv.lock not found -- falling back to PyPI resolve (no hash verification)"
-        $skipPipFallback = $false
-    }
 
-    # Install main package.  Tiered fallback so a single flaky transitive
-    # doesn't silently drop everything.  Each tier's stdout/stderr is
-    # preserved -- no Out-Null swallowing -- so the user can see what failed.
-    #
-    # Tier 1: [all] -- the curated extra in pyproject.toml.
-    # Tier 2: [all] minus the currently-broken extras list ($brokenExtras).
-    #         Edit $brokenExtras below when something on PyPI breaks; this
-    #         lets users keep the rest of [all] when one transitive is
-    #         unavailable. The list of [all]'s contents is parsed from
-    #         pyproject.toml at runtime -- there is NO hand-mirrored copy
-    #         to drift out of sync.
-    # Tier 3: bare `.` -- last-resort so at least the core CLI launches.
+        # Install main package.  Tiered fallback so a single flaky transitive
+        # doesn't silently drop everything.  Each tier's stdout/stderr is
+        # preserved -- no Out-Null swallowing -- so the user can see what failed.
+        #
+        # Tier 1: [all] -- the curated extra in pyproject.toml.
+        # Tier 2: [all] minus the currently-broken extras list ($brokenExtras).
+        #         Edit $brokenExtras below when something on PyPI breaks; this
+        #         lets users keep the rest of [all] when one transitive is
+        #         unavailable. The list of [all]'s contents is parsed from
+        #         pyproject.toml at runtime -- there is NO hand-mirrored copy
+        #         to drift out of sync.
+        # Tier 3: bare `.` -- last-resort so at least the core CLI launches.
 
-    # Currently-broken extras. Edit this list when an upstream package
-    # gets quarantined / yanked / breaks resolution. Empty means everything
-    # in [all] should be installable; populate with the names of extras
-    # whose deps are temporarily unavailable.
-    $brokenExtras = @()
+        # Currently-broken extras. Edit this list when an upstream package
+        # gets quarantined / yanked / breaks resolution. Empty means everything
+        # in [all] should be installable; populate with the names of extras
+        # whose deps are temporarily unavailable.
+        $brokenExtras = @()
 
-    # Parse [project.optional-dependencies].all from pyproject.toml.
-    # tomllib is stdlib on Python 3.11+ which the bootstrap guarantees.
-    $pythonExeForParse = if (-not $NoVenv) { "$InstallDir\venv\Scripts\python.exe" } else { (& $UvCmd python find $PythonVersion) }
-    $allExtras = @()
-    if (Test-Path $pythonExeForParse) {
-        $parsed = & $pythonExeForParse -c @"
+        # Parse [project.optional-dependencies].all from pyproject.toml.
+        # tomllib is stdlib on Python 3.11+ which the bootstrap guarantees.
+        $pythonExeForParse = if (-not $NoVenv) { "$InstallDir\venv\Scripts\python.exe" } else { (& $UvCmd python find $PythonVersion) }
+        $allExtras = @()
+        if (Test-Path $pythonExeForParse) {
+            $parsed = & $pythonExeForParse -c @"
 import re, sys, tomllib
 try:
     with open('pyproject.toml', 'rb') as fh:
@@ -3075,81 +3220,84 @@ try:
 except Exception:
     sys.exit(1)
 "@ 2>$null
-        if ($LASTEXITCODE -eq 0 -and $parsed) {
-            $allExtras = $parsed.Trim().Split(',')
-        }
-    }
-    if (-not $allExtras -or $allExtras.Count -eq 0) {
-        Write-Warn "Could not parse [all] from pyproject.toml; Tier 2 will be a no-op."
-        $safeAll = "all"
-    } else {
-        $safeAll = ($allExtras | Where-Object { $brokenExtras -notcontains $_ }) -join ","
-    }
-    $brokenLabel = if ($brokenExtras) { ($brokenExtras -join ", ") } else { "none" }
-
-    $installTiers = @(
-        @{ Name = "all"; Spec = ".[all]" },
-        @{ Name = "all minus known-broken ($brokenLabel)"; Spec = ".[$safeAll]" },
-        @{ Name = "core only (no extras)"; Spec = "." }
-    )
-    $installed = $skipPipFallback
-    if (-not $skipPipFallback) {
-        foreach ($tier in $installTiers) {
-        Write-Info "Trying tier: $($tier.Name) ..."
-        Invoke-NativeWithRelaxedErrorAction { & $UvCmd pip install -e $tier.Spec }
-        if ($LASTEXITCODE -eq 0) {
-            Write-Success "Main package installed ($($tier.Name))"
-            $script:InstalledTier = $tier.Name
-            $installed = $true
-            break
-        }
-        Write-Warn "Tier '$($tier.Name)' failed (exit $LASTEXITCODE). Trying next tier..."
-        }
-    }
-    if (-not $installed) {
-        throw "Failed to install anakot-agent package even with no extras. Inspect the uv pip install output above."
-    }
-
-    # Baseline-import gate. Even if a tier reported success above, the
-    # actual deps may have landed somewhere other than $InstallDir\venv\
-    # (e.g. uv 0.5+ syncing into a sibling .venv\ when UV_PROJECT_ENVIRONMENT
-    # isn't set, leaving venv\ empty and anakot.exe broken with
-    # `ModuleNotFoundError: No module named 'dotenv'` on first run).
-    # We probe via the venv's own python so a misdirected sync is caught
-    # here, not 30 seconds later when the user runs `anakot`.
-    if (-not $NoVenv) {
-        $venvPython = "$InstallDir\venv\Scripts\python.exe"
-        if (-not (Test-Path $venvPython)) {
-            throw "Install reported success but $venvPython does not exist. The dependency sync likely landed in a sibling .venv\ directory. Re-run the installer; if it persists, close Anakot processes and preserve existing venv directories before retrying. Do not delete venv in place."
-        }
-        # Relax EAP=Stop while running the import probe.  Python writes
-        # deprecation warnings and import-system info to stderr; under
-        # EAP=Stop the 2>&1 merge wraps those as ErrorRecord objects and
-        # throws even when the imports succeed.  $LASTEXITCODE is the
-        # reliable signal (it's 0 iff the python invocation exited 0,
-        # regardless of what was written to stderr).
-        $prevEAP = $ErrorActionPreference
-        $ErrorActionPreference = "Continue"
-        & $venvPython -c "import dotenv, openai, rich, prompt_toolkit" 2>&1 | Out-Null
-        $importExitCode = $LASTEXITCODE
-        $ErrorActionPreference = $prevEAP
-        if ($importExitCode -ne 0) {
-            $sibling = "$InstallDir\.venv"
-            $hint = if (Test-Path $sibling) {
-                "Detected sibling .venv\ at $sibling -- uv synced there instead of venv\. Close Anakot processes, preserve the existing venv, and rerun the installer so the transactional recovery path can move directories safely."
-            } else {
-                "Recover with: cd '$InstallDir'; `$env:UV_PROJECT_ENVIRONMENT='$InstallDir\venv'; uv sync --extra all --locked"
+            if ($LASTEXITCODE -eq 0 -and $parsed) {
+                $allExtras = $parsed.Trim().Split(',')
             }
-            throw "Baseline imports failed in $InstallDir\venv (dotenv/openai/rich/prompt_toolkit). The install completed but dependencies are not in the venv. $hint"
         }
-        Write-Success "Baseline imports verified in venv"
-    }
+        if (-not $allExtras -or $allExtras.Count -eq 0) {
+            Write-Warn "Could not parse [all] from pyproject.toml; Tier 2 will be a no-op."
+            $safeAll = "all"
+        }
+        else {
+            $safeAll = ($allExtras | Where-Object { $brokenExtras -notcontains $_ }) -join ","
+        }
+        $brokenLabel = if ($brokenExtras) { ($brokenExtras -join ", ") } else { "none" }
 
-    # Commit the venv transaction: the dependency install completed and the
-    # baseline imports passed, so the previous venv is no longer needed as a
-    # rollback source (#83149).
-    Complete-VenvTransaction
-    } catch {
+        $installTiers = @(
+            @{ Name = "all"; Spec = ".[all]" },
+            @{ Name = "all minus known-broken ($brokenLabel)"; Spec = ".[$safeAll]" },
+            @{ Name = "core only (no extras)"; Spec = "." }
+        )
+        $installed = $skipPipFallback
+        if (-not $skipPipFallback) {
+            foreach ($tier in $installTiers) {
+                Write-Info "Trying tier: $($tier.Name) ..."
+                Invoke-NativeWithRelaxedErrorAction { & $UvCmd pip install -e $tier.Spec }
+                if ($LASTEXITCODE -eq 0) {
+                    Write-Success "Main package installed ($($tier.Name))"
+                    $script:InstalledTier = $tier.Name
+                    $installed = $true
+                    break
+                }
+                Write-Warn "Tier '$($tier.Name)' failed (exit $LASTEXITCODE). Trying next tier..."
+            }
+        }
+        if (-not $installed) {
+            throw "Failed to install anakot-agent package even with no extras. Inspect the uv pip install output above."
+        }
+
+        # Baseline-import gate. Even if a tier reported success above, the
+        # actual deps may have landed somewhere other than $InstallDir\venv\
+        # (e.g. uv 0.5+ syncing into a sibling .venv\ when UV_PROJECT_ENVIRONMENT
+        # isn't set, leaving venv\ empty and anakot.exe broken with
+        # `ModuleNotFoundError: No module named 'dotenv'` on first run).
+        # We probe via the venv's own python so a misdirected sync is caught
+        # here, not 30 seconds later when the user runs `anakot`.
+        if (-not $NoVenv) {
+            $venvPython = "$InstallDir\venv\Scripts\python.exe"
+            if (-not (Test-Path $venvPython)) {
+                throw "Install reported success but $venvPython does not exist. The dependency sync likely landed in a sibling .venv\ directory. Re-run the installer; if it persists, close Anakot processes and preserve existing venv directories before retrying. Do not delete venv in place."
+            }
+            # Relax EAP=Stop while running the import probe.  Python writes
+            # deprecation warnings and import-system info to stderr; under
+            # EAP=Stop the 2>&1 merge wraps those as ErrorRecord objects and
+            # throws even when the imports succeed.  $LASTEXITCODE is the
+            # reliable signal (it's 0 iff the python invocation exited 0,
+            # regardless of what was written to stderr).
+            $prevEAP = $ErrorActionPreference
+            $ErrorActionPreference = "Continue"
+            & $venvPython -c "import dotenv, openai, rich, prompt_toolkit" 2>&1 | Out-Null
+            $importExitCode = $LASTEXITCODE
+            $ErrorActionPreference = $prevEAP
+            if ($importExitCode -ne 0) {
+                $sibling = "$InstallDir\.venv"
+                $hint = if (Test-Path $sibling) {
+                    "Detected sibling .venv\ at $sibling -- uv synced there instead of venv\. Close Anakot processes, preserve the existing venv, and rerun the installer so the transactional recovery path can move directories safely."
+                }
+                else {
+                    "Recover with: cd '$InstallDir'; `$env:UV_PROJECT_ENVIRONMENT='$InstallDir\venv'; uv sync --extra all --locked"
+                }
+                throw "Baseline imports failed in $InstallDir\venv (dotenv/openai/rich/prompt_toolkit). The install completed but dependencies are not in the venv. $hint"
+            }
+            Write-Success "Baseline imports verified in venv"
+        }
+
+        # Commit the venv transaction: the dependency install completed and the
+        # baseline imports passed, so the previous venv is no longer needed as a
+        # rollback source (#83149).
+        Complete-VenvTransaction
+    }
+    catch {
         # Dependency install or import validation failed: restore the previous
         # working venv (parked by Install-Venv) before surfacing the error, so
         # a failed update leaves Anakot and its blocker probe usable.
@@ -3192,7 +3340,8 @@ print(','.join(scripts))
                     if ($stillMissing.Count -gt 0) {
                         Write-Warn "Entry points still missing after repair: $($stillMissing -join ', ')"
                         Write-Info "Workaround: `"$pythonExe`" -m anakot_cli.main <command>"
-                    } else {
+                    }
+                    else {
                         Write-Success "Console entry points restored"
                     }
                 }
@@ -3218,11 +3367,13 @@ print(','.join(scripts))
         try {
             & $pythonExe -c "import fastapi, uvicorn" 2>&1 | Out-Null
             if ($LASTEXITCODE -eq 0) { $webOk = $true }
-        } catch { }
+        }
+        catch { }
         try {
             & $pythonExe -m py_compile "$InstallDir\anakot_cli\web_server.py" 2>&1 | Out-Null
             if ($LASTEXITCODE -eq 0) { $webServerSyntaxOk = $true }
-        } catch { }
+        }
+        catch { }
         $ErrorActionPreference = $prevEAP
         if (-not $webOk) {
             Write-Warn "fastapi/uvicorn not importable -- `anakot dashboard` will not work."
@@ -3230,7 +3381,8 @@ print(','.join(scripts))
             & $UvCmd pip install -e ".[web]"
             if ($LASTEXITCODE -eq 0) {
                 Write-Success "[web] extra installed; `anakot dashboard` should now work."
-            } else {
+            }
+            else {
                 Write-Warn "Could not install [web] extra. Run manually: uv pip install --python `"$pythonExe`" `"fastapi>=0.104,<1`" `"uvicorn[standard]>=0.24,<1`""
             }
         }
@@ -3246,8 +3398,8 @@ print(','.join(scripts))
 
 function Install-AnakotCommandLaunchers {
     param(
-        [Parameter(Mandatory=$true)] [string]$Root,
-        [Parameter(Mandatory=$true)] [string]$Destination
+        [Parameter(Mandatory = $true)] [string]$Root,
+        [Parameter(Mandatory = $true)] [string]$Destination
     )
 
     # Expose ONLY the anakot launchers on PATH -- never the whole
@@ -3281,7 +3433,8 @@ function Install-AnakotCommandLaunchers {
         if ($venvRelocatable) {
             Remove-Item (Join-Path $Destination "$launcher.exe") -Force -ErrorAction SilentlyContinue
             Set-Content -Path (Join-Path $Destination "$launcher.cmd") -Value "@echo off`r`n`"$src`" %*" -Encoding Ascii
-        } else {
+        }
+        else {
             Remove-Item (Join-Path $Destination "$launcher.cmd") -Force -ErrorAction SilentlyContinue
             Copy-Item -Force -LiteralPath $src -Destination (Join-Path $Destination "$launcher.exe")
         }
@@ -3291,7 +3444,7 @@ function Install-AnakotCommandLaunchers {
     $requiredExe = Join-Path $Destination "anakot.exe"
     $requiredCmd = Join-Path $Destination "anakot.cmd"
     if (-not ((Test-Path -LiteralPath $requiredExe -PathType Leaf) -or
-              (Test-Path -LiteralPath $requiredCmd -PathType Leaf))) {
+            (Test-Path -LiteralPath $requiredCmd -PathType Leaf))) {
         throw "Cannot set up the anakot command: launcher was not installed: $requiredExe"
     }
     return $Destination
@@ -3302,7 +3455,8 @@ function Set-PathVariable {
     
     if ($NoVenv) {
         $anakotBin = "$InstallDir"
-    } else {
+    }
+    else {
         # $AnakotHome\bin is the managed binary dir (shared with the managed
         # uv), OUTSIDE the git checkout: `anakot update`'s autostash
         # (git stash push --include-untracked) deletes untracked files from
@@ -3342,7 +3496,8 @@ function Set-PathVariable {
             "User"
         )
         Write-Success "Added to user PATH: $anakotBin"
-    } else {
+    }
+    else {
         Write-Info "PATH already configured"
     }
     
@@ -3400,10 +3555,12 @@ function Write-BootstrapMarker {
                 if ($LASTEXITCODE -eq 0 -and $resolved) {
                     $pinnedCommit = $resolved.Trim()
                 }
-            } catch {
+            }
+            catch {
                 # Ignore -- pinnedCommit stays empty, marker stays invalid,
                 # desktop falls through to its legacy bootstrap path.
-            } finally {
+            }
+            finally {
                 Pop-Location
             }
         }
@@ -3461,11 +3618,13 @@ function Copy-ConfigTemplates {
         if (Test-Path $examplePath) {
             Copy-Item $examplePath $envPath
             Write-Success "Created $envPath from template"
-        } else {
+        }
+        else {
             New-Item -ItemType File -Force -Path $envPath | Out-Null
             Write-Success "Created $envPath"
         }
-    } else {
+    }
+    else {
         Write-Info "$envPath already exists, keeping it"
     }
     
@@ -3477,7 +3636,8 @@ function Copy-ConfigTemplates {
             Copy-Item $examplePath $configPath
             Write-Success "Created $configPath from template"
         }
-    } else {
+    }
+    else {
         Write-Info "$configPath already exists, keeping it"
     }
     
@@ -3523,12 +3683,14 @@ You are Anakot Agent, built by Nous Research. Be direct: match the length of you
             $env:PYTHONUTF8 = "1"
             try {
                 & $pythonExe "$InstallDir\tools\skills_sync.py" 2>$null
-            } finally {
+            }
+            finally {
                 $env:PYTHONIOENCODING = $prevPythonioencoding
                 $env:PYTHONUTF8 = $prevPythonutf8
             }
             Write-Success "Skills synced to $AnakotHome\skills"
-        } catch {
+        }
+        catch {
             # Fallback: simple directory copy
             $bundledSkills = "$InstallDir\skills"
             $userSkills = "$AnakotHome\skills"
@@ -3581,7 +3743,8 @@ function Install-NodeDeps {
         if (Test-Path $npmCmdSibling) {
             Write-Info "Using npm.cmd (PowerShell execution policy blocks npm.ps1)"
             $npmExe = $npmCmdSibling
-        } else {
+        }
+        else {
             Write-Warn "Only npm.ps1 available -- install may fail if script execution is disabled."
             Write-Info "  If it fails, either enable PS script execution or install Node via winget."
         }
@@ -3681,7 +3844,8 @@ function Install-NodeDeps {
                 Write-Warn "$label npm install timed out after $([math]::Round($nodeDepsTimeoutSec / 60)) minutes -- a stalled download, wedged extraction, or file lock is the usual cause."
                 Write-Info "  Re-run the installer to retry (completed stages are skipped)."
                 Write-Info "  Slow connection? Raise the ceiling: set NODE_DEPS_TIMEOUT to seconds (default 600)."
-            } else {
+            }
+            else {
                 Write-Warn "$label npm install failed -- exit code $code"
             }
             if (Test-Path $logPath) {
@@ -3699,11 +3863,13 @@ function Install-NodeDeps {
             }
             Write-Info "Run manually later: cd `"$installDir`"; npm install"
             return $false
-        } catch {
+        }
+        catch {
             if ($prevEAP) { $ErrorActionPreference = $prevEAP }
             Write-Warn "$label npm install could not be launched: $_"
             return $false
-        } finally {
+        }
+        finally {
             Pop-Location
         }
     }
@@ -3737,7 +3903,8 @@ function Install-NodeDeps {
             if (-not $npxExe) {
                 Write-Warn "npx not found -- cannot install Playwright Chromium."
                 Write-Info "Run manually later: cd `"$InstallDir`"; npx playwright install chromium"
-            } else {
+            }
+            else {
                 $pwLog = "$env:TEMP\anakot-playwright-install-$(Get-Random).log"
                 Push-Location $InstallDir
                 # Capture EAP outside the try block so the catch's restore call
@@ -3783,13 +3950,15 @@ function Install-NodeDeps {
                     if ($pwCode -eq 0) {
                         Write-Success "Playwright Chromium installed (browser tools ready)"
                         Remove-Item -Force $pwLog -ErrorAction SilentlyContinue
-                    } elseif ($pwCode -eq 124) {
+                    }
+                    elseif ($pwCode -eq 124) {
                         Write-Warn "Playwright Chromium install timed out after $([math]::Round($nodeDepsTimeoutSec / 60)) minutes."
                         Write-Warn "This usually means a stalled download or a wedged archive extraction (a locked previous browser version can also cause it)."
                         Write-Warn "Browser tools will not work until Chromium is installed."
                         if (Test-Path $pwLog) { Write-Info "  Partial log: $pwLog" }
                         Write-Info "Run manually later: cd `"$InstallDir`"; npx playwright install chromium"
-                    } else {
+                    }
+                    else {
                         Write-Warn "Playwright Chromium install failed -- exit code $pwCode"
                         Write-Warn "Browser tools will not work until Chromium is installed."
                         if (Test-Path $pwLog) {
@@ -3805,11 +3974,13 @@ function Install-NodeDeps {
                         }
                         Write-Info "Run manually later: cd `"$InstallDir`"; npx playwright install chromium"
                     }
-                } catch {
+                }
+                catch {
                     if ($prevEAP) { $ErrorActionPreference = $prevEAP }
                     Write-Warn "Playwright Chromium install could not be launched: $_"
                     Write-Info "Run manually later: cd `"$InstallDir`"; npx playwright install chromium"
-                } finally {
+                }
+                finally {
                     Pop-Location
                 }
             }
@@ -3860,13 +4031,16 @@ function Install-BrowserUseCli {
         & $script:UvCmd tool install browser-use 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Browser Use CLI installed"
-        } else {
+        }
+        else {
             Write-Warn "Browser Use CLI install failed (exit $LASTEXITCODE) -- browser automation falls back to built-in tools."
             Write-Info "Install later with: uv tool install browser-use  (or via 'anakot tools')"
         }
-    } catch {
+    }
+    catch {
         Write-Warn "Browser Use CLI install failed: $_"
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
         Remove-Item Env:\UV_TOOL_BIN_DIR -ErrorAction SilentlyContinue
         Remove-Item Env:\UV_NO_CONFIG -ErrorAction SilentlyContinue
@@ -3899,12 +4073,12 @@ function Test-CuaDriverRuntimeContract {
         }
 
         $required = @{
-            mcp = @('--socket', '--grant')
+            mcp   = @('--socket', '--grant')
             serve = @(
                 '--socket', '--permission-mode', '--capability-manifest',
                 '--approve-capability-manifest', '--embedded'
             )
-            stop = @('--socket')
+            stop  = @('--socket')
         }
         foreach ($commandName in $required.Keys) {
             $command = $manifest.subcommands | Where-Object { $_.name -eq $commandName }
@@ -3919,7 +4093,8 @@ function Test-CuaDriverRuntimeContract {
             }
         }
         return $true
-    } catch {
+    }
+    catch {
         return $false
     }
 }
@@ -3961,20 +4136,24 @@ function Install-CuaDriver {
             $installedCuaDriver = Get-Command cua-driver -ErrorAction SilentlyContinue
             if ($installedCuaDriver -and (Test-CuaDriverRuntimeContract -DriverPath $installedCuaDriver.Source)) {
                 Write-Success "Computer Use driver installed (enable via 'anakot tools' -> Computer Use)"
-            } else {
+            }
+            else {
                 Write-Warn "Computer Use driver install did not produce a compatible runtime -- repair it before enabling the tool."
                 Write-Info "Install later with: anakot computer-use install"
             }
-        } else {
+        }
+        else {
             Stop-Job $job -ErrorAction SilentlyContinue
             Remove-Job $job -Force -ErrorAction SilentlyContinue
             Write-Warn "Computer Use driver install timed out -- it will install on demand when you enable the tool."
             Write-Info "Install later with: anakot computer-use install"
         }
-    } catch {
+    }
+    catch {
         Write-Warn "Computer Use driver install failed: $_"
         Write-Info "Install later with: anakot computer-use install"
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
     }
 }
@@ -4003,8 +4182,8 @@ function Clear-ElectronBuildCache {
     # respects, then the Windows default (%LOCALAPPDATA%\electron\Cache).
     $cacheDirs = @()
     if ($env:electron_config_cache) { $cacheDirs += $env:electron_config_cache }
-    if ($env:ELECTRON_CACHE)        { $cacheDirs += $env:ELECTRON_CACHE }
-    if ($env:LOCALAPPDATA)          { $cacheDirs += (Join-Path $env:LOCALAPPDATA 'electron\Cache') }
+    if ($env:ELECTRON_CACHE) { $cacheDirs += $env:ELECTRON_CACHE }
+    if ($env:LOCALAPPDATA) { $cacheDirs += (Join-Path $env:LOCALAPPDATA 'electron\Cache') }
     $cacheDirs += (Join-Path $HOME 'AppData\Local\electron\Cache')
 
     foreach ($dir in $cacheDirs) {
@@ -4012,8 +4191,8 @@ function Clear-ElectronBuildCache {
         # Recurse: the bad copy may be the top-level zip OR a copy inside an
         # @electron/get hash subdir.
         $removed += @(Get-ChildItem -LiteralPath $dir -Recurse -Filter 'electron-*.zip' -File -ErrorAction SilentlyContinue | ForEach-Object {
-            try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop; $_.FullName } catch { }
-        })
+                try { Remove-Item -LiteralPath $_.FullName -Force -ErrorAction Stop; $_.FullName } catch { }
+            })
     }
 
     # A half-written unpacked dir from an interrupted prior pack poisons the
@@ -4021,8 +4200,8 @@ function Clear-ElectronBuildCache {
     $releaseDir = Join-Path $DesktopDir 'release'
     if (Test-Path -LiteralPath $releaseDir) {
         $removed += @(Get-ChildItem -LiteralPath $releaseDir -Directory -Filter '*-unpacked' -ErrorAction SilentlyContinue | ForEach-Object {
-            try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop; $_.FullName } catch { }
-        })
+                try { Remove-Item -LiteralPath $_.FullName -Recurse -Force -ErrorAction Stop; $_.FullName } catch { }
+            })
     }
 
     return $removed
@@ -4073,8 +4252,10 @@ function Restore-ElectronDist {
         # object left on the output stream, so a bare pipe here would make the
         # boolean below ambiguous).
         & $node.Source $installer 2>&1 | ForEach-Object { "$_" } | Out-Host
-    } catch {
-    } finally {
+    }
+    catch {
+    }
+    finally {
         $env:ELECTRON_MIRROR = $prevMirror
     }
     return (Test-Path -LiteralPath $distExe)
@@ -4117,10 +4298,12 @@ function Install-DesktopVoiceDeps {
         Invoke-NativeWithRelaxedErrorAction { & $UvCmd pip install -e ".[wake,voice]" }
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Voice + wake-word dependencies installed"
-        } else {
+        }
+        else {
             Write-Warn "Voice/wake dependency install failed (exit $LASTEXITCODE) -- they will lazy-install at first use"
         }
-    } finally {
+    }
+    finally {
         Pop-Location
     }
 }
@@ -4227,7 +4410,8 @@ function Install-Desktop {
             if (Test-ElectronPkgStagedMissingDist -InstallDir $InstallDir) {
                 Write-Warn "Desktop dependency install failed with a missing Electron dist; attempting self-heal..."
                 Try-RestoreElectronDist -InstallDir $InstallDir | Out-Null
-            } else {
+            }
+            else {
                 Show-NpmCertHint ($npmOut -join "`n") | Out-Null
                 # Replay npm's own debug log into our stream: the terse
                 # summary above rarely contains the postinstall stderr
@@ -4235,10 +4419,12 @@ function Install-Desktop {
                 Write-NpmDebugLogTail -NpmOutput ($npmOut -join "`n")
                 throw "desktop workspace npm install failed (exit $code) -- see lines above for cause"
             }
-        } else {
+        }
+        else {
             Write-Success "Desktop workspace dependencies installed"
         }
-    } catch {
+    }
+    catch {
         if ($prevEAP) { $ErrorActionPreference = $prevEAP }
         Pop-Location
         throw
@@ -4275,7 +4461,8 @@ function Install-Desktop {
     if (-not $env:GITHUB_SHA) {
         if ($Commit) {
             $env:GITHUB_SHA = $Commit
-        } else {
+        }
+        else {
             Push-Location $InstallDir
             try {
                 $global:LASTEXITCODE = 0
@@ -4288,7 +4475,8 @@ function Install-Desktop {
                 if ($LASTEXITCODE -eq 0 -and $resolvedSha) {
                     $env:GITHUB_SHA = ("$resolvedSha").Trim()
                 }
-            } catch { } finally {
+            }
+            catch { } finally {
                 Pop-Location
             }
         }
@@ -4299,7 +4487,8 @@ function Install-Desktop {
     if ($env:GITHUB_SHA) {
         $shaPreview = if ($env:GITHUB_SHA.Length -ge 12) { $env:GITHUB_SHA.Substring(0, 12) } else { $env:GITHUB_SHA }
         Write-Info "Desktop build stamp: $shaPreview ($($env:GITHUB_REF_NAME))"
-    } else {
+    }
+    else {
         Write-Warn "Could not resolve a git commit for the desktop stamp -- write-build-stamp will use its non-git fallback"
     }
     Push-Location $desktopDir
@@ -4341,7 +4530,8 @@ function Install-Desktop {
             try {
                 & $npmExe run pack 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $buildLog
                 $code = $LASTEXITCODE
-            } finally {
+            }
+            finally {
                 $env:ELECTRON_MIRROR = $prevMirror
             }
         }
@@ -4362,11 +4552,13 @@ function Install-Desktop {
         }
         Write-Success "Desktop app built"
         Remove-Item -LiteralPath $buildLog -Force -ErrorAction SilentlyContinue
-    } catch {
+    }
+    catch {
         if ($prevEAP) { $ErrorActionPreference = $prevEAP }
         Pop-Location
         throw
-    } finally {
+    }
+    finally {
         # Restore env to whatever the caller had -- don't leak our
         # signing-off override into anything install.ps1 invokes later
         # (Stage-PlatformSdks, etc.).
@@ -4415,10 +4607,12 @@ function Install-Desktop {
         & icacls $appDir /grant "*S-1-15-2-2:(OI)(CI)(RX)" /T /C /Q | Out-Null
         if ($LASTEXITCODE -eq 0) {
             Write-Success "Granted AppContainer read access on $appDir"
-        } else {
+        }
+        else {
             Write-Warn "icacls AppContainer grant returned exit $LASTEXITCODE for $appDir"
         }
-    } catch {
+    }
+    catch {
         Write-Warn "Could not grant AppContainer ACL: $($_.Exception.Message)"
     }
 
@@ -4449,7 +4643,8 @@ function New-DesktopShortcuts {
         $iconIco = Join-Path $workDir 'resources\icon.ico'
         if (Test-Path $iconIco) {
             $iconLocation = "$iconIco,0"
-        } else {
+        }
+        else {
             $iconLocation = "$TargetExe,0"
         }
 
@@ -4471,7 +4666,8 @@ function New-DesktopShortcuts {
                 $sc.Description = 'Anakot Agent'
                 $sc.Save()
                 Write-Success "Shortcut created: $lnkPath"
-            } catch {
+            }
+            catch {
                 Write-Warn "Could not create shortcut $lnkPath : $($_.Exception.Message)"
             }
         }
@@ -4484,10 +4680,12 @@ function New-DesktopShortcuts {
         # Best-effort and silent -- never fail the install over a cosmetic cache.
         try {
             & ie4uinit.exe -show 2>$null
-        } catch {
+        }
+        catch {
             # ie4uinit may be absent/renamed on some SKUs -- ignore.
         }
-    } catch {
+    }
+    catch {
         Write-Warn "Skipping shortcut creation: $($_.Exception.Message)"
     }
 }
@@ -4526,11 +4724,11 @@ function Install-PlatformSdks {
     # Map: env var set in .env -> (import name, pip spec matching [messaging] extra).
     # Specs mirror pyproject.toml to avoid version drift.
     $sdkMap = @(
-        @{ Var = "TELEGRAM_BOT_TOKEN"; Import = "telegram";  Spec = "python-telegram-bot[webhooks]>=22.6,<23" },
-        @{ Var = "DISCORD_BOT_TOKEN";  Import = "discord";   Spec = "discord.py[voice]>=2.7.1,<3" },
-        @{ Var = "SLACK_BOT_TOKEN";    Import = "slack_sdk"; Spec = "slack-sdk>=3.27.0,<4" },
-        @{ Var = "SLACK_APP_TOKEN";    Import = "slack_bolt";Spec = "slack-bolt>=1.18.0,<2" },
-        @{ Var = "WHATSAPP_ENABLED";   Import = "qrcode";    Spec = "qrcode>=7.0,<8" }
+        @{ Var = "TELEGRAM_BOT_TOKEN"; Import = "telegram"; Spec = "python-telegram-bot[webhooks]>=22.6,<23" },
+        @{ Var = "DISCORD_BOT_TOKEN"; Import = "discord"; Spec = "discord.py[voice]>=2.7.1,<3" },
+        @{ Var = "SLACK_BOT_TOKEN"; Import = "slack_sdk"; Spec = "slack-sdk>=3.27.0,<4" },
+        @{ Var = "SLACK_APP_TOKEN"; Import = "slack_bolt"; Spec = "slack-bolt>=1.18.0,<2" },
+        @{ Var = "WHATSAPP_ENABLED"; Import = "qrcode"; Spec = "qrcode>=7.0,<8" }
     )
 
     # Which tokens are actually set (not placeholder)?
@@ -4538,8 +4736,8 @@ function Install-PlatformSdks {
     foreach ($sdk in $sdkMap) {
         $match = $envLines | Where-Object {
             $_ -match ("^" + [regex]::Escape($sdk.Var) + "=.+") `
-            -and $_ -notmatch "your-token-here" `
-            -and $_ -notmatch "^\s*#"
+                -and $_ -notmatch "your-token-here" `
+                -and $_ -notmatch "^\s*#"
         }
         if ($match) { $needed += $sdk }
     }
@@ -4562,11 +4760,13 @@ function Install-PlatformSdks {
             if ($LASTEXITCODE -ne 0) {
                 $missing += $sdk
                 Write-Warn "  $($sdk.Import) NOT importable (needed for $($sdk.Var))"
-            } else {
+            }
+            else {
                 Write-Success "  $($sdk.Import) OK"
             }
         }
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
     }
     if ($missing.Count -eq 0) { return }
@@ -4592,11 +4792,13 @@ function Install-PlatformSdks {
             & $pythonExe -m pip install $sdk.Spec 2>&1 | ForEach-Object { Write-Host "    $_" }
             if ($LASTEXITCODE -eq 0) {
                 Write-Success "  Installed $($sdk.Import)"
-            } else {
+            }
+            else {
                 Write-Warn "  Failed to install $($sdk.Spec). Recover manually: $pythonExe -m pip install `"$($sdk.Spec)`""
             }
         }
-    } finally {
+    }
+    finally {
         $ErrorActionPreference = $prevEAP
     }
 }
@@ -4624,7 +4826,8 @@ function Invoke-SetupWizard {
     # Run anakot setup using the venv Python directly (no activation needed)
     if (-not $NoVenv) {
         & ".\venv\Scripts\python.exe" -m anakot_cli.main setup
-    } else {
+    }
+    else {
         python -m anakot_cli.main setup
     }
 
@@ -4665,11 +4868,13 @@ function Start-GatewayIfConfigured {
             if ($response -eq "" -or $response -match "^[Yy]") {
                 try {
                     & $anakotCmd whatsapp
-                } catch {
+                }
+                catch {
                     # Expected after pairing completes
                 }
             }
-        } else {
+        }
+        else {
             Write-Info "Skipping WhatsApp pairing prompt (non-interactive)."
         }
     }
@@ -4701,10 +4906,12 @@ function Start-GatewayIfConfigured {
             Write-Success "Gateway started! Your bot is now online."
             Write-Info "Logs: $logFile"
             Write-Info "To stop: close the gateway process from Task Manager"
-        } catch {
+        }
+        catch {
             Write-Warn "Failed to start gateway. Run manually: anakot gateway"
         }
-    } else {
+    }
+    else {
         Write-Info "Skipped. Start the gateway later with: anakot gateway"
     }
 }
@@ -4840,19 +5047,19 @@ function Write-Completion {
 # stages; ``NeedsUserInput`` tells UIs "this stage prompts -- either skip it
 # or arrange to provide answers another way."
 $InstallStages = @(
-    @{ Name = "uv";               Title = "Installing uv package manager";        Category = "prereqs";      NeedsUserInput = $false; Worker = "Stage-Uv" }
-    @{ Name = "git";              Title = "Installing Git";                       Category = "prereqs";      NeedsUserInput = $false; Worker = "Stage-Git" }
-    @{ Name = "node";             Title = "Detecting Node.js";                    Category = "prereqs";      NeedsUserInput = $false; Worker = "Stage-Node" }
-    @{ Name = "system-packages";  Title = "Installing ripgrep and ffmpeg";        Category = "prereqs";      NeedsUserInput = $false; Worker = "Stage-SystemPackages" }
-    @{ Name = "repository";       Title = "Cloning Anakot repository";            Category = "install";      NeedsUserInput = $false; Worker = "Stage-Repository" }
+    @{ Name = "uv"; Title = "Installing uv package manager"; Category = "prereqs"; NeedsUserInput = $false; Worker = "Stage-Uv" }
+    @{ Name = "git"; Title = "Installing Git"; Category = "prereqs"; NeedsUserInput = $false; Worker = "Stage-Git" }
+    @{ Name = "node"; Title = "Detecting Node.js"; Category = "prereqs"; NeedsUserInput = $false; Worker = "Stage-Node" }
+    @{ Name = "system-packages"; Title = "Installing ripgrep and ffmpeg"; Category = "prereqs"; NeedsUserInput = $false; Worker = "Stage-SystemPackages" }
+    @{ Name = "repository"; Title = "Cloning Anakot repository"; Category = "install"; NeedsUserInput = $false; Worker = "Stage-Repository" }
     # Managed Python lives under $InstallDir.anakot-runtime, so the checkout
     # must exist before this stage creates that directory. Otherwise the later
     # repository stage treats the runtime-only directory as a broken checkout,
     # parks it, and leaves Stage-Venv with no managed interpreter.
-    @{ Name = "python";           Title = "Verifying Python $PythonVersion";      Category = "prereqs";      NeedsUserInput = $false; Worker = "Stage-Python" }
-    @{ Name = "venv";             Title = "Creating Python virtual environment";  Category = "install";      NeedsUserInput = $false; Worker = "Stage-Venv" }
-    @{ Name = "dependencies";     Title = "Installing Python dependencies";       Category = "install";      NeedsUserInput = $false; Worker = "Stage-Dependencies" }
-    @{ Name = "node-deps";        Title = "Installing Node.js dependencies";      Category = "install";      NeedsUserInput = $false; Worker = "Stage-NodeDeps" }
+    @{ Name = "python"; Title = "Verifying Python $PythonVersion"; Category = "prereqs"; NeedsUserInput = $false; Worker = "Stage-Python" }
+    @{ Name = "venv"; Title = "Creating Python virtual environment"; Category = "install"; NeedsUserInput = $false; Worker = "Stage-Venv" }
+    @{ Name = "dependencies"; Title = "Installing Python dependencies"; Category = "install"; NeedsUserInput = $false; Worker = "Stage-Dependencies" }
+    @{ Name = "node-deps"; Title = "Installing Node.js dependencies"; Category = "install"; NeedsUserInput = $false; Worker = "Stage-NodeDeps" }
 )
 if ($IncludeDesktop) {
     # Insert AFTER node-deps so workspace npm is already installed when
@@ -4861,14 +5068,14 @@ if ($IncludeDesktop) {
     $InstallStages += @{ Name = "desktop"; Title = "Building desktop app"; Category = "install"; NeedsUserInput = $false; Worker = "Stage-Desktop" }
 }
 $InstallStages += @(
-    @{ Name = "path";             Title = "Adding Anakot to PATH";                Category = "finalize";     NeedsUserInput = $false; Worker = "Stage-Path" }
-    @{ Name = "config-templates"; Title = "Writing configuration templates";      Category = "finalize";     NeedsUserInput = $false; Worker = "Stage-ConfigTemplates" }
-    @{ Name = "platform-sdks";    Title = "Installing messaging platform SDKs";   Category = "finalize";     NeedsUserInput = $false; Worker = "Stage-PlatformSdks" }
-    @{ Name = "bootstrap-marker"; Title = "Marking install complete";              Category = "finalize";     NeedsUserInput = $false; Worker = "Stage-BootstrapMarker" }
+    @{ Name = "path"; Title = "Adding Anakot to PATH"; Category = "finalize"; NeedsUserInput = $false; Worker = "Stage-Path" }
+    @{ Name = "config-templates"; Title = "Writing configuration templates"; Category = "finalize"; NeedsUserInput = $false; Worker = "Stage-ConfigTemplates" }
+    @{ Name = "platform-sdks"; Title = "Installing messaging platform SDKs"; Category = "finalize"; NeedsUserInput = $false; Worker = "Stage-PlatformSdks" }
+    @{ Name = "bootstrap-marker"; Title = "Marking install complete"; Category = "finalize"; NeedsUserInput = $false; Worker = "Stage-BootstrapMarker" }
     # Interactive stages.  In non-interactive mode these become no-ops; the
     # caller (GUI / CI) handles the equivalent UX themselves.
-    @{ Name = "configure";        Title = "Configuring API keys and models";      Category = "post-install"; NeedsUserInput = $true;  Worker = "Stage-Configure" }
-    @{ Name = "gateway";          Title = "Starting messaging gateway";           Category = "post-install"; NeedsUserInput = $true;  Worker = "Stage-Gateway" }
+    @{ Name = "configure"; Title = "Configuring API keys and models"; Category = "post-install"; NeedsUserInput = $true; Worker = "Stage-Configure" }
+    @{ Name = "gateway"; Title = "Starting messaging gateway"; Category = "post-install"; NeedsUserInput = $true; Worker = "Stage-Gateway" }
 )
 
 # Stage workers -- thin wrappers that delegate to the existing Install-* /
@@ -4882,9 +5089,9 @@ $InstallStages += @(
 # Resolve-UvCmd is a fast no-op when $script:UvCmd is already populated
 # (the default-invocation case where Main runs everything in one
 # process), and throws cleanly if uv truly isn't installed yet.
-function Stage-Uv               { if (-not (Install-Uv))     { throw "uv installation failed" } }
-function Stage-Python           { Resolve-UvCmd; if (-not (Test-Python))    { throw "Python $PythonVersion not available" } }
-function Stage-Git              {
+function Stage-Uv { if (-not (Install-Uv)) { throw "uv installation failed" } }
+function Stage-Python { Resolve-UvCmd; if (-not (Test-Python)) { throw "Python $PythonVersion not available" } }
+function Stage-Git {
     if (-not (Install-Git)) {
         if ($script:GitInstallFailureReason) { throw $script:GitInstallFailureReason }
         throw "Git not available and auto-install failed -- install from https://git-scm.com/download/win then re-run"
@@ -4896,23 +5103,23 @@ function Stage-Git              {
 # "node missing".  Install flow continues either way -- matches the
 # existing Write-Completion behavior that prints a "Note: Node.js could
 # not be installed" hint instead of aborting.
-function Stage-Node             {
+function Stage-Node {
     if (-not (Test-Node)) {
         $script:_StageSkippedReason = "Node.js not available; browser tools will be unavailable until node is installed manually from https://nodejs.org/en/download/"
     }
 }
-function Stage-SystemPackages   { Install-SystemPackages }
-function Stage-Repository       { Install-Repository }
-function Stage-Venv             { Resolve-UvCmd; Install-Venv }
-function Stage-Dependencies     { Resolve-UvCmd; Install-Dependencies }
-function Stage-NodeDeps         { Install-NodeDeps }
-function Stage-Desktop          { Install-DesktopVoiceDeps; Install-Desktop }
-function Stage-Path             { Set-PathVariable }
-function Stage-ConfigTemplates  { Copy-ConfigTemplates }
-function Stage-PlatformSdks     { Resolve-UvCmd; Install-PlatformSdks }
-function Stage-BootstrapMarker  { Write-BootstrapMarker }
-function Stage-Configure        { Invoke-SetupWizard }
-function Stage-Gateway          { Start-GatewayIfConfigured }
+function Stage-SystemPackages { Install-SystemPackages }
+function Stage-Repository { Install-Repository }
+function Stage-Venv { Resolve-UvCmd; Install-Venv }
+function Stage-Dependencies { Resolve-UvCmd; Install-Dependencies }
+function Stage-NodeDeps { Install-NodeDeps }
+function Stage-Desktop { Install-DesktopVoiceDeps; Install-Desktop }
+function Stage-Path { Set-PathVariable }
+function Stage-ConfigTemplates { Copy-ConfigTemplates }
+function Stage-PlatformSdks { Resolve-UvCmd; Install-PlatformSdks }
+function Stage-BootstrapMarker { Write-BootstrapMarker }
+function Stage-Configure { Invoke-SetupWizard }
+function Stage-Gateway { Start-GatewayIfConfigured }
 
 function Get-InstallStage {
     param([string]$Name)
@@ -4937,12 +5144,13 @@ function Step-OutOfInstallDir {
             Write-Info "Stepping out of $InstallDir so Windows can replace files there if needed..."
             Set-Location $env:USERPROFILE
         }
-    } catch {}
+    }
+    catch {}
 }
 
 function Invoke-Stage {
     param(
-        [Parameter(Mandatory=$true)] [hashtable]$StageDef
+        [Parameter(Mandatory = $true)] [hashtable]$StageDef
     )
 
     # Refresh PATH from registry so this stage sees binaries installed by
@@ -4962,11 +5170,11 @@ function Invoke-Stage {
 
     $start = [DateTime]::UtcNow
     $result = @{
-        stage        = $StageDef.Name
-        ok           = $false
-        skipped      = $false
-        reason       = $null
-        duration_ms  = 0
+        stage       = $StageDef.Name
+        ok          = $false
+        skipped     = $false
+        reason      = $null
+        duration_ms = 0
     }
 
     try {
@@ -4974,13 +5182,15 @@ function Invoke-Stage {
         $result.ok = $true
         if ($script:_StageSkippedReason) {
             $result.skipped = $true
-            $result.reason  = $script:_StageSkippedReason
+            $result.reason = $script:_StageSkippedReason
         }
-    } catch {
+    }
+    catch {
         $result.ok = $false
         $result.reason = "$_"
         throw
-    } finally {
+    }
+    finally {
         $result.duration_ms = [int]([DateTime]::UtcNow - $start).TotalMilliseconds
         if ($Json -or $Stage) {
             # In stage-driver mode every stage emits a JSON line so the
@@ -5026,7 +5236,8 @@ function Invoke-EnsureMode {
                 [void](Test-Node)
                 if ($script:HasNode) {
                     Install-AgentBrowser
-                } else {
+                }
+                else {
                     Write-Err "Node.js is required for browser tools but could not be installed"
                     exit 1
                 }
@@ -5056,7 +5267,8 @@ function Main {
     Invoke-AllStages
     if (-not $Json) {
         Write-Completion
-    } else {
+    }
+    else {
         @{ ok = $true; protocol_version = $InstallStageProtocolVersion } | ConvertTo-Json -Compress | Write-Output
     }
 }
@@ -5103,14 +5315,14 @@ try {
     if ($Manifest) {
         $payload = @{
             protocol_version = $InstallStageProtocolVersion
-            stages = @($InstallStages | ForEach-Object {
-                @{
-                    name             = $_.Name
-                    title            = $_.Title
-                    category         = $_.Category
-                    needs_user_input = $_.NeedsUserInput
-                }
-            })
+            stages           = @($InstallStages | ForEach-Object {
+                    @{
+                        name             = $_.Name
+                        title            = $_.Title
+                        category         = $_.Category
+                        needs_user_input = $_.NeedsUserInput
+                    }
+                })
         }
         $payload | ConvertTo-Json -Depth 5 -Compress | Write-Output
         exit 0
@@ -5140,7 +5352,8 @@ try {
     # Default: full install (today's behavior, plus optional -NonInteractive
     # and -Json layered on by the params above).
     Main
-} catch {
+}
+catch {
     if ($Json -or $Stage) {
         # Stage-driver mode: caller wants JSON they can parse.  Emit a
         # structured error frame and exit non-zero -- BUT only if
