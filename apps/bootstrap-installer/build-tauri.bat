@@ -8,7 +8,7 @@ call "D:\VS2022BT\VC\Auxiliary\Build\vcvars64.bat" >nul
 set "RUSTUP_HOME=D:\.rustup"
 set "CARGO_HOME=D:\.cargo"
 set "PATH=D:\.cargo\bin;%PATH%"
-cd /d "D:\School\PROJECT\anakot-agent\apps\bootstrap-installer"
+cd /d "D:\School\PROJECT\anakot-agent-v1\apps\bootstrap-installer"
 
 echo [build] cargo/rustc:
 cargo --version
@@ -18,9 +18,9 @@ echo [build] running tauri build --no-bundle ...
 call npm run tauri:build -- --no-bundle
 set "EXIT=%ERRORLEVEL%"
 echo [build] tauri build exit code: %EXIT%
-if exist "target\release\Anakot-Setup.exe" (
-    echo [build] OUTPUT: target\release\Anakot-Setup.exe
-    dir "target\release\Anakot-Setup.exe"
+if exist "src-tauri\target\release\Anakot-Setup.exe" (
+    echo [build] OUTPUT: src-tauri\target\release\Anakot-Setup.exe
+    dir "src-tauri\target\release\Anakot-Setup.exe"
 ) else (
     echo [build] ERROR: Anakot-Setup.exe not found
 )
