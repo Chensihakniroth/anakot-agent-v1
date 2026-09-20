@@ -4402,8 +4402,11 @@ function Install-Desktop {
             $code = $LASTEXITCODE
         }
         if ($code -eq 0) {
-            & node apps/desktop/scripts/ensure-rolldown-binding.mjs
-            $code = $LASTEXITCODE
+            $ensureRolldownScript = "apps/desktop/scripts/ensure-rolldown-binding.mjs"
+            if (Test-Path -LiteralPath $ensureRolldownScript) {
+                & node $ensureRolldownScript
+                $code = $LASTEXITCODE
+            }
         }
         $ErrorActionPreference = $prevEAP
         if ($code -ne 0) {
