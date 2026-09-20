@@ -318,9 +318,71 @@ elif command -v dpkg >/dev/null 2>&1; then
     else
         warn "No .deb file found — build it: cd apps/desktop && npm run dist:linux"
     fi
+elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" || "$OSTYPE" == "win32" ]]; then
+    # Windows — build NSIS installer and run it silently
+    info "Building Windows NSIS installer..."
+    cd apps/desktop
+    npm run build 2>&1 | tail -5
+    npm run dist:win:nsis 2>&1 | tail -10
+    cd "${TARGET_DIR}"
+
+    # Find the NSIS installer
+    NSIS_INSTALLER=$(find "${TARGET_DIR}/apps/desktop/release/" -name "Anakot-*-win-*.exe" -type f 2>/dev/null | head -1)
+    if [ -n "${NSIS_INSTALLER}" ]; then
+        info "Running NSIS installer silently..."
+        # NSIS silent install: /S flag, install to default location
+        "${NSIS_INSTALLER}" //S 2>&1 || warn "NSIS installer exited with code $?"
+
+        # Add install directory to PATH (user-level)
+        INSTALL_DIR="${LOCALAPPDATA:-${HOME}/AppData/Local}/Programs/Anakot"
+        if [ -d "${INSTALL_DIR}" ]; then
+            # Add to user PATH via registry (PowerShell)
+            powershell.exe -Command "
+                \$currentPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+                if (\$currentPath -notlike '*${INSTALL_DIR}*') {
+                    [Environment]::SetEnvironmentVariable('Path', \"\$currentPath;${INSTALL_DIR}\", 'User')
+                    Write-Host 'Added ${INSTALL_DIR} to user PATH'
+                }
+            " 2>&1 || warn "Could not update PATH — add ${INSTALL_DIR} manually"
+
+            # Create Start Menu shortcut (NSIS does this, but ensure it exists)
+            START_MENU_DIR="${APPDATA:-${HOME}/AppData/Roaming/Microsoft/Windows/Start Menu/Programs}/Anakot"
+            mkdir -p "${START_MENU_DIR}"
+            if [ -f "${INSTALL_DIR}/Anakot.exe" ]; then
+                # Create a shortcut using PowerShell
+                powershell.exe -Command "
+                    \$WshShell = New-Object -ComObject WScript.Shell
+                    \$Shortcut = \$WshShell.CreateShortcut('${START_MENU_DIR}/Anakot.lnk')
+                    \$Shortcut.TargetPath = '${INSTALL_DIR}/Anakot.exe'
+                    \$Shortcut.WorkingDirectory = '${INSTALL_DIR}'
+                    \$Shortcut.Save()
+                    Write-Host 'Start Menu shortcut created'
+                " 2>&1 || warn "Could not create Start Menu shortcut"
+            fi
+
+            # Register anakot:// URL scheme via registry
+            powershell.exe -Command "
+                \$regPath = 'HKCU:\\Software\\Classes\\anakot'
+                if (-not (Test-Path \$regPath)) {
+                    New-Item -Path \$regPath -Force | Out-Null
+                    Set-ItemProperty -Path \$regPath -Name '(Default)' -Value 'URL:Anakot Protocol'
+                    Set-ItemProperty -Path \$regPath -Name 'URL Protocol' -Value ''
+                    New-Item -Path \"\$regPath\\shell\\open\\command\" -Force | Out-Null
+                    Set-ItemProperty -Path \"\$regPath\\shell\\open\\command\" -Name '(Default)' -Value '\"${INSTALL_DIR}\\Anakot.exe\" \"%1\"'
+                    Write-Host 'Registered anakot:// URL scheme'
+                }
+            " 2>&1 || warn "Could not register URL scheme"
+
+            ok "Desktop installed (Windows NSIS)"
+        else
+            warn "NSIS installer not found — run it manually from apps/desktop/release/"
+        fi
+    else
+        warn "No Windows installer found — build it: cd apps/desktop && npm run dist:win:nsis"
+    fi
 else
-    warn "No supported package manager found"
-    warn "Build manually: cd apps/desktop && npm run dist:linux"
+    warn "No supported platform detected"
+    warn "Build manually: cd apps/desktop && npm run dist:linux (or dist:win:nsis for Windows)"
 fi
 
 # ── Step 4: Sanity check ───────────────────────────────────────────────
