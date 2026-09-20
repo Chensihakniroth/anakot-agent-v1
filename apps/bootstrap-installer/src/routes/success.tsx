@@ -1,13 +1,12 @@
-import { AlertCircle } from 'lucide-react'
 import { useState } from 'react'
 import { type CSSProperties } from 'react'
-
-import { HackeryButton } from '../components/hackery-button'
+import { Button } from '../components/button'
 import { launchAnakotDesktop } from '../store'
+import { Rocket, AlertCircle, CheckCircle2 } from 'lucide-react'
 
 /*
  * Success screen. ANAKOT AGENT wordmark stays as the visual anchor
- * (same Collapse Bold treatment as Welcome + the desktop chat intro),
+ * (same StarAvenue treatment as Welcome + the desktop chat intro),
  * with a status line below.
  *
  * Launching the desktop can fail (e.g. Stage-Desktop was skipped and
@@ -23,7 +22,6 @@ export default function Success() {
   async function handleLaunch() {
     setError(null)
     setLaunching(true)
-
     try {
       await launchAnakotDesktop()
       // On success the installer exits — control never returns here.
@@ -36,9 +34,15 @@ export default function Success() {
 
   return (
     <div className="anakot-fade-in flex h-full flex-col items-center justify-center gap-8 px-12 py-10">
-      <div className="w-full max-w-2xl min-w-0 text-center">
+      {/* Success indicator */}
+      <div className="relative z-10 flex items-center gap-3 text-emerald-600">
+        <CheckCircle2 size={28} strokeWidth={1.5} />
+        <span className="text-sm font-medium">Installation complete</span>
+      </div>
+
+      <div className="relative z-10 w-full max-w-2xl min-w-0 text-center">
         <p
-          className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
+          className="fit-text mx-auto mb-4 w-full font-['StarAvenue'] uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
           style={
             {
               '--fit-text-line-height': '0.9',
@@ -55,23 +59,32 @@ export default function Success() {
 
         <p className="m-0 text-center text-base leading-normal tracking-tight text-muted-foreground">
           You can launch from here, or any time from your terminal with{' '}
-          <code className="font-mono text-sm text-foreground/80">anakot desktop</code>.
+          <code className="rounded bg-muted/60 px-1 py-0.5 font-mono text-sm">
+            anakot desktop
+          </code>
+          .
         </p>
       </div>
 
-      <HackeryButton
-        disabled={launching}
-        label={launching ? 'Launching' : 'Launch'}
-        loading={launching}
+      <Button
         onClick={() => void handleLaunch()}
-      />
+        size="lg"
+        disabled={launching}
+        className="inline-flex items-center gap-2 px-6"
+      >
+        <Rocket size={18} />
+        {launching ? 'Launching\u2026' : 'Launch Anakot'}
+      </Button>
 
       {error && (
-        <div className="flex max-w-2xl items-start gap-2 text-sm" role="alert">
-          <AlertCircle className="mt-0.5 shrink-0 text-destructive" size={16} />
+        <div
+          role="alert"
+          className="flex max-w-2xl items-start gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+        >
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <div className="min-w-0">
-            <div className="font-medium text-destructive">Couldn&rsquo;t launch the desktop app</div>
-            <div className="mt-0.5 text-muted-foreground">{error}</div>
+            <div className="font-medium">Couldn&rsquo;t launch the desktop app</div>
+            <div className="mt-1 text-destructive/80">{error}</div>
           </div>
         </div>
       )}

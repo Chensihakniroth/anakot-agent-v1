@@ -1,13 +1,13 @@
 import { type CSSProperties } from 'react'
-
-import { HackeryButton } from '../components/hackery-button'
+import { Button } from '../components/button'
 import { startInstall } from '../store'
+import { ArrowRight } from 'lucide-react'
 
 /*
  * Welcome screen.
  *
  * Mirrors the desktop's chat intro (apps/desktop/src/components/chat/intro.tsx):
- *   - ANAKOT AGENT wordmark rendered in Collapse Bold, uppercase, tracked
+ *   - ANAKOT AGENT wordmark rendered in StarAvenue, uppercase, tracked
  *   - mix-blend-plus-lighter so the type "glows" on the canvas
  *   - fit-text utility so the wordmark sizes itself to the column
  *
@@ -18,10 +18,16 @@ import { startInstall } from '../store'
 export default function Welcome() {
   return (
     <div className="anakot-fade-in flex h-full flex-col items-center justify-center gap-10 px-12 py-10">
+      {/* Warm radial glow behind the wordmark */}
+      <div
+        className="anakot-glow pointer-events-none absolute inset-0 z-0"
+        aria-hidden="true"
+      />
+
       {/* Hero — same recipe the desktop's chat/intro.tsx uses */}
-      <div className="w-full max-w-2xl min-w-0 text-center">
+      <div className="relative z-10 w-full max-w-2xl min-w-0 text-center">
         <p
-          className="fit-text mx-auto mb-4 w-full font-['Collapse'] font-bold uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
+          className="fit-text mx-auto mb-4 w-full font-['StarAvenue'] uppercase leading-[0.9] tracking-[0.08em] text-midground mix-blend-plus-lighter dark:text-foreground/90"
           style={
             {
               '--fit-text-line-height': '0.9',
@@ -42,7 +48,17 @@ export default function Welcome() {
         </p>
       </div>
 
-      <HackeryButton label="Install" onClick={() => void startInstall()} />
+      <Button
+        onClick={() => void startInstall()}
+        size="lg"
+        className="group relative z-10 inline-flex items-center gap-2 px-6"
+      >
+        Install Anakot
+        <ArrowRight
+          size={18}
+          className="transition-transform group-hover:translate-x-0.5"
+        />
+      </Button>
     </div>
   )
 }

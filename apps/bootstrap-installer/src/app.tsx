@@ -1,11 +1,10 @@
 import { useStore } from '@nanostores/react'
 import { useEffect } from 'react'
-
-import Failure from './routes/failure'
+import { $route, $bootstrap, initialize } from './store'
+import Welcome from './routes/welcome'
 import Progress from './routes/progress'
 import Success from './routes/success'
-import Welcome from './routes/welcome'
-import { $bootstrap, $route, initialize } from './store'
+import Failure from './routes/failure'
 
 /*
  * App shell — Anakot Setup.
@@ -14,6 +13,8 @@ import { $bootstrap, $route, initialize } from './store'
  * in-window repeat of the H mark + words was redundant slop).
  *
  * Route state lives in a single $route atom — 4 screens, no react-router.
+ * Screen transitions use a fade animation via the anakot-fade-in class
+ * applied to each route component.
  */
 export default function App() {
   const route = useStore($route)
