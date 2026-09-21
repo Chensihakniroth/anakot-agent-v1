@@ -17,52 +17,55 @@ if hasattr(sys.stderr, "reconfigure"):
     sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # Replacements ordered longest-first / most-specific-first
+# These replace hermes → anakot in functional code and display text.
+# Functional URLs (hermes-agent.nousresearch.com, api.github.com/repos/nousresearch/hermes-agent)
+# are protected by EXACT_SKIP_STRINGS below.
 REPLACEMENTS = [
-    # Module/package identifiers
-    (r'anakot_cli', 'anakot_cli'),
-    (r'anakot_state', 'anakot_state'),
-    (r'anakot_logging', 'anakot_logging'),
-    (r'anakot_constants', 'anakot_constants'),
-    (r'anakot_home', 'anakot_home'),
-    (r'anakot_bootstrap', 'anakot_bootstrap'),
-    (r'anakot_time', 'anakot_time'),
-    (r'anakot_startup', 'anakot_startup'),
+    # Module/package identifiers (functional — must be renamed)
+    (r'hermes_cli', 'anakot_cli'),
+    (r'hermes_state', 'anakot_state'),
+    (r'hermes_logging', 'anakot_logging'),
+    (r'hermes_constants', 'anakot_constants'),
+    (r'hermes_home', 'anakot_home'),
+    (r'hermes_bootstrap', 'anakot_bootstrap'),
+    (r'hermes_time', 'anakot_time'),
+    (r'hermes_startup', 'anakot_startup'),
 
     # Repo / URLs — EXCLUDED from update-system files
-    (r'Chensihakniroth/anakot-agent-v1', 'Chensihakniroth/anakot-agent-v1'),
-    (r'anakot-agent', 'anakot-agent'),
-    (r'anakot_agent', 'anakot_agent'),
+    (r'NousResearch/hermes-agent', 'Chensihakniroth/anakot-agent-v1'),
+    (r'hermes-agent', 'anakot-agent'),
+    (r'hermes_agent', 'anakot_agent'),
 
-    # Dot-directories
-    (r'.anakot', '.anakot'),
+    # Dot-directories (functional — must be renamed)
+    (r'\.hermes', '.anakot'),
 
-    # Environment variables
-    (r'ANAKOT_HOME', 'ANAKOT_HOME'),
-    (r'ANAKOT_', 'ANAKOT_'),
-    (r'ANAKOT', 'ANAKOT'),
+    # Environment variables (functional — must be renamed)
+    (r'HERMES_HOME', 'ANAKOT_HOME'),
+    (r'HERMES_', 'ANAKOT_'),
+    (r'HERMES', 'ANAKOT'),
 
-    # TypeScript component references
-    (r'AnakotConsole', 'AnakotConsole'),
-    (r'anakot-parity', 'anakot-parity'),
-    (r'anakot-capability', 'anakot-capability'),
-    (r'anakot-profile', 'anakot-profile'),
-    (r'anakot-cron', 'anakot-cron'),
-    (r'anakot-config', 'anakot-config'),
-    (r'anakot-open', 'anakot-open'),
-    (r'anakot-sprite', 'anakot-sprite'),
-    (r'anakot-frame', 'anakot-frame'),
+    # TypeScript component references (functional — must be renamed)
+    (r'HermesConsole', 'AnakotConsole'),
+    (r'hermes-parity', 'anakot-parity'),
+    (r'hermes-capability', 'anakot-capability'),
+    (r'hermes-profile', 'anakot-profile'),
+    (r'hermes-cron', 'anakot-cron'),
+    (r'hermes-config', 'anakot-config'),
+    (r'hermes-open', 'anakot-open'),
+    (r'hermes-sprite', 'anakot-sprite'),
+    (r'hermes-frame', 'anakot-frame'),
 
-    # Display text
-    (r'Anakot Agent', 'Anakot Agent'),
-    (r'anakot agent', 'anakot agent'),
-    (r'Anakot Desktop', 'Anakot Desktop'),
-    (r'Anakot CLI', 'Anakot CLI'),
-    (r'Anakot TUI', 'Anakot TUI'),
-    (r'Hey Anakot', 'Hey Anakot'),
+    # Display text (cosmetic — UI strings)
+    (r'Hermes Agent', 'Anakot Agent'),
+    (r'hermes agent', 'anakot agent'),
+    (r'Hermes Desktop', 'Anakot Desktop'),
+    (r'Hermes CLI', 'Anakot CLI'),
+    (r'Hermes TUI', 'Anakot TUI'),
+    (r'Hey Hermes', 'Hey Anakot'),
 
-    # Catch remaining
-    (r'anakot', 'anakot'),
-    (r'Anakot', 'Anakot'),
+    # Catch remaining (functional — must be renamed)
+    (r'hermes', 'anakot'),
+    (r'Hermes', 'Anakot'),
 ]
 
 # Files that must NOT have the upstream URL replaced
@@ -125,6 +128,9 @@ def process_file(filepath):
         anakot_url = anakot_url.replace('nousresearch/hermes-agent', 'nousresearch/anakot-agent')
         # Docs site: hermes-agent.nousresearch.com → anakot-agent.nousresearch.com
         anakot_url = anakot_url.replace('hermes-agent.nousresearch.com', 'anakot-agent.nousresearch.com')
+        # Git clone URLs: github.com/NousResearch/hermes-agent → github.com/Chensihakniroth/anakot-agent-v1
+        anakot_url = anakot_url.replace('github.com/NousResearch/hermes-agent', 'github.com/Chensihakniroth/anakot-agent-v1')
+        anakot_url = anakot_url.replace('git@github.com:NousResearch/hermes-agent', 'git@github.com:Chensihakniroth/anakot-agent-v1')
         if anakot_url in content:
             content = content.replace(anakot_url, skip)
 
