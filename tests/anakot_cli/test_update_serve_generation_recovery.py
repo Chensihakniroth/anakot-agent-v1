@@ -990,8 +990,16 @@ def test_managed_dashboard_restart_still_scans_for_serve_backends(monkeypatch):
     assert scan_calls, "serve/dashboard scan never ran after the dashboard restart"
 
 
+@pytest.mark.linux_only
 def test_restarted_dashboard_unit_is_not_killed_by_the_continued_scan(monkeypatch):
-    """Continuing the scan must not undo the restart it just performed."""
+    """Continuing the scan must not undo the restart it just performed.
+
+    Linux-only: the subject is systemd unit ownership of the restarted
+    dashboard, so the systemd branch has to be the real one. This used to
+    patch ``sys.platform`` to ``"linux"`` on any host, which made the whole
+    process believe it was on Linux and blew up on Windows when a transitive
+    helper took an ``fcntl``-only lock path.
+    """
     from anakot_cli import dashboard_procs
 
     killed: list[int] = []
@@ -1005,7 +1013,6 @@ def test_restarted_dashboard_unit_is_not_killed_by_the_continued_scan(monkeypatc
         _dashboard_cmdline_for_pid=lambda pid: None,
     )
     monkeypatch.setattr(dashboard_procs, "_lock_owned_serve_pids", lambda: set())
-    monkeypatch.setattr(dashboard_procs.sys, "platform", "linux")
     monkeypatch.setattr(
         dashboard_procs.os, "kill", lambda pid, sig: killed.append(pid)
     )
@@ -1016,8 +1023,14 @@ def test_restarted_dashboard_unit_is_not_killed_by_the_continued_scan(monkeypatc
     assert result["killed"] == []
 
 
+@pytest.mark.linux_only
 def test_serve_backend_survives_selection_when_the_dashboard_unit_restarts(monkeypatch):
-    """A serve PID owned by a DIFFERENT unit is still selected for recovery."""
+    """A serve PID owned by a DIFFERENT unit is still selected for recovery.
+
+    Linux-only: selection is decided by the systemd unit that owns the PID
+    (``_get_systemd_service_for_pid``), so the systemd branch must be the real
+    one on this host instead of a faked ``sys.platform``.
+    """
     from anakot_cli import dashboard_procs
 
     signalled: list[int] = []
@@ -1034,7 +1047,6 @@ def test_serve_backend_survives_selection_when_the_dashboard_unit_restarts(monke
         _respawn_dashboard_processes=lambda cmds: [],
     )
     monkeypatch.setattr(dashboard_procs, "_lock_owned_serve_pids", lambda: set())
-    monkeypatch.setattr(dashboard_procs.sys, "platform", "linux")
 
     def _fake_kill(pid, sig):
         signalled.append(pid)

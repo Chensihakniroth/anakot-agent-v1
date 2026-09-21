@@ -144,8 +144,18 @@ _last_target_rev: Optional[str] = None
 # Returned when an update is known to exist but commits can't be counted (e.g. nix builds).
 UPDATE_AVAILABLE_NO_COUNT = -1
 
-_UPSTREAM_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
-_OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/hermes-agent"
+# Two update identities, deliberately separate — this tree is a rebranded fork:
+#   * _UPDATE_SOURCE_* — where new versions COME FROM: the upstream project this tree is
+#     rebranded from ("fetch upstream -> rebrand -> custom patches"). Drives the tip/compare
+#     lookups, and is the repo `anakot update` offers as `upstream` before it clones + rebrands.
+#   * _OFFICIAL_REPO_CANONICAL — the repo an install is cloned FROM. Decides "is this a fork?"
+#     and whether the release link is shown. Left inert on purpose: no install's origin matches
+#     it, so no link is rendered. Pointing it at the fork would surface `_RELEASE_URL_BASE` (a
+#     releases page with nothing in it) — a separate decision, not a rename.
+_UPDATE_SOURCE_SLUG = "nousresearch/hermes-agent"
+_UPDATE_SOURCE_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
+_UPSTREAM_REPO_URL = _UPDATE_SOURCE_REPO_URL
+_OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/anakot-agent"
 
 
 def _canonical_github_remote(url: str | None) -> str:
@@ -323,8 +333,8 @@ def _github_branch_tip(repo_slug: str, branch: str) -> Optional[str]:
 
 
 def _upstream_main_sha() -> Optional[str]:
-    """Tip SHA of upstream main; API first, HTTPS ``ls-remote`` (no auth, no prompts) as fallback."""
-    sha = _github_branch_tip(_OFFICIAL_REPO_CANONICAL.removeprefix("github.com/"), "main")
+    """Tip SHA of the update source's main; API first, HTTPS ``ls-remote`` (no auth, no prompts) as fallback."""
+    sha = _github_branch_tip(_UPDATE_SOURCE_SLUG, "main")
     if sha:
         return sha
     result = _git_run(["ls-remote", _UPSTREAM_REPO_URL, "refs/heads/main"], timeout=10, network=True)

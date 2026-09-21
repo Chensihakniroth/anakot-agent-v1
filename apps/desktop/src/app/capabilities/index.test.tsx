@@ -297,7 +297,7 @@ describe('CapabilitiesView toolset management', { timeout: 60_000 }, () => {
       window.dispatchEvent(
         new MessageEvent('message', {
           data: { type: 'anakot-skill-pick', name: 'web-research', identifier: 'web-research' },
-          origin: 'https://anakot-agent.nousresearch.com'
+          origin: 'https://hermes-agent.nousresearch.com'
         })
       )
     })

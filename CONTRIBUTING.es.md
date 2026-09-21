@@ -194,7 +194,7 @@ anakot-agent/
 ├── skills/                   # Habilidades incluidas (copiadas a ~/.anakot/skills/ en la instalación)
 ├── optional-skills/          # Habilidades opcionales oficiales (descubribles vía hub, no activadas por defecto)
 ├── tests/                    # Suite de tests
-├── website/                  # Sitio de documentación (anakot-agent.nousresearch.com)
+├── website/                  # Sitio de documentación (hermes-agent.nousresearch.com)
 │
 ├── cli-config.yaml.example   # Configuración de ejemplo (copiada a ~/.anakot/config.yaml)
 └── AGENTS.md                 # Guía de desarrollo para asistentes de codificación IA

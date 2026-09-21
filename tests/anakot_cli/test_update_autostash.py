@@ -55,10 +55,18 @@ def _patch_gateway_discovery():
     The launchd scope is neutralised too: on a macOS host the restart phase
     derives labels from the profile layout, so a default profile alone hands
     it ``ai.anakot.gateway`` and the verify step exits 1 (#111866, #110701).
+
+    Windows has the mirror-image problem: the real pause returns a resume
+    token, and the matching resume phase cold-starts a gateway with a real
+    ``Popen``, which the suite's live-system guard blocks — the phase then
+    reports ``incomplete`` and the whole run exits 1 (#78574). With no token
+    the resume is a no-op, which is what "none of the tests here assert on
+    gateway restarts" means on every host.
     """
     with patch("anakot_cli.gateway.find_gateway_pids", return_value=[]), \
          patch("anakot_cli.gateway.supports_systemd_services", return_value=False), \
          patch("anakot_cli.update_cmd_fleet._restart_macos_launchd_gateways", lambda *a, **k: None), \
+         patch.object(anakot_main, "_pause_windows_gateways_for_update", lambda *a, **k: None), \
          patch("anakot_cli.gateway.find_profile_gateway_processes", return_value=[]), \
          patch("anakot_cli.update_inventory.collect_runtime_inventory", return_value=None), \
          patch("anakot_cli.update_inventory.report_unaccounted_runtimes", return_value=False), \

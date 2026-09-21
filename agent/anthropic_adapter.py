@@ -298,7 +298,7 @@ def _beta_header(betas: list) -> Dict[str, str]:
 def _attribution_headers() -> Dict[str, str]:
     """Same client-attribution set sent to OpenRouter / Vercel AI Gateway / Fireworks."""
     return {
-        "HTTP-Referer": "https://anakot-agent.nousresearch.com", "X-Title": "Anakot Agent",
+        "HTTP-Referer": "https://hermes-agent.nousresearch.com", "X-Title": "Anakot Agent",
         "User-Agent": f"AnakotAgent/{_ANAKOT_VERSION}",
     }
 
@@ -490,7 +490,7 @@ _OAUTH_SYSTEM_REPLACEMENTS = (
     ("Anakot Agent", "Claude Code"), ("anakot agent", "Claude Code"), ("Nous Research", "Anthropic"),
 )
 # The slug is rewritten only as a standalone prose word. Joined to a host, path, repo, mailbox
-# or quoted as an identifier (``anakot-agent.nousresearch.com``, ``~/.anakot/anakot-agent/venv``,
+# or quoted as an identifier (``hermes-agent.nousresearch.com``, ``~/.anakot/anakot-agent/venv``,
 # ``Chensihakniroth/anakot-agent-v1``, ``skill_view(name='anakot-agent')``) it is an address the model
 # dereferences, and the rewritten form does not exist (#48860). The OPENING quote marks an
 # identifier; a sentence-final ``.`` or a possessive ``'s`` is prose.

@@ -1,7 +1,7 @@
 # Anakot CLI Reference
 
 Live sources when anything looks stale: `anakot --help`, `anakot <command> --help`,
-https://anakot-agent.nousresearch.com/docs/reference/cli-commands
+https://hermes-agent.nousresearch.com/docs/reference/cli-commands
 
 ### Global Flags
 
@@ -79,7 +79,7 @@ anakot gateway run|install|start|stop|restart|status|setup
 ```
 
 20+ platforms: Telegram, Discord, Slack, WhatsApp (Baileys + Business Cloud API), iMessage (Photon — `anakot photon setup`), Signal, Email, SMS, Matrix, Mattermost, Teams, LINE, SimpleX, ntfy, Google Chat, Home Assistant, DingTalk, Feishu, WeCom, Weixin, API Server, Webhooks. Open WebUI connects via the API Server adapter. Most adapters ship under `plugins/platforms/`.
-Docs: https://anakot-agent.nousresearch.com/docs/user-guide/messaging/
+Docs: https://hermes-agent.nousresearch.com/docs/user-guide/messaging/
 
 ### Sessions
 
@@ -142,10 +142,10 @@ Plugin- and provider-supplied subcommands (e.g. `anakot photon setup`) only appe
 
 | Looking for... | Location |
 |---|---|
-| Config options | `anakot config edit` · [Configuration docs](https://anakot-agent.nousresearch.com/docs/user-guide/configuration) |
-| Tools / toolsets | `anakot tools list` · [Tools reference](https://anakot-agent.nousresearch.com/docs/reference/tools-reference) |
-| Skills catalog | `anakot skills browse` · [Skills catalog](https://anakot-agent.nousresearch.com/docs/reference/skills-catalog) |
-| Provider setup | `anakot model` · [Providers guide](https://anakot-agent.nousresearch.com/docs/integrations/providers) |
-| Env variables | `anakot config env-path` · [Env vars reference](https://anakot-agent.nousresearch.com/docs/reference/environment-variables) |
+| Config options | `anakot config edit` · [Configuration docs](https://hermes-agent.nousresearch.com/docs/user-guide/configuration) |
+| Tools / toolsets | `anakot tools list` · [Tools reference](https://hermes-agent.nousresearch.com/docs/reference/tools-reference) |
+| Skills catalog | `anakot skills browse` · [Skills catalog](https://hermes-agent.nousresearch.com/docs/reference/skills-catalog) |
+| Provider setup | `anakot model` · [Providers guide](https://hermes-agent.nousresearch.com/docs/integrations/providers) |
+| Env variables | `anakot config env-path` · [Env vars reference](https://hermes-agent.nousresearch.com/docs/reference/environment-variables) |
 | Gateway logs | `~/.anakot/logs/gateway.log` (or `anakot logs`) |
 | Sessions | `anakot sessions browse` (reads state.db) |

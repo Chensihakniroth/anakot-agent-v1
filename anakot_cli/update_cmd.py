@@ -881,10 +881,15 @@ def _pull_updates(
         return pre_pull_sha
 
     # Also check if current HEAD is already at origin/main (fresh-tree already pushed).
-    # After _pull_updates_fork(), local main == origin/main, so the merge is a no-op.
+    # After the rebrand sync, local main == origin/main, so the merge is a no-op.
+    #
+    # Both SHAs must be REAL: a failed ``rev-parse`` prints nothing, so two empty
+    # results compare equal and would be read as "already updated" — silently
+    # skipping the pull (and disarming the post-pull no-op guard, which needs a
+    # truthy ``pre_pull_sha``) on a git that merely misbehaved.
     local_head = _git_run(git_cmd, ["rev-parse", "HEAD"]).stdout.strip()
     remote_head = _git_run(git_cmd, ["rev-parse", f"origin/{branch}"]).stdout.strip()
-    if local_head == remote_head:
+    if local_head and remote_head and local_head == remote_head:
         print("  ✓ Tree already updated via fresh-tree approach — skipping merge.")
         # Return the NEW HEAD SHA so _apply_pulled_update() doesn't think it's a no-op
         return local_head
@@ -1157,7 +1162,7 @@ def _prepare_git_command() -> tuple[bool, list, bool]:
     use_zip_update = not git_dir.exists()
     if use_zip_update and sys.platform != "win32":
         print("✗ Not a git repository. Please reinstall:")
-        print("  curl -fsSL https://anakot-agent.nousresearch.com/install.sh | bash")
+        print("  curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash")
         sys.exit(1)
 
     git_cmd = _base_git_cmd()

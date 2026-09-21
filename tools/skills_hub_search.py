@@ -24,7 +24,7 @@ from tools.skills_hub_sources import BrowseShSource, LobeHubSource, UrlSource, W
 # Log-record parity with the origin module.
 logger = logging.getLogger("tools.skills_hub")
 
-ANAKOT_INDEX_URL = "https://anakot-agent.nousresearch.com/docs/api/skills-index.json"
+ANAKOT_INDEX_URL = "https://hermes-agent.nousresearch.com/docs/api/skills-index.json"
 ANAKOT_INDEX_TTL = 6 * 3600  # 6 hours
 
 

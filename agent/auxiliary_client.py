@@ -837,7 +837,7 @@ _PROVIDERS_WITHOUT_VISION: frozenset = frozenset({"kimi-coding", "kimi-coding-cn
 
 # OpenRouter app attribution (always sent). `X-Title` is what the dashboard reads.
 _OR_HEADERS_BASE = {
-    "HTTP-Referer": "https://anakot-agent.nousresearch.com",
+    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
     "X-Title": "Anakot Agent",
     "X-OpenRouter-Categories": "productivity,cli-agent",
 }
@@ -905,7 +905,7 @@ def build_nvidia_nim_headers(base_url: str | None) -> dict:
 from anakot_cli import __version__ as _ANAKOT_VERSION
 
 _AI_GATEWAY_HEADERS = {
-    "HTTP-Referer": "https://anakot-agent.nousresearch.com",
+    "HTTP-Referer": "https://hermes-agent.nousresearch.com",
     "X-Title": "Anakot Agent",
     "User-Agent": f"AnakotAgent/{_ANAKOT_VERSION}",
 }

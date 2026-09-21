@@ -133,9 +133,17 @@ ai.anakot.gateway = {
 """
 
 
+@pytest.mark.macos_only
 class TestServicePidSweepExclusion:
     """Regression for the PR #75021 review: `_get_service_pids()` must not
     rely on `launchctl list` alone.
+
+    macOS-only: the fixture drives the launchd branch by patching
+    ``gateway.is_macos`` to True, and the real ``_launchd_domain`` path it
+    feeds reads the host uid (``os.getuid``), which does not exist on native
+    Windows. Faking that on Windows is the shape AGENTS.md § "Don't fake the
+    host OS" forbids, so the tests run on the macOS lane instead — see
+    ``scripts/ci/list_os_marked_tests.py``.
 
     In the session-scoped failure state (`list` exits non-zero while the
     domain-qualified `print` reports a positive PID) the launchd-owned

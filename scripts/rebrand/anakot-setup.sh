@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # anakot-setup — full setup from scratch
 #
-# 1. Clone latest Hermes Agent upstream
+# 1. Clone latest Anakot Agent upstream
 # 2. Run actual agent setup (deps, venv, entry points)
-# 3. Apply rebrand (hermes → anakot) + custom patches
+# 3. Apply rebrand (anakot → anakot) + custom patches
 # 4. Build & install desktop app
 # 5. Sanity check — verify everything works
 #
@@ -24,14 +24,14 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 REBRAND_PY="${SCRIPT_DIR}/rebrand.py"
 CUSTOM_PATCHES="${SCRIPT_DIR}/custom_patches.py"
 
-# Target: where to clone Hermes + apply rebrand
+# Target: where to clone Anakot + apply rebrand
 # Default: sibling directory to the repo (so repo stays clean)
 TARGET_DIR="${1:-${REPO_ROOT}/../anakot-agent-v1}"
 
 # Remotes
-HERMES_REPO="https://github.com/NousResearch/hermes-agent.git"
+ANAKOT_REPO="https://github.com/Chensihakniroth/anakot-agent-v1.git"
 # Fork remote — override with ANAKOT_FORK_REMOTE env var
-ANAKOT_REMOTE="${ANAKOT_FORK_REMOTE:-https://github.com/Chensihakniroth/anakot-agent-beta.git}"
+ANAKOT_REMOTE="${ANAKOT_FORK_REMOTE:-https://github.com/Chensihakniroth/anakot-agent-v1.git}"
 
 # ── Colors & Formatting ────────────────────────────────────────────────
 RED='\033[0;31m'
@@ -73,16 +73,16 @@ trap cleanup_on_error ERR
 echo ""
 echo -e "${BOLD}${CYAN}╔══════════════════════════════════════════════════════════════╗${NC}"
 echo -e "${BOLD}${CYAN}║${NC}           ${BOLD}Anakot Agent — Full Setup${NC}                      ${BOLD}${CYAN}║${NC}"
-echo -e "${BOLD}${CYAN}║${NC}     Rebranded Hermes Agent with custom modifications       ${BOLD}${CYAN}║${NC}"
+echo -e "${BOLD}${CYAN}║${NC}     Rebranded Anakot Agent with custom modifications       ${BOLD}${CYAN}║${NC}"
 echo -e "${BOLD}${CYAN}╚══════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "  ${DIM}Target:${NC}     ${TARGET_DIR}"
-echo -e "  ${DIM}Upstream:${NC}   ${HERMES_REPO}"
+echo -e "  ${DIM}Upstream:${NC}   ${ANAKOT_REPO}"
 echo -e "  ${DIM}Fork:${NC}       ${ANAKOT_REMOTE}"
 echo ""
 
-# ── Step 1: Clone latest Hermes Agent ──────────────────────────────────
-step "Step 1: Clone latest Hermes Agent"
+# ── Step 1: Clone latest Anakot Agent ──────────────────────────────────
+step "Step 1: Clone latest Anakot Agent"
 advance_step
 
 CLONE_SKIPPED=false
@@ -110,14 +110,14 @@ if [ -d "${TARGET_DIR}/.git" ]; then
 fi
 
 if [ "$CLONE_SKIPPED" = false ]; then
-    info "Cloning from ${HERMES_REPO}..."
+    info "Cloning from ${ANAKOT_REPO}..."
 
     # Clone with progress bar
     if command -v pv >/dev/null 2>&1; then
-        git clone --depth 1 --progress "${HERMES_REPO}" "${TARGET_DIR}" 2>&1 | \
+        git clone --depth 1 --progress "${ANAKOT_REPO}" "${TARGET_DIR}" 2>&1 | \
             pv -l -t -e -r -b -N "Cloning" >/dev/null
     else
-        git clone --depth 1 --progress "${HERMES_REPO}" "${TARGET_DIR}" 2>&1 | \
+        git clone --depth 1 --progress "${ANAKOT_REPO}" "${TARGET_DIR}" 2>&1 | \
             while IFS= read -r line; do
                 printf "\r\033[K  %s" "${line}"
             done
@@ -133,7 +133,7 @@ if [ "$CLONE_SKIPPED" = false ]; then
     # Set up remotes
     git remote rename origin upstream 2>/dev/null || true
     git remote add origin "${ANAKOT_REMOTE}" 2>/dev/null || true
-    ok "Remotes configured: upstream=Hermes, origin=fork"
+    ok "Remotes configured: upstream=Anakot, origin=fork"
 fi
 
 cd "${TARGET_DIR}"
@@ -197,7 +197,7 @@ step "Step 3: Apply rebrand + custom patches"
 advance_step
 
 # 3a. Apply rebrand
-substep "Applying rebrand (hermes → anakot)"
+substep "Applying rebrand (anakot → anakot)"
 if [ ! -f "${REBRAND_PY}" ]; then
     err "Rebrand script not found at ${REBRAND_PY}"
     exit 1
@@ -419,12 +419,12 @@ check "anakot_constants imports" python3 -c "import anakot_constants"
 check "anakot_logging imports" python3 -c "import anakot_logging"
 check "anakot_state imports" python3 -c "import anakot_state"
 
-HERMES_CLI_REFS=$(grep -rl "from hermes_cli\|import hermes_cli" --include="*.py" . 2>/dev/null | grep -v __pycache__ | grep -v rebrand | grep -v update_cmd_git | grep -v banner.py | wc -l || true)
-if [ "${HERMES_CLI_REFS}" -eq 0 ]; then
-    ok "No hermes_cli imports in code"
+ANAKOT_CLI_REFS=$(grep -rl "from anakot_cli\|import anakot_cli" --include="*.py" . 2>/dev/null | grep -v __pycache__ | grep -v rebrand | grep -v update_cmd_git | grep -v banner.py | wc -l || true)
+if [ "${ANAKOT_CLI_REFS}" -eq 0 ]; then
+    ok "No anakot_cli imports in code"
     PASS=$((PASS + 1))
 else
-    err "Found ${HERMES_CLI_REFS} files with hermes_cli imports"
+    err "Found ${ANAKOT_CLI_REFS} files with anakot_cli imports"
     FAIL=$((FAIL + 1))
 fi
 
@@ -470,7 +470,7 @@ echo -e "${BOLD}${CYAN}  Anakot Agent Setup Complete${NC}"
 echo -e "${BOLD}${CYAN}════════════════════════════════════════════════════════════${NC}"
 echo ""
 echo -e "  ${DIM}Target:${NC}     ${TARGET_DIR}"
-echo -e "  ${DIM}Real Hermes:${NC} ${HOME}/.hermes/hermes-agent/ (untouched)"
+echo -e "  ${DIM}Real Anakot:${NC} ${HOME}/.anakot/anakot-agent/ (untouched)"
 echo -e "  ${DIM}Anakot:${NC}      ${TARGET_DIR} (rebranded)"
 echo ""
 echo -e "  ${GREEN}Checks passed: ${PASS}${NC}"

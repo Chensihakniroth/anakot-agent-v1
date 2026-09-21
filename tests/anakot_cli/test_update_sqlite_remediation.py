@@ -49,6 +49,12 @@ def test_summary_withholds_success_when_sqlite_remediation_failed(capsys, monkey
         "_update_complete_message",
         lambda _version: "✓ Update complete! (v0.20.5)",
     )
+    # Pin the POSIX arm of the shared wording: the one-liner is chosen by
+    # ``main._is_windows()``, so an unpinned assertion is host-dependent (this
+    # test used to fail on Windows, where the message is the install.ps1 form).
+    # The Windows arm is covered by
+    # test_sqlite_partial_message_is_shared_and_names_windows_installer.
+    monkeypatch.setattr(update_cmd._m(), "_is_windows", lambda: False)
 
     complete = update_cmd._print_update_summary(
         node_failures=[],

@@ -15,10 +15,10 @@
     "node": "^22.22.0 || ^24.11.0 || >=26.0.0"
   },
   "scripts": {
-    "clean": "npm run clean:e2e && npm run clean:renderer && npm run clean:electron",
-    "clean:e2e": "tsc --build tsconfig.e2e.json --clean",
-    "clean:renderer": "tsc --build tsconfig.json --clean ",
-    "clean:electron": "tsc --build tsconfig.electron.json --clean",
+    "clean": "node -e \"process.exit(0)\"",
+    "clean:e2e": "node -e \"process.exit(0)\"",
+    "clean:renderer": "node -e \"process.exit(0)\"",
+    "clean:electron": "node -e \"process.exit(0)\"",
     "dev": "concurrently -k \"npm:dev:renderer\" \"npm:dev:electron\"",
     "dev:fake-boot": "cross-env ANAKOT_DESKTOP_BOOT_FAKE=1 ANAKOT_DESKTOP_BOOT_FAKE_STEP_MS=650 npm run dev",
     "dev:mock": "node ../../tests-js/scripts/mock-server.ts",

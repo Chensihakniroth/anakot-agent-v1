@@ -920,7 +920,7 @@ export default function PluginsPage() {
               {t.pluginsPage.catalogEmpty ?? "No catalog entries match."}{" "}
               <a
                 className="underline"
-                href="https://anakot-agent.nousresearch.com/docs/plugins"
+                href="https://hermes-agent.nousresearch.com/docs/plugins"
                 target="_blank"
                 rel="noreferrer"
               >

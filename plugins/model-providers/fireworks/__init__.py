@@ -34,7 +34,7 @@ fireworks = FireworksProfile(
     # Attribution headers (canonical Anakot set); via default_headers so they
     # survive switch_model and credential rotation.
     default_headers={
-        "HTTP-Referer": "https://anakot-agent.nousresearch.com",
+        "HTTP-Referer": "https://hermes-agent.nousresearch.com",
         "X-Title": "Anakot Agent",
         "User-Agent": f"AnakotAgent/{_ANAKOT_VERSION}",
     },

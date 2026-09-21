@@ -8,7 +8,7 @@ const config: Config = {
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://anakot-agent.nousresearch.com',
+  url: 'https://hermes-agent.nousresearch.com',
   baseUrl: '/docs/',
 
   organizationName: 'NousResearch',
@@ -144,7 +144,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://anakot-agent.nousresearch.com/',
+          href: 'https://hermes-agent.nousresearch.com/',
           label: 'Download',
           position: 'left',
         },
@@ -153,7 +153,7 @@ const config: Config = {
           position: 'right',
         },
         {
-          href: 'https://anakot-agent.nousresearch.com',
+          href: 'https://hermes-agent.nousresearch.com',
           label: 'Home',
           position: 'right',
         },
@@ -192,7 +192,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'Desktop Download', href: 'https://anakot-agent.nousresearch.com/' },
+            { label: 'Desktop Download', href: 'https://hermes-agent.nousresearch.com/' },
             { label: 'GitHub', href: 'https://github.com/Chensihakniroth/anakot-agent-v1' },
             { label: 'Nous Research', href: 'https://nousresearch.com' },
           ],

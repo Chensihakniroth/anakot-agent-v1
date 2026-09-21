@@ -83,7 +83,7 @@ Packaging/repository/signing problems for this option should be reported to the 
 Anakot now ships a Termux-aware installer path:
 
 ```bash
-curl -fsSL https://anakot-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 ```
 
 On Termux, the installer automatically:

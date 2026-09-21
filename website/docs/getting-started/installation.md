@@ -15,7 +15,7 @@ platform-gated features are supported), see **[Platform Support](./platform-supp
 
 ## Quick Install
 ### With the Anakot Desktop installer on macOS or Windows (recommended)
-To easily install the command-line and desktop applications, [download the Anakot Desktop installer](https://anakot-agent.nousresearch.com/) from our website and run it.
+To easily install the command-line and desktop applications, [download the Anakot Desktop installer](https://hermes-agent.nousresearch.com/) from our website and run it.
 
 :::note
 The macOS installer is **Apple Silicon only**. macOS on x86 (Intel) processors is [not a supported platform](./platform-support.md#unsupported).
@@ -26,14 +26,14 @@ For a command-line only install without Anakot Desktop, run:
 
 #### Linux / macOS / WSL2 / Android (Termux)
 ```bash
-curl -fsSL https://anakot-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 ```
 
 #### Windows (native)
 
 Run in powershell:
 ```powershell
-iex (irm https://anakot-agent.nousresearch.com/install.ps1) 
+iex (irm https://hermes-agent.nousresearch.com/install.ps1) 
 ```
 
 If you want to install & run Anakot Desktop after a command-line only install, simply run
@@ -132,12 +132,12 @@ Running Anakot as a dedicated unprivileged user (e.g. a `anakot` systemd service
 
 2. **As the unprivileged service user**, run the regular installer. It will detect the missing sudo, skip `--with-deps`, and install Chromium into the user's local Playwright cache:
    ```bash
-   curl -fsSL https://anakot-agent.nousresearch.com/install.sh | bash
+   curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
    ```
 
    If you want to skip the Playwright step entirely — for example because you're running headless and don't need browser automation — pass `--skip-browser`:
    ```bash
-   curl -fsSL https://anakot-agent.nousresearch.com/install.sh | bash -s -- --skip-browser
+   curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-browser
    ```
 
    The installer also pre-installs [`cua-driver`](../user-guide/features/computer-use.md) so the Computer Use toolset works the moment you enable it; pass `--skip-computer-use` to opt out (it will then install on demand when you enable the tool).

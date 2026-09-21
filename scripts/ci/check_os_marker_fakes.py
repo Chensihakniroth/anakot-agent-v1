@@ -56,7 +56,6 @@ _BASELINE = frozenset(
         "tests/anakot_cli/test_macos_fda_guidance.py",
         "tests/anakot_cli/test_orphan_desktop_serve_reap.py",
         "tests/anakot_cli/test_update_launchd_restart_verification.py",
-        "tests/anakot_cli/test_update_launchd_unloaded_gateway.py",
         "tests/anakot_cli/test_urllib_security.py",
         "tests/anakot_state/test_state_synchronous_pragma.py",
         "tests/test_anakot_constants.py",

@@ -49,7 +49,7 @@ development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
-curl -fsSL https://anakot-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 cd "${ANAKOT_HOME:-$HOME/.anakot}/anakot-agent"
 
 # Add dev/test extras on top of the standard install.

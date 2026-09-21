@@ -312,8 +312,8 @@ The CLI uses argparse, so `--help` is a good first probe for "did my new flag re
 
 ## See also
 
-- User-facing setup + troubleshooting: [Egress proxy](https://anakot-agent.nousresearch.com/docs/user-guide/egress/iron-proxy)
-- Docker backend internals: [Docker](https://anakot-agent.nousresearch.com/docs/user-guide/docker)
-- Bitwarden Secrets Manager integration: [`anakot secrets bitwarden`](https://anakot-agent.nousresearch.com/docs/user-guide/secrets/bitwarden)
-- CLI command reference: [`anakot egress`](https://anakot-agent.nousresearch.com/docs/reference/cli-commands#anakot-egress)
-- Sandbox-injected environment variables: [Egress proxy (sandbox-injected)](https://anakot-agent.nousresearch.com/docs/reference/environment-variables#egress-proxy-sandbox-injected)
+- User-facing setup + troubleshooting: [Egress proxy](https://hermes-agent.nousresearch.com/docs/user-guide/egress/iron-proxy)
+- Docker backend internals: [Docker](https://hermes-agent.nousresearch.com/docs/user-guide/docker)
+- Bitwarden Secrets Manager integration: [`anakot secrets bitwarden`](https://hermes-agent.nousresearch.com/docs/user-guide/secrets/bitwarden)
+- CLI command reference: [`anakot egress`](https://hermes-agent.nousresearch.com/docs/reference/cli-commands#anakot-egress)
+- Sandbox-injected environment variables: [Egress proxy (sandbox-injected)](https://hermes-agent.nousresearch.com/docs/reference/environment-variables#egress-proxy-sandbox-injected)

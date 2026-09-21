@@ -5,7 +5,7 @@
 # Uses uv for fast Python provisioning and package management.
 #
 # Usage:
-#   iex (irm https://anakot-agent.nousresearch.com/install.ps1)
+#   iex (irm https://hermes-agent.nousresearch.com/install.ps1)
 #
 # Or download and run with options:
 #   .\install.ps1 -NoVenv -SkipSetup
@@ -4404,7 +4404,8 @@ function Install-Desktop {
         if ($code -eq 0) {
             $ensureRolldownScript = "apps/desktop/scripts/ensure-rolldown-binding.mjs"
             if (Test-Path -LiteralPath $ensureRolldownScript) {
-                & node $ensureRolldownScript
+                $nodeExe = if (Test-Path (Join-Path (Split-Path $npmExe -Parent) "node.exe")) { Join-Path (Split-Path $npmExe -Parent) "node.exe" } else { "node" }
+                & $nodeExe $ensureRolldownScript
                 $code = $LASTEXITCODE
             }
         }
@@ -4504,6 +4505,12 @@ function Install-Desktop {
         $env:CSC_IDENTITY_AUTO_DISCOVERY = "false"
         $env:WIN_CSC_LINK = ""
         $env:WIN_CSC_KEY_PASSWORD = ""
+        # Ensure workspace-hoisted node_modules/.bin (e.g. tsc, vite, electron-builder) and node directory are in PATH
+        $nodeDir = Split-Path $npmExe -Parent
+        $rootBin = Join-Path $InstallDir "node_modules\.bin"
+        $desktopBin = Join-Path $desktopDir "node_modules\.bin"
+        $prevPath = $env:PATH
+        $env:PATH = "$desktopBin;$rootBin;$nodeDir;$env:PATH"
         & $npmExe run pack 2>&1 | ForEach-Object { "$_" } | Tee-Object -FilePath $buildLog
         $code = $LASTEXITCODE
         if ($code -ne 0) {
@@ -4568,6 +4575,9 @@ function Install-Desktop {
         $env:CSC_IDENTITY_AUTO_DISCOVERY = $prevCSCAuto
         $env:WIN_CSC_LINK = $prevWinCscLink
         $env:WIN_CSC_KEY_PASSWORD = $prevWinCscKeyPassword
+        if ($prevPath) {
+            $env:PATH = $prevPath
+        }
     }
     Pop-Location
 
@@ -5381,7 +5391,7 @@ catch {
     Write-Err "Installation failed: $_"
     Write-Host ""
     Write-Info "If the error is unclear, try downloading and running the script directly:"
-    Write-Host "  Invoke-WebRequest -Uri 'https://anakot-agent.nousresearch.com/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
+    Write-Host "  Invoke-WebRequest -Uri 'https://hermes-agent.nousresearch.com/install.ps1' -OutFile install.ps1" -ForegroundColor Yellow
     Write-Host "  .\install.ps1" -ForegroundColor Yellow
     Write-Host ""
 }

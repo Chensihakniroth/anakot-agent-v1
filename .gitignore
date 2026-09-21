@@ -1,3 +1,10 @@
+# Rebranded-fork note: this checkout is NousResearch/hermes-agent rebranded to
+# Anakot, and the rebrand skips extension-less files — so both the pre-rebrand
+# (`hermes*`) and post-rebrand (`anakot*`) names are listed for the paths the
+# rebrand touched. Dropping the anakot twins makes `anakot update`'s
+# `git stash push --include-untracked` sweep live runtime state (#110648,
+# #112974) and makes the ZIP-swap guard see an untracked tree it must not
+# overlay. `scripts/rebrand/custom_patches.py` re-applies them after a rebrand.
 .DS_Store
 /venv/
 /venv.old/
@@ -35,6 +42,7 @@ data/
 # Bundled community plugin index seed (shipped as package data) — the bare
 # `data/` pattern above would otherwise swallow it.
 !hermes_cli/data/
+!anakot_cli/data/
 .pytest_cache/
 test_durations.json
 .pytest-cache/
@@ -64,6 +72,7 @@ privvy*
 images/
 __pycache__/
 hermes_agent.egg-info/
+anakot_agent.egg-info/
 wandb/
 testlogs
 playwright-report/
@@ -82,6 +91,7 @@ environments/benchmarks/evals/
 
 # Web UI build output
 hermes_cli/web_dist/
+anakot_cli/web_dist/
 # Cross-process web UI build lock (flock target, always empty)
 .web_ui_build.lock
 apps/desktop/build/
@@ -156,17 +166,21 @@ config/mcporter.json
 
 hermes_cli/tui_dist/*
 hermes_cli/scripts/
+anakot_cli/tui_dist/*
+anakot_cli/scripts/
 docs/superpowers/*
 # Working directory for the Hermes Agent's session state (~/.hermes/ at runtime;
 # also created in-repo when an agent operates in this checkout). Plans, audit
 # logs, and per-session caches are never artifacts of the codebase.
 .hermes/
+.anakot/
 
 # Desktop/bootstrap install marker written into the managed checkout root by the
-# bootstrap installer. It is Hermes-managed runtime state, never a code change —
-# ignore it so `hermes update`'s `git stash push --include-untracked` does not
+# bootstrap installer. It is Anakot-managed runtime state, never a code change —
+# ignore it so `anakot update`'s `git stash push --include-untracked` does not
 # treat it as a local edit and autostash it on every run (#38529).
 .hermes-bootstrap-complete
+.anakot-bootstrap-complete
 
 # Flat-install runtime state (checkout root == $HERMES_HOME, e.g. installs made
 # with HERMES_INSTALL_DIR=$HERMES_HOME or by older installers): every root-level
@@ -214,6 +228,7 @@ docs/superpowers/*
 /.clean_shutdown
 /active_profile
 /.hermes_history
+/.anakot_history
 /slack_tokens.json
 /hook_outputs/
 /hooks/

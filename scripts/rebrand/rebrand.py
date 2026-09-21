@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Rebrand Hermes Agent → Anakot Agent (exclusion-aware).
+"""Rebrand Anakot Agent → Anakot Agent (exclusion-aware).
 
 Usage: python3 rebrand.py [target_dir]
 
-Excludes update-system files that need the Hermes URL for upstream tracking.
+Excludes update-system files that need the Anakot URL for upstream tracking.
 """
 
 import os
@@ -11,57 +11,62 @@ import shutil
 import subprocess
 import sys
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # Replacements ordered longest-first / most-specific-first
 REPLACEMENTS = [
     # Module/package identifiers
-    (r'hermes_cli', 'anakot_cli'),
-    (r'hermes_state', 'anakot_state'),
-    (r'hermes_logging', 'anakot_logging'),
-    (r'hermes_constants', 'anakot_constants'),
-    (r'hermes_home', 'anakot_home'),
-    (r'hermes_bootstrap', 'anakot_bootstrap'),
-    (r'hermes_time', 'anakot_time'),
-    (r'hermes_startup', 'anakot_startup'),
+    (r'anakot_cli', 'anakot_cli'),
+    (r'anakot_state', 'anakot_state'),
+    (r'anakot_logging', 'anakot_logging'),
+    (r'anakot_constants', 'anakot_constants'),
+    (r'anakot_home', 'anakot_home'),
+    (r'anakot_bootstrap', 'anakot_bootstrap'),
+    (r'anakot_time', 'anakot_time'),
+    (r'anakot_startup', 'anakot_startup'),
 
     # Repo / URLs — EXCLUDED from update-system files
-    (r'NousResearch/hermes-agent', 'Chensihakniroth/anakot-agent-v1'),
-    (r'hermes-agent', 'anakot-agent'),
-    (r'hermes_agent', 'anakot_agent'),
+    (r'Chensihakniroth/anakot-agent-v1', 'Chensihakniroth/anakot-agent-v1'),
+    (r'anakot-agent', 'anakot-agent'),
+    (r'anakot_agent', 'anakot_agent'),
 
     # Dot-directories
-    (r'\.hermes', '.anakot'),
+    (r'.anakot', '.anakot'),
 
     # Environment variables
-    (r'HERMES_HOME', 'ANAKOT_HOME'),
-    (r'HERMES_', 'ANAKOT_'),
-    (r'HERMES', 'ANAKOT'),
+    (r'ANAKOT_HOME', 'ANAKOT_HOME'),
+    (r'ANAKOT_', 'ANAKOT_'),
+    (r'ANAKOT', 'ANAKOT'),
 
     # TypeScript component references
-    (r'HermesConsole', 'AnakotConsole'),
-    (r'hermes-parity', 'anakot-parity'),
-    (r'hermes-capability', 'anakot-capability'),
-    (r'hermes-profile', 'anakot-profile'),
-    (r'hermes-cron', 'anakot-cron'),
-    (r'hermes-config', 'anakot-config'),
-    (r'hermes-open', 'anakot-open'),
-    (r'hermes-sprite', 'anakot-sprite'),
-    (r'hermes-frame', 'anakot-frame'),
+    (r'AnakotConsole', 'AnakotConsole'),
+    (r'anakot-parity', 'anakot-parity'),
+    (r'anakot-capability', 'anakot-capability'),
+    (r'anakot-profile', 'anakot-profile'),
+    (r'anakot-cron', 'anakot-cron'),
+    (r'anakot-config', 'anakot-config'),
+    (r'anakot-open', 'anakot-open'),
+    (r'anakot-sprite', 'anakot-sprite'),
+    (r'anakot-frame', 'anakot-frame'),
 
     # Display text
-    (r'Hermes Agent', 'Anakot Agent'),
-    (r'Hermes agent', 'anakot agent'),
-    (r'Hermes Desktop', 'Anakot Desktop'),
-    (r'Hermes CLI', 'Anakot CLI'),
-    (r'Hermes TUI', 'Anakot TUI'),
-    (r'Hey Hermes', 'Hey Anakot'),
+    (r'Anakot Agent', 'Anakot Agent'),
+    (r'anakot agent', 'anakot agent'),
+    (r'Anakot Desktop', 'Anakot Desktop'),
+    (r'Anakot CLI', 'Anakot CLI'),
+    (r'Anakot TUI', 'Anakot TUI'),
+    (r'Hey Anakot', 'Hey Anakot'),
 
     # Catch remaining
-    (r'hermes', 'anakot'),
-    (r'Hermes', 'Anakot'),
+    (r'anakot', 'anakot'),
+    (r'Anakot', 'Anakot'),
 ]
 
 # Files that must NOT have the upstream URL replaced
-# These track the upstream Hermes repo for update detection
+# These track the upstream Anakot repo for update detection
 EXCLUDED_FILES_FOR_UPSTREAM_URL = {
     'update_cmd_git.py',
     'banner.py',
@@ -71,7 +76,7 @@ EXCLUDED_FILES_FOR_UPSTREAM_URL = {
 # Exact strings that must never be replaced
 EXACT_SKIP_STRINGS = [
     'api.github.com/repos/nousresearch/hermes-agent',
-    'api.github.com/repos/NousResearch/hermes-agent',
+    'api.github.com/repos/Chensihakniroth/anakot-agent-v1',
     'hermes-agent.nousresearch.com',
 ]
 
@@ -97,18 +102,18 @@ def process_file(filepath):
     basename = os.path.basename(filepath)
 
     for pattern, replacement in REPLACEMENTS:
-        # Skip the upstream-URL replacement for files that track Hermes
-        if pattern == r'NousResearch/hermes-agent' and basename in EXCLUDED_FILES_FOR_UPSTREAM_URL:
+        # Skip the upstream-URL replacement for files that track Anakot
+        if pattern == r'Chensihakniroth/anakot-agent-v1' and basename in EXCLUDED_FILES_FOR_UPSTREAM_URL:
             continue
         if pattern in content:
             content = content.replace(pattern, replacement)
 
     # Restore any exact skip strings that got replaced
     for skip in EXACT_SKIP_STRINGS:
-        anakot_url = skip.replace('nousresearch/hermes-agent', 'nousresearch/anakot-agent')
-        anakot_url = anakot_url.replace('NousResearch/hermes-agent', 'NousResearch/anakot-agent')
-        # Also handle hermes-agent.nousresearch.com → anakot-agent.nousresearch.com
-        anakot_url = anakot_url.replace('hermes-agent.nousresearch.com', 'anakot-agent.nousresearch.com')
+        anakot_url = skip.replace('nousresearch/anakot-agent', 'nousresearch/anakot-agent')
+        anakot_url = anakot_url.replace('Chensihakniroth/anakot-agent-v1', 'NousResearch/anakot-agent')
+        # Also handle hermes-agent.nousresearch.com → hermes-agent.nousresearch.com
+        anakot_url = anakot_url.replace('hermes-agent.nousresearch.com', 'hermes-agent.nousresearch.com')
         if anakot_url in content:
             content = content.replace(anakot_url, skip)
 
@@ -123,63 +128,75 @@ def process_file(filepath):
 
 
 def rename_files_and_dirs():
-    """Find and rename files/directories with 'hermes' in the name."""
-    result = subprocess.run(
-        ['find', '.', '-name', '*hermes*', '-not', '-path', './.git/*',
-         '-not', '-path', './node_modules/*'],
-        capture_output=True, text=True
-    )
-    paths = [p for p in result.stdout.strip().split('\n') if p]
-    paths.sort(key=lambda p: -p.count('/'))
+    """Find and rename files/directories with 'anakot' in the name."""
+    candidates = []
+    for dirpath, dirnames, filenames in os.walk('.', topdown=False):
+        dirnames[:] = [d for d in dirnames if d not in SKIP_DIRS]
+        for fname in filenames:
+            if 'anakot' in fname.lower():
+                candidates.append(os.path.join(dirpath, fname))
+        for dname in dirnames:
+            if 'anakot' in dname.lower():
+                candidates.append(os.path.join(dirpath, dname))
+
+    # Sort deepest paths first
+    candidates.sort(key=lambda p: -p.count(os.sep) - p.count('/'))
 
     renamed = 0
-    for old_path in paths:
-        clean_old = old_path.lstrip('./')
-        full_old = os.path.join('.', clean_old)
+    for full_old in candidates:
         if not os.path.exists(full_old):
             continue
-        new_path = clean_old.replace('hermes', 'anakot').replace('Hermes', 'Anakot')
-        full_new = os.path.join('.', new_path)
-        if full_old != full_new:
-            parent = os.path.dirname(full_new)
-            if parent and not os.path.exists(parent):
-                os.makedirs(parent, exist_ok=True)
-            if os.path.isdir(full_old) and os.path.isdir(full_new):
-                shutil.copytree(full_old, full_new, dirs_exist_ok=True)
-                shutil.rmtree(full_old)
-            elif os.path.isdir(full_old) and not os.path.exists(full_new):
+        dirname, basename = os.path.split(full_old)
+        new_basename = basename.replace('anakot', 'anakot').replace('Anakot', 'Anakot')
+        if new_basename == basename:
+            continue
+        full_new = os.path.join(dirname, new_basename)
+        if os.path.exists(full_new) and os.path.isdir(full_old) and os.path.isdir(full_new):
+            shutil.copytree(full_old, full_new, dirs_exist_ok=True)
+            shutil.rmtree(full_old)
+        else:
+            try:
                 os.rename(full_old, full_new)
-            else:
-                os.rename(full_old, full_new)
-            # Fix import inside the renamed binary script (hermes → anakot)
-            if os.path.isfile(full_new) and not os.path.isdir(full_new):
-                try:
-                    with open(full_new, 'r', encoding='utf-8', errors='strict') as f:
-                        content = f.read()
-                    if 'from hermes_cli' in content:
-                        content = content.replace('from hermes_cli', 'from anakot_cli')
-                        with open(full_new, 'w', encoding='utf-8') as f:
-                            f.write(content)
-                except (UnicodeDecodeError, PermissionError, OSError):
-                    pass
-            print(f"  renamed: {clean_old} -> {new_path}")
-            renamed += 1
+            except OSError:
+                continue
+
+        # Fix import inside the renamed binary script (anakot → anakot)
+        if os.path.isfile(full_new):
+            try:
+                with open(full_new, 'r', encoding='utf-8', errors='strict') as f:
+                    content = f.read()
+                if 'from anakot_cli' in content:
+                    content = content.replace('from anakot_cli', 'from anakot_cli')
+                    with open(full_new, 'w', encoding='utf-8') as f:
+                        f.write(content)
+            except (UnicodeDecodeError, PermissionError, OSError):
+                pass
+        print(f"  renamed: {full_old} -> {full_new}")
+        renamed += 1
     return renamed
 
 
 def merge_leftover_dirs():
-    """Merge any leftover hermes_* directories into anakot_* counterparts."""
+    """Merge any leftover anakot_* directories into anakot_* counterparts."""
     merge_pairs = [
-        ('hermes_cli', 'anakot_cli'),
-        ('tests/hermes_cli', 'tests/anakot_cli'),
-        ('tests/hermes_state', 'tests/anakot_state'),
+        ('anakot_cli', 'anakot_cli'),
+        ('tests/anakot_cli', 'tests/anakot_cli'),
+        ('tests/anakot_state', 'tests/anakot_state'),
     ]
     for old_dir, new_dir in merge_pairs:
-        old_path = os.path.join('.', old_dir)
-        new_path = os.path.join('.', new_dir)
+        old_path = os.path.normpath(old_dir)
+        new_path = os.path.normpath(new_dir)
         if os.path.exists(old_path) and os.path.exists(new_path):
-            subprocess.run(['cp', '-rn', old_path + '/*', new_path + '/'], cwd='.')
-            subprocess.run(['rm', '-rf', old_path], cwd='.')
+            for root, dirs, files in os.walk(old_path):
+                rel = os.path.relpath(root, old_path)
+                dest_dir = os.path.join(new_path, rel) if rel != '.' else new_path
+                os.makedirs(dest_dir, exist_ok=True)
+                for f in files:
+                    src_file = os.path.join(root, f)
+                    dst_file = os.path.join(dest_dir, f)
+                    if not os.path.exists(dst_file):
+                        shutil.copy2(src_file, dst_file)
+            shutil.rmtree(old_path, ignore_errors=True)
 
 
 def update_desktop_visuals(root):
@@ -309,7 +326,7 @@ def update_desktop_visuals(root):
     if os.path.exists(intro_copy_path):
         with open(intro_copy_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        content = content.replace('Hermes', 'Anakot').replace('hermes', 'anakot')
+        content = content.replace('Anakot', 'Anakot').replace('anakot', 'anakot')
         with open(intro_copy_path, 'w', encoding='utf-8') as f:
             f.write(content)
 

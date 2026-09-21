@@ -237,7 +237,7 @@ async function locateAnakot(ssh, remoteAnakotPath) {
 
   const err: any = new Error(
     'Anakot is not installed on the remote host (could not find a `anakot` executable). ' +
-      'Install it on the remote with:  curl -fsSL https://anakot-agent.nousresearch.com/install.sh | sh  ' +
+      'Install it on the remote with:  curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh  ' +
       '— or set the Anakot path explicitly in the SSH connection settings.'
   )
 

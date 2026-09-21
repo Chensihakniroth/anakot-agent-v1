@@ -21,7 +21,7 @@ def _assert_anakot_identity_headers(headers):
     plus Perplexity's integration header."""
     from anakot_cli import __version__
 
-    assert headers["HTTP-Referer"] == "https://anakot-agent.nousresearch.com"
+    assert headers["HTTP-Referer"] == "https://hermes-agent.nousresearch.com"
     assert headers["X-Title"] == "Anakot Agent"
     assert headers["User-Agent"] == f"AnakotAgent/{__version__}"
     assert headers["X-Pplx-Integration"] == "anakot-agent"

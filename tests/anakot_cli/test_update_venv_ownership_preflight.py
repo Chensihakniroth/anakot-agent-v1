@@ -34,6 +34,28 @@ def _make_fake_venv(tmp_path):
     return venv
 
 
+def _patch_ownership(monkeypatch, *, euid, foreign_path=None, foreign_uid=0):
+    """Supply the preflight's two ownership inputs as data (host-independent).
+
+    The scan compares ``os.geteuid()`` against each path's ``st_uid``. Neither
+    is portable: ``os.geteuid`` does not exist on native Windows and ``st_uid``
+    is always ``0`` there, so a test that leans on the host's real ownership can
+    only pass on POSIX. Injecting both — "who we are" plus "what each path
+    reports" — keeps the real ``os.stat``/``os.scandir`` walk under test on
+    every host. *foreign_path* is the one entry owned by someone else.
+    """
+    def fake_uid(path):
+        return foreign_uid if foreign_path is not None and str(path) == str(foreign_path) else euid
+
+    monkeypatch.setattr(update_cmd, "_path_uid", fake_uid)
+    monkeypatch.setattr(update_cmd_deps, "_path_uid", fake_uid)
+    # ``update_cmd.os`` / ``update_cmd_deps.os`` are the stdlib module object;
+    # raising=False lets a real Windows host grow the attribute for the test.
+    monkeypatch.setattr(update_cmd.os, "geteuid", lambda: euid, raising=False)
+    monkeypatch.setattr(update_cmd_deps.os, "geteuid", lambda: euid, raising=False)
+    return fake_uid
+
+
 def test_all_owned_returns_empty(tmp_path):
     venv = _make_fake_venv(tmp_path)
     assert update_cmd._venv_foreign_owned_paths(venv) == []
@@ -42,6 +64,7 @@ def test_all_owned_returns_empty(tmp_path):
 def test_all_owned_preflight_proceeds(tmp_path, monkeypatch, capsys):
     """Gate is a no-op (no exit, no output) when everything is user-owned."""
     _make_fake_venv(tmp_path)
+    _patch_ownership(monkeypatch, euid=12345)  # every path reports our own uid
     update_cmd._refuse_update_if_venv_foreign_owned(tmp_path)
     assert capsys.readouterr().out == ""
 
@@ -52,15 +75,7 @@ def test_foreign_owned_dist_info_child_detected(tmp_path, monkeypatch):
         venv / "lib" / "python3.12" / "site-packages"
         / "anakot_agent-1.0.0.dist-info" / "INSTALLER"
     )
-    real_uid = update_cmd._path_uid
-
-    def fake_uid(path):
-        if str(path) == installer:
-            return 0  # simulate root-owned sudo-pip residue
-        return real_uid(path)
-
-    monkeypatch.setattr(update_cmd, "_path_uid", fake_uid)
-    monkeypatch.setattr(update_cmd_deps, "_path_uid", fake_uid)
+    _patch_ownership(monkeypatch, euid=12345, foreign_path=installer, foreign_uid=0)
     foreign = update_cmd._venv_foreign_owned_paths(venv)
     assert foreign == [(installer, 0)]
 
@@ -68,17 +83,7 @@ def test_foreign_owned_dist_info_child_detected(tmp_path, monkeypatch):
 def test_foreign_owned_refuses_with_chown_hint(tmp_path, monkeypatch, capsys):
     venv = _make_fake_venv(tmp_path)
     anakot_bin = str(venv / "bin" / "anakot")
-    real_uid = update_cmd._path_uid
-    monkeypatch.setattr(
-        update_cmd,
-        "_path_uid",
-        lambda p: 0 if str(p) == anakot_bin else real_uid(p),
-    )
-    monkeypatch.setattr(
-        update_cmd_deps,
-        "_path_uid",
-        lambda p: 0 if str(p) == anakot_bin else real_uid(p),
-    )
+    _patch_ownership(monkeypatch, euid=12345, foreign_path=anakot_bin, foreign_uid=0)
     with pytest.raises(SystemExit) as exc:
         update_cmd._refuse_update_if_venv_foreign_owned(tmp_path)
     assert exc.value.code == 1

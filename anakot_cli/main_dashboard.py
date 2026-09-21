@@ -591,7 +591,7 @@ def _maybe_setup_dashboard_auth_interactively(args) -> None:
             "    anakot dashboard register\n"
             "  It provisions a Nous Portal OAuth client and writes "
             "ANAKOT_DASHBOARD_OAUTH_CLIENT_ID into ~/.anakot/.env for you.\n"
-            "  Docs: https://anakot-agent.nousresearch.com/docs/"
+            "  Docs: https://hermes-agent.nousresearch.com/docs/"
             "user-guide/features/web-dashboard#authentication-gated-mode"
         )
         sys.exit(0)

@@ -68,7 +68,7 @@ class TestBuildAnthropicClient:
             )
             kwargs = mock_sdk.Anthropic.call_args[1]
             headers = kwargs["default_headers"]
-            assert headers["HTTP-Referer"] == "https://anakot-agent.nousresearch.com"
+            assert headers["HTTP-Referer"] == "https://hermes-agent.nousresearch.com"
             assert headers["X-Title"] == "Anakot Agent"
             assert headers["User-Agent"].startswith("AnakotAgent/")
             # Auth branch is unchanged: x-api-key via api_key, betas kept.
@@ -1907,7 +1907,7 @@ def test_oauth_system_prompt_sanitizer_preserves_docs_url():
                 "role": "system",
                 "content": (
                     "Anakot Agent by Nous Research uses anakot-agent skills. "
-                    "Docs: https://anakot-agent.nousresearch.com/docs ; "
+                    "Docs: https://hermes-agent.nousresearch.com/docs ; "
                     "interpreter ~/.anakot/anakot-agent/venv/bin/python ; "
                     "source github.com/Chensihakniroth/anakot-agent-v1 ; mail anakot-agent@example.com ; "
                     "skill_view(name='anakot-agent') ; anakot-agent's docs ; built by anakot-agent."
@@ -1923,7 +1923,7 @@ def test_oauth_system_prompt_sanitizer_preserves_docs_url():
 
     system_text = "\n".join(block["text"] for block in kwargs["system"])
     assert "Claude Code by Anthropic uses claude-code skills." in system_text
-    assert "https://anakot-agent.nousresearch.com/docs" in system_text
+    assert "https://hermes-agent.nousresearch.com/docs" in system_text
     # Paths and repo slugs are addresses too: a subagent told to run
     # ``~/.anakot/claude-code/venv/bin/python`` fails on a file that does not exist.
     assert "~/.anakot/anakot-agent/venv/bin/python" in system_text

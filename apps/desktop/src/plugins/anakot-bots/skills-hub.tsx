@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useBots } from './i18n'
 
 // ── skills hub section: the REAL hub page (docs) embedded as a picker ──────
-// https://anakot-agent.nousresearch.com/docs/skills?embed=picker hides the
+// https://hermes-agent.nousresearch.com/docs/skills?embed=picker hides the
 // docs chrome and adds "+ Add to this Agent" per card, posting
 // {type: 'anakot-skill-pick', ...} to us (anakot-agent#86243). We validate
 // the origin, install via skills.manage, and bubble onInstalled so the

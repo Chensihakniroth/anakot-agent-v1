@@ -202,7 +202,7 @@ describe('PluginsTab', () => {
           tier: 'community',
           type: 'anakot-plugin-pick'
         },
-        origin: 'https://anakot-agent.nousresearch.com'
+        origin: 'https://hermes-agent.nousresearch.com'
       })
     )
 
@@ -297,7 +297,7 @@ describe('PluginsTab', () => {
           subdir: 'nested-plugin',
           type: 'anakot-plugin-pick'
         },
-        origin: 'https://anakot-agent.nousresearch.com'
+        origin: 'https://hermes-agent.nousresearch.com'
       })
     )
 
@@ -414,7 +414,7 @@ describe('PluginsTab catalog UX', () => {
           repo: 'https://github.com/example/demo-weather',
           type: 'anakot-plugin-pick'
         },
-        origin: 'https://anakot-agent.nousresearch.com'
+        origin: 'https://hermes-agent.nousresearch.com'
       })
     )
 
@@ -447,7 +447,7 @@ describe('PluginsTab catalog UX', () => {
           repo: 'https://github.com/example/demo-weather',
           type: 'anakot-plugin-pick'
         },
-        origin: 'https://anakot-agent.nousresearch.com'
+        origin: 'https://hermes-agent.nousresearch.com'
       })
     )
 

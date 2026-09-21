@@ -3,7 +3,7 @@
   "updated_at": "2026-09-16T16:50:25Z",
   "metadata": {
     "source": "anakot-agent repo",
-    "docs": "https://anakot-agent.nousresearch.com/docs/reference/model-catalog"
+    "docs": "https://hermes-agent.nousresearch.com/docs/reference/model-catalog"
   },
   "providers": {
     "openrouter": {

@@ -78,7 +78,7 @@ def test_empty_provider_login_page_shows_supported_auth_paths():
     assert "SSH tunnel" in html
     assert "Tailscale" in html
     assert (
-        'href="https://anakot-agent.nousresearch.com/docs/'
+        'href="https://hermes-agent.nousresearch.com/docs/'
         'user-guide/features/web-dashboard#authentication-gated-mode"'
     ) in html
 

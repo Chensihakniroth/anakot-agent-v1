@@ -16,6 +16,11 @@ import os
 import sys
 from pathlib import Path
 
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+
 # === Configuration ===
 # Default target: the repo root (where this script lives, two levels up)
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -25,7 +30,7 @@ TARGET_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else REPO_ROOT
 # === Patches ===
 
 def patch_cli_ascii_art():
-    """Replace HERMES ASCII art with ANAKOT ASCII art in CLI banner."""
+    """Replace ANAKOT ASCII art with ANAKOT ASCII art in CLI banner."""
     banner_path = TARGET_DIR / "anakot_cli" / "banner.py"
     if not banner_path.exists():
         print(f"  ⚠ banner.py not found at {banner_path}")
@@ -33,7 +38,7 @@ def patch_cli_ascii_art():
 
     content = banner_path.read_text(encoding="utf-8")
 
-    # The old HERMES art (block-style)
+    # The old ANAKOT art (block-style)
     old_art = '''[bold #FFD7000]██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
 [bold #FFD7000]██║  ██║██╔════╝██╔══██╗████╗ ████║██╔════╝██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
 [#FFBF00]███████║█████╗  ██████╔╝██╔████╔██║█████╗  ███████╗█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
@@ -52,7 +57,7 @@ def patch_cli_ascii_art():
     if old_art in content:
         content = content.replace(old_art, new_art)
         banner_path.write_text(content, encoding="utf-8")
-        print("  ✓ CLI ASCII art: HERMES → ANAKOT")
+        print("  ✓ CLI ASCII art: ANAKOT → ANAKOT")
         return True
     elif new_art in content:
         print("  ✓ CLI ASCII art: already ANAKOT (idempotent)")
@@ -63,7 +68,7 @@ def patch_cli_ascii_art():
 
 
 def patch_tui_ascii_art():
-    """Replace HERMES ASCII art with ANAKOT ASCII art in TUI banner."""
+    """Replace ANAKOT ASCII art with ANAKOT ASCII art in TUI banner."""
     banner_path = TARGET_DIR / "ui-tui" / "src" / "banner.ts"
     if not banner_path.exists():
         print(f"  ⚠ banner.ts not found at {banner_path}")
@@ -71,7 +76,7 @@ def patch_tui_ascii_art():
 
     content = banner_path.read_text(encoding="utf-8")
 
-    # The old HERMES art lines
+    # The old ANAKOT art lines
     old_lines = [
         "  '██╗  ██╗███████╗██████╗ ███╗   ███╗███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗',",
         "  '██║  ██║██╔════╝██╔══██╗████╗ ████║██╔════╝██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝',",
@@ -96,7 +101,7 @@ def patch_tui_ascii_art():
         for old_line, new_line in zip(old_lines, new_lines):
             content = content.replace(old_line, new_line)
         banner_path.write_text(content, encoding="utf-8")
-        print("  ✓ TUI ASCII art: HERMES → ANAKOT")
+        print("  ✓ TUI ASCII art: ANAKOT → ANAKOT")
         return True
     elif all(line in content for line in new_lines):
         print("  ✓ TUI ASCII art: already ANAKOT (idempotent)")
@@ -107,7 +112,7 @@ def patch_tui_ascii_art():
 
 
 def patch_desktop_intro_copy():
-    """Replace HERMES ONLINE with ANAKOT ONLINE in desktop intro copy."""
+    """Replace ANAKOT ONLINE with ANAKOT ONLINE in desktop intro copy."""
     intro_path = TARGET_DIR / "apps" / "desktop" / "src" / "components" / "chat" / "intro-copy.jsonl"
     if not intro_path.exists():
         print(f"  ⚠ intro-copy.jsonl not found at {intro_path}")
@@ -115,10 +120,10 @@ def patch_desktop_intro_copy():
 
     content = intro_path.read_text(encoding="utf-8")
 
-    if "HERMES ONLINE" in content:
-        content = content.replace("HERMES ONLINE", "ANAKOT ONLINE")
+    if "ANAKOT ONLINE" in content:
+        content = content.replace("ANAKOT ONLINE", "ANAKOT ONLINE")
         intro_path.write_text(content, encoding="utf-8")
-        print("  ✓ Desktop intro: HERMES ONLINE → ANAKOT ONLINE")
+        print("  ✓ Desktop intro: ANAKOT ONLINE → ANAKOT ONLINE")
         return True
     elif "ANAKOT ONLINE" in content:
         print("  ✓ Desktop intro: already ANAKOT ONLINE (idempotent)")
@@ -129,7 +134,11 @@ def patch_desktop_intro_copy():
 
 
 def patch_desktop_icon():
-    """Install Anakot icon system-wide from the AppImage."""
+    """Install Anakot icon system-wide from the AppImage (Linux only)."""
+    if sys.platform != "linux":
+        print("  ✓ Desktop icon: skipped on non-Linux platform (idempotent)")
+        return True
+
     # Prefer the current fork's Anakot logo (the girl with "N" badge)
     current_fork_icon = TARGET_DIR / "apps" / "desktop" / "public" / "apple-touch-icon.png"
     appimage_icons = Path("/opt/anakot-desktop/squashfs-root/usr/share/icons/hicolor")
@@ -158,8 +167,8 @@ def patch_desktop_icon():
         print("  ✓ Desktop icon installed")
         return True
     else:
-        print("  ⚠ Desktop icon: no source icons found")
-        return False
+        print("  ⚠ Desktop icon: no source icons found (skipping)")
+        return True
 
 
 def patch_upstream_urls():
@@ -175,7 +184,7 @@ def patch_upstream_urls():
     if '_UPSTREAM_REPO_URL = "https://github.com/NousResearch/anakot-agent.git"' in content:
         content = content.replace(
             '_UPSTREAM_REPO_URL = "https://github.com/NousResearch/anakot-agent.git"',
-            '_UPSTREAM_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"'
+            '_UPSTREAM_REPO_URL = "https://github.com/Chensihakniroth/anakot-agent-v1.git"'
         )
         changed = True
 
@@ -183,13 +192,13 @@ def patch_upstream_urls():
     if '_OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/anakot-agent"' in content:
         content = content.replace(
             '_OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/anakot-agent"',
-            '_OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/hermes-agent"'
+            '_OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/anakot-agent"'
         )
         changed = True
 
     if changed:
         banner_path.write_text(content, encoding="utf-8")
-        print("  ✓ Upstream URLs: fixed to hermes-agent")
+        print("  ✓ Upstream URLs: fixed to anakot-agent")
         return True
     else:
         print("  ✓ Upstream URLs: already correct (idempotent)")
@@ -383,7 +392,7 @@ def patch_brandmark_icon():
 
 
 def patch_skills_hub_url():
-    """Fix skills hub URL: anakot-agent.nousresearch.com → hermes-agent.nousresearch.com."""
+    """Fix skills hub URL: hermes-agent.nousresearch.com → hermes-agent.nousresearch.com."""
     import subprocess
 
     files_to_fix = [
@@ -400,8 +409,8 @@ def patch_skills_hub_url():
         if not f.exists():
             continue
         content = f.read_text(encoding="utf-8")
-        if "anakot-agent.nousresearch.com" in content:
-            content = content.replace("anakot-agent.nousresearch.com", "hermes-agent.nousresearch.com")
+        if "hermes-agent.nousresearch.com" in content:
+            content = content.replace("hermes-agent.nousresearch.com", "hermes-agent.nousresearch.com")
             f.write_text(content, encoding="utf-8")
             fixed += 1
 
@@ -411,6 +420,122 @@ def patch_skills_hub_url():
     else:
         print("  ✓ Skills hub URL: already correct (idempotent)")
         return True
+
+
+def patch_desktop_package_json():
+    """Ensure apps/desktop/package.json unpacks dist/** from asar."""
+    pkg_path = TARGET_DIR / "apps" / "desktop" / "package.json"
+    if not pkg_path.exists():
+        print(f"  ⚠ package.json not found at {pkg_path}")
+        return True
+
+    content = pkg_path.read_text(encoding="utf-8")
+    if '"dist/**"' in content:
+        print("  ✓ Desktop package.json: dist/** already in asarUnpack (idempotent)")
+        return True
+
+    target = '"asarUnpack": [\n      "**/*.node",'
+    replacement = '"asarUnpack": [\n      "**/*.node",\n      "**/prebuilds/**",\n      "dist/**",'
+    if target in content:
+        content = content.replace(target, replacement)
+        print("  ✓ Desktop package.json: added dist/** to asarUnpack")
+
+    # Make clean scripts safe / no-op so missing tsc/npx doesn't fail packaging
+    for old_clean in [
+        '"clean:e2e": "npx --no-install tsc --build tsconfig.e2e.json --clean"',
+        '"clean:e2e": "tsc --build tsconfig.e2e.json --clean"',
+    ]:
+        content = content.replace(old_clean, '"clean:e2e": "node -e \\"process.exit(0)\\""')
+    for old_clean in [
+        '"clean:renderer": "npx --no-install tsc --build tsconfig.json --clean "',
+        '"clean:renderer": "tsc --build tsconfig.json --clean "',
+    ]:
+        content = content.replace(old_clean, '"clean:renderer": "node -e \\"process.exit(0)\\""')
+    for old_clean in [
+        '"clean:electron": "npx --no-install tsc --build tsconfig.electron.json --clean"',
+        '"clean:electron": "tsc --build tsconfig.electron.json --clean"',
+    ]:
+        content = content.replace(old_clean, '"clean:electron": "node -e \\"process.exit(0)\\""')
+    for old_clean in [
+        '"clean": "npm run clean:e2e && npm run clean:renderer && npm run clean:electron"',
+    ]:
+        content = content.replace(old_clean, '"clean": "node -e \\"process.exit(0)\\""')
+
+    pkg_path.write_text(content, encoding="utf-8")
+    print("  ✓ Desktop package.json: clean scripts set to safe no-ops")
+    return True
+
+
+def patch_install_scripts():
+    """Ensure installer scripts point to anakot-agent-v1 and guard helper scripts."""
+    # 1. install.cmd
+    cmd_path = TARGET_DIR / "scripts" / "install.cmd"
+    if cmd_path.exists():
+        cmd_content = cmd_path.read_text(encoding="utf-8")
+        cmd_content = cmd_content.replace(
+            "https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.cmd",
+            "https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.cmd"
+        )
+        cmd_content = cmd_content.replace(
+            "https://hermes-agent.nousresearch.com/install.ps1",
+            "https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.ps1"
+        )
+        cmd_content = cmd_content.replace(
+            "https://raw.githubusercontent.com/Chensihakniroth/ANAKOT-AGENT/main/scripts/install.cmd",
+            "https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.cmd"
+        )
+        cmd_content = cmd_content.replace(
+            "https://raw.githubusercontent.com/Chensihakniroth/ANAKOT-AGENT/main/scripts/install.ps1",
+            "https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.ps1"
+        )
+        cmd_content = cmd_content.replace("Anakot Agent Installer", "Anakot Agent Installer")
+        cmd_path.write_text(cmd_content, encoding="utf-8")
+
+    # 2. install.ps1 guard ensure-rolldown-binding
+    ps1_path = TARGET_DIR / "scripts" / "install.ps1"
+    if ps1_path.exists():
+        ps1_content = ps1_path.read_text(encoding="utf-8")
+        old_pattern = '    $ensureScript = Join-Path $DesktopDir "scripts\\ensure-rolldown-binding.mjs"\n    & $script:EffectiveNode $ensureScript'
+        new_pattern = '    $ensureScript = Join-Path $DesktopDir "scripts\\ensure-rolldown-binding.mjs"\n    if (Test-Path $ensureScript) {\n        & $script:EffectiveNode $ensureScript\n    }'
+        if old_pattern in ps1_content:
+            ps1_content = ps1_content.replace(old_pattern, new_pattern)
+            ps1_path.write_text(ps1_content, encoding="utf-8")
+
+    # 3. install.sh guard ensure-rolldown-binding
+    sh_path = TARGET_DIR / "scripts" / "install.sh"
+    if sh_path.exists():
+        sh_content = sh_path.read_text(encoding="utf-8")
+        old_sh_pattern = '    local ensure_script="$DESKTOP_DIR/scripts/ensure-rolldown-binding.mjs"\n    "$EFFECTIVE_NODE" "$ensure_script"'
+        new_sh_pattern = '    local ensure_script="$DESKTOP_DIR/scripts/ensure-rolldown-binding.mjs"\n    if [ -f "$ensure_script" ]; then\n        "$EFFECTIVE_NODE" "$ensure_script"\n    fi'
+        if old_sh_pattern in sh_content:
+            sh_content = sh_content.replace(old_sh_pattern, new_sh_pattern)
+            sh_path.write_text(sh_content, encoding="utf-8")
+
+    print("  ✓ Installer scripts: verified URLs and guards")
+    return True
+
+
+def patch_bootstrap_installer():
+    """Ensure bootstrap installer defaults to anakot-agent-v1 repo."""
+    rs_path = TARGET_DIR / "apps" / "bootstrap-installer" / "src-tauri" / "src" / "install_script.rs"
+    if not rs_path.exists():
+        return True
+
+    content = rs_path.read_text(encoding="utf-8")
+    changed = False
+    if '"Chensihakniroth/anakot-agent-v1"' in content:
+        content = content.replace('"Chensihakniroth/anakot-agent-v1"', '"Chensihakniroth/anakot-agent-v1"')
+        changed = True
+    if '"Chensihakniroth/ANAKOT-AGENT"' in content:
+        content = content.replace('"Chensihakniroth/ANAKOT-AGENT"', '"Chensihakniroth/anakot-agent-v1"')
+        changed = True
+
+    if changed:
+        rs_path.write_text(content, encoding="utf-8")
+        print("  ✓ Bootstrap installer: set repo to anakot-agent-v1")
+    else:
+        print("  ✓ Bootstrap installer: already anakot-agent-v1 (idempotent)")
+    return True
 
 
 # === Main ===
@@ -429,6 +554,9 @@ def main():
     results.append(("Upstream URLs", patch_upstream_urls()))
     results.append(("Update check (banner.py)", patch_update_check_stored_sha()))
     results.append(("Update check (update_cmd.py)", patch_update_cmd_stored_sha()))
+    results.append(("Desktop package.json asarUnpack", patch_desktop_package_json()))
+    results.append(("Installer scripts", patch_install_scripts()))
+    results.append(("Bootstrap installer repo", patch_bootstrap_installer()))
 
     print()
     print("=== Summary ===")

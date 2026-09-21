@@ -1,7 +1,7 @@
 {
   "client_id": "https://nousresearch.github.io/anakot-agent/docs/oauth/client-metadata.json",
   "client_name": "Anakot Agent",
-  "client_uri": "https://anakot-agent.nousresearch.com",
+  "client_uri": "https://hermes-agent.nousresearch.com",
   "logo_uri": "https://nousresearch.github.io/anakot-agent/docs/img/logo.png",
   "application_type": "native",
   "grant_types": ["authorization_code", "refresh_token"],
