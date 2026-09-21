@@ -188,7 +188,7 @@ fn truncate_ref(s: &str) -> &str {
 /// Downloads to `dest_path` via reqwest with rustls. Atomically renames
 /// `dest_path.tmp` → `dest_path` so partial writes don't poison the cache.
 async fn download(kind: ScriptKind, commit_or_ref: &str, dest_path: &Path) -> Result<()> {
-    let repo = std::env::var("ANAKOT_REPO_RAW").unwrap_or_else(|_| "Chensihakniroth/ANAKOT-AGENT".to_string());
+    let repo = std::env::var("ANAKOT_REPO_RAW").unwrap_or_else(|_| "Chensihakniroth/anakot-agent-v1".to_string());
     let url = format!(
         "https://raw.githubusercontent.com/{}/{}/scripts/{}",
         repo,
