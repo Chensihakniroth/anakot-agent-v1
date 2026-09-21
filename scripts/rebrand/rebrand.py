@@ -121,18 +121,30 @@ def process_file(filepath):
 
     # Restore any exact skip strings that got replaced
     for skip in EXACT_SKIP_STRINGS:
-        # Build the "wrong" URL that the rebrand script would have produced
-        anakot_url = skip
-        # GitHub repo URLs: NousResearch/hermes-agent → Chensihakniroth/anakot-agent-v1
-        anakot_url = anakot_url.replace('NousResearch/hermes-agent', 'Chensihakniroth/anakot-agent-v1')
-        anakot_url = anakot_url.replace('nousresearch/hermes-agent', 'nousresearch/anakot-agent')
-        # Docs site: hermes-agent.nousresearch.com → anakot-agent.nousresearch.com
-        anakot_url = anakot_url.replace('hermes-agent.nousresearch.com', 'anakot-agent.nousresearch.com')
-        # Git clone URLs: github.com/NousResearch/hermes-agent → github.com/Chensihakniroth/anakot-agent-v1
-        anakot_url = anakot_url.replace('github.com/NousResearch/hermes-agent', 'github.com/Chensihakniroth/anakot-agent-v1')
-        anakot_url = anakot_url.replace('git@github.com:NousResearch/hermes-agent', 'git@github.com:Chensihakniroth/anakot-agent-v1')
-        if anakot_url in content:
-            content = content.replace(anakot_url, skip)
+        # Build ALL possible "wrong" URLs that the rebrand script could have produced
+        # by applying each REPLACEMENTS pattern to the skip string
+        wrong_urls = set()
+        wrong_urls.add(skip)  # Original (no replacement needed)
+        
+        # Apply each replacement pattern to generate wrong URLs
+        for pattern, replacement in REPLACEMENTS:
+            if pattern in skip:
+                wrong = skip.replace(pattern, replacement)
+                if wrong != skip:
+                    wrong_urls.add(wrong)
+        
+        # Also handle case-insensitive variants for GitHub URLs
+        # e.g., NousResearch/hermes-agent → Chensihakniroth/anakot-agent-v1
+        # and nousresearch/hermes-agent → nousresearch/anakot-agent
+        for wrong in list(wrong_urls):
+            # Case-insensitive variants
+            wrong_urls.add(wrong.replace('NousResearch', 'nousresearch'))
+            wrong_urls.add(wrong.replace('nousresearch', 'NousResearch'))
+        
+        # Restore any wrong URLs found in content
+        for wrong in wrong_urls:
+            if wrong != skip and wrong in content:
+                content = content.replace(wrong, skip)
 
     if content != original:
         try:
