@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "types": ["node"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "paths": {
+      "@/*": ["./src/*"],
+      "@anakot/plugin-sdk": ["./src/sdk/index.ts"],
+      "@anakot/shared/ansi": ["../shared/src/ansi.ts"],
+      "@anakot/shared/billing": ["../shared/src/billing-types.ts"],
+      "@anakot/shared/color": ["../shared/src/color.ts"],
+      "@anakot/shared/i18n": ["../shared/src/i18n.ts"],
+      "@anakot/shared/translucency": ["../shared/src/translucency.ts"],
+      "@anakot/shared": ["../shared/src/index.ts"]
+    }
+  },
+  "include": ["src", "../shared/src"],
+  "exclude": ["e2e", "electron", "playwright.config.ts"]
+}

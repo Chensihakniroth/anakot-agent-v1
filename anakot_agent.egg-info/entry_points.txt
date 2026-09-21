@@ -1,0 +1,4 @@
+[console_scripts]
+anakot = anakot_cli.main:main
+anakot-acp = acp_adapter.entry:main
+anakot-agent = run_agent:main

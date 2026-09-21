@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "paths": {
+      "@anakot/ink": ["src/types/anakot-ink.d.ts"]
+    }
+  }
+}
