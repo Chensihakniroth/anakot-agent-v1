@@ -1,6 +1,3 @@
-<p align="center">
-  <img src="assets/banner.png" alt="Anakot Agent" width="100%">
-</p>
 
 # Anakot Agent ☤
 <p align="center">
