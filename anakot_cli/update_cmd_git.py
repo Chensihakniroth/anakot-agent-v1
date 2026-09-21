@@ -311,8 +311,10 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path, *, assume_yes: 
                 **_no_prompt_git_kwargs()
             )
 
-            # Apply rebrand
-            rebrand_script = Path.home() / ".anakot" / "rebrand-scripts" / "rebrand.py"
+            # Apply rebrand — prefer the repo's bundled scripts, fall back to ~/.anakot/rebrand-scripts/
+            rebrand_script = Path(__file__).resolve().parent.parent.parent / "scripts" / "rebrand" / "rebrand.py"
+            if not rebrand_script.exists():
+                rebrand_script = Path.home() / ".anakot" / "rebrand-scripts" / "rebrand.py"
             if rebrand_script.exists():
                 print("  → Applying rebrand...")
                 subprocess.run(
@@ -320,9 +322,13 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path, *, assume_yes: 
                     cwd=temp_dir, capture_output=True, text=True,
                     **_no_prompt_git_kwargs()
                 )
+            else:
+                print("  ⚠ Rebrand script not found — skipping rebrand (upstream code will be used as-is)")
 
-            # Apply custom patches
-            patches_script = Path.home() / ".anakot" / "rebrand-scripts" / "custom_patches.py"
+            # Apply custom patches — prefer the repo's bundled scripts, fall back to ~/.anakot/rebrand-scripts/
+            patches_script = Path(__file__).resolve().parent.parent.parent / "scripts" / "rebrand" / "custom_patches.py"
+            if not patches_script.exists():
+                patches_script = Path.home() / ".anakot" / "rebrand-scripts" / "custom_patches.py"
             if patches_script.exists():
                 print("  → Applying custom patches...")
                 subprocess.run(
@@ -330,6 +336,8 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path, *, assume_yes: 
                     cwd=temp_dir, capture_output=True, text=True,
                     **_no_prompt_git_kwargs()
                 )
+            else:
+                print("  ⚠ Custom patches script not found — skipping patches")
 
             # Replace main with the fresh rebranded tree
             print("  → Replacing main branch...")

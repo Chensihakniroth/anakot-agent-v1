@@ -74,10 +74,18 @@ EXCLUDED_FILES_FOR_UPSTREAM_URL = {
 }
 
 # Exact strings that must never be replaced
+# These are functional URLs/endpoints that must stay as Hermes Agent
 EXACT_SKIP_STRINGS = [
+    # GitHub API endpoints (update check, release info)
     'api.github.com/repos/nousresearch/hermes-agent',
-    'api.github.com/repos/Chensihakniroth/anakot-agent-v1',
+    'api.github.com/repos/NousResearch/hermes-agent',
+    # Docs site (skills hub, install scripts, documentation)
     'hermes-agent.nousresearch.com',
+    # Git clone URLs (upstream remote)
+    'github.com/NousResearch/hermes-agent.git',
+    'github.com/NousResearch/hermes-agent',
+    'git@github.com:NousResearch/hermes-agent.git',
+    'git@github.com:NousResearch/hermes-agent',
 ]
 
 SKIP_DIRS = {'.git', 'node_modules', '__pycache__', '.venv', 'venv', 'dist', 'build'}
@@ -110,10 +118,13 @@ def process_file(filepath):
 
     # Restore any exact skip strings that got replaced
     for skip in EXACT_SKIP_STRINGS:
-        anakot_url = skip.replace('nousresearch/anakot-agent', 'nousresearch/anakot-agent')
-        anakot_url = anakot_url.replace('Chensihakniroth/anakot-agent-v1', 'NousResearch/anakot-agent')
-        # Also handle hermes-agent.nousresearch.com → hermes-agent.nousresearch.com
-        anakot_url = anakot_url.replace('hermes-agent.nousresearch.com', 'hermes-agent.nousresearch.com')
+        # Build the "wrong" URL that the rebrand script would have produced
+        anakot_url = skip
+        # GitHub repo URLs: NousResearch/hermes-agent → Chensihakniroth/anakot-agent-v1
+        anakot_url = anakot_url.replace('NousResearch/hermes-agent', 'Chensihakniroth/anakot-agent-v1')
+        anakot_url = anakot_url.replace('nousresearch/hermes-agent', 'nousresearch/anakot-agent')
+        # Docs site: hermes-agent.nousresearch.com → anakot-agent.nousresearch.com
+        anakot_url = anakot_url.replace('hermes-agent.nousresearch.com', 'anakot-agent.nousresearch.com')
         if anakot_url in content:
             content = content.replace(anakot_url, skip)
 
