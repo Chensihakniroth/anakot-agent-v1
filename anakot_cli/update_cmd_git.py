@@ -20,7 +20,7 @@ _ORPHAN_RESCUE_REF_MAX_AGE_DAYS = 30
 
 _GIT_TEXT_KW = dict(capture_output=True, text=True, encoding="utf-8", errors="replace")
 _BAR = "=" * 68
-_UPSTREAM_ADD_CMD = "git remote add upstream https://github.com/NousResearch/anakot-agent.git"
+_UPSTREAM_ADD_CMD = "git remote add upstream https://github.com/NousResearch/hermes-agent.git"
 
 
 def _git_ok(git_cmd, args, cwd, **kw) -> bool:
@@ -169,12 +169,12 @@ def _print_parked_branch_kept_notice(current_branch: str, target_branch: str, un
 
 
 OFFICIAL_REPO_URLS = {
-    "https://github.com/NousResearch/anakot-agent.git",
-    "git@github.com:NousResearch/anakot-agent.git",
-    "https://github.com/NousResearch/anakot-agent",
-    "git@github.com:NousResearch/anakot-agent",
+    "https://github.com/NousResearch/hermes-agent.git",
+    "git@github.com:NousResearch/hermes-agent.git",
+    "https://github.com/NousResearch/hermes-agent",
+    "git@github.com:NousResearch/hermes-agent",
 }
-OFFICIAL_REPO_URL = "https://github.com/NousResearch/anakot-agent.git"
+OFFICIAL_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
 SKIP_UPSTREAM_PROMPT_FILE = ".skip_upstream_prompt"
 
 
@@ -227,11 +227,6 @@ def _mark_skip_upstream_prompt():
         (get_anakot_home() / SKIP_UPSTREAM_PROMPT_FILE).touch()
 
 
-def _sync_fork_with_upstream(git_cmd: list[str], cwd: Path) -> bool:
-    """Push updated main to origin (sync fork); True on success."""
-    return _git_ok(git_cmd, ["push", "origin", "main", "--force-with-lease"], cwd, network=True)
-
-
 def _offer_upstream_remote(git_cmd: list[str], cwd: Path, *, assume_yes: bool, input_fn) -> bool:
     """Prompt to add ``upstream`` and add it; False when the user declined, the run is non-interactive, or add failed.
 
@@ -239,7 +234,7 @@ def _offer_upstream_remote(git_cmd: list[str], cwd: Path, *, assume_yes: bool, i
     from anakot_cli.update_cmd import _add_upstream_remote, _mark_skip_upstream_prompt
     print(
         "\nℹ Your fork is not tracking the official Anakot repository.\n"
-        "  This means you may miss updates from NousResearch/anakot-agent.\n"
+        "  This means you may miss updates from NousResearch/hermes-agent.\\n"
     )
     if assume_yes or (input_fn is None and not (sys.stdin.isatty() and sys.stdout.isatty())):
         print(f"  Skipping upstream setup (non-interactive run).\n  Add it later with: {_UPSTREAM_ADD_CMD}")
@@ -260,7 +255,7 @@ def _offer_upstream_remote(git_cmd: list[str], cwd: Path, *, assume_yes: bool, i
     if not _add_upstream_remote(git_cmd, cwd):
         print("  ✗ Failed to add upstream remote. Skipping upstream sync.")
         return False
-    print("  ✓ Added upstream: https://github.com/NousResearch/anakot-agent.git")
+    print("  ✓ Added upstream: https://github.com/NousResearch/hermes-agent.git")
     return True
 
 
@@ -271,141 +266,43 @@ def _sync_with_upstream_if_needed(git_cmd: list[str], cwd: Path, *, assume_yes: 
     happened, so the caller never reports "up to date" on an origin-only compare. Fetches only upstream/main:
     a bare fetch drags in thousands of auto-generated branches.
 
-    See #97052.
+    For a fork with local commits, upstream sync is informational only — the fork is the source of truth
+    and pulls from origin. Manual cherry-picking from upstream is the recommended workflow. (#97052)
     """
     from anakot_cli.update_cmd import _count_commits_between, _has_upstream_remote, _no_prompt_git_kwargs, _should_skip_upstream_prompt
     if not _has_upstream_remote(git_cmd, cwd) and (
         _should_skip_upstream_prompt() or not _offer_upstream_remote(git_cmd, cwd, assume_yes=assume_yes, input_fn=input_fn)
     ):
         return False
-    print("\n→ Fetching upstream...")
+    print("\n→ Checking upstream...")
     try:
         subprocess.run(git_cmd + ["fetch", "upstream", "main", "--quiet"], cwd=cwd, capture_output=True, check=True, **_no_prompt_git_kwargs())
     except subprocess.CalledProcessError:
-        print("  ✗ Failed to fetch upstream. Skipping upstream sync.")
+        print("  ✗ Failed to fetch upstream. Skipping upstream check.")
         return False
     origin_ahead = _count_commits_between(git_cmd, cwd, "upstream/main", "origin/main")
     upstream_ahead = _count_commits_between(git_cmd, cwd, "origin/main", "upstream/main")
     if origin_ahead < 0 or upstream_ahead < 0:
-        print("  ✗ Could not compare branches. Skipping upstream sync.")
+        print("  ✗ Could not compare branches. Skipping upstream check.")
         return False
     if origin_ahead > 0:
-        # Fork has local commits (e.g., rebrand). For a rebranded fork, merging
-        # upstream into our tree causes structural conflicts (file renames vs upstream
-        # modifications). Instead, build a fresh rebranded tree from upstream.
-        print(
-            f"\nℹ Your fork has {origin_ahead} commit(s) not on upstream.\n"
-            "  Building fresh rebranded tree from upstream..."
-        )
-
-        import tempfile
-        import shutil
-        temp_dir = tempfile.mkdtemp()
-
-        try:
-            # Clone upstream fresh
-            print("  → Cloning upstream...")
-            subprocess.run(
-                git_cmd + ["clone", "--depth", "1", "upstream/main", temp_dir],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-
-            # Apply rebrand
-            rebrand_script = Path.home() / ".anakot" / "rebrand-scripts" / "rebrand.py"
-            if rebrand_script.exists():
-                print("  → Applying rebrand...")
-                subprocess.run(
-                    ["python3", str(rebrand_script), temp_dir],
-                    cwd=temp_dir, capture_output=True, text=True,
-                    **_no_prompt_git_kwargs()
-                )
-
-            # Apply custom patches
-            patches_script = Path.home() / ".anakot" / "rebrand-scripts" / "custom_patches.py"
-            if patches_script.exists():
-                print("  → Applying custom patches...")
-                subprocess.run(
-                    ["python3", str(patches_script), temp_dir],
-                    cwd=temp_dir, capture_output=True, text=True,
-                    **_no_prompt_git_kwargs()
-                )
-
-            # Replace main with the fresh rebranded tree
-            print("  → Replacing main branch...")
-
-            # Save current HEAD
-            old_head = subprocess.run(
-                git_cmd + ["rev-parse", "HEAD"],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            ).stdout.strip()
-
-            # Create orphan branch
-            subprocess.run(
-                git_cmd + ["checkout", "--orphan", "temp-rebrand"],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-
-            # Copy files from temp
-            subprocess.run(
-                ["rsync", "-a", "--exclude", ".git/", f"{temp_dir}/", f"{cwd}/"],
-                capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-
-            # Commit
-            subprocess.run(
-                git_cmd + ["add", "-A"],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-            subprocess.run(
-                git_cmd + ["commit", "-m", f"sync: upstream + rebrand + custom (replaced {old_head[:8]})"],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-
-            # Replace main
-            subprocess.run(
-                git_cmd + ["branch", "-D", "main"],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-            subprocess.run(
-                git_cmd + ["branch", "-m", "main"],
-                cwd=cwd, capture_output=True, text=True,
-                **_no_prompt_git_kwargs()
-            )
-
-            # Push to fork
-            print("  → Pushing to fork...")
-            if _sync_fork_with_upstream(git_cmd, cwd):
-                print("  ✓ Fork synced with upstream (fresh rebrand)")
-                return True
-            else:
-                print("  ℹ Got updates from upstream but couldn't push to fork (no write access?)")
-                return True
-        finally:
-            shutil.rmtree(temp_dir, ignore_errors=True)
+        print(f"\nℹ Your fork has {origin_ahead} commit(s) not on upstream.")
+        print("  Your fork is the source of truth. Updates pull from origin.")
+        print("  To port upstream features manually, run:")
+        print("    git fetch upstream && git log upstream/main --oneline -20")
+        print("    git cherry-pick <SHA>   # or manually port the change")
+        return True
     if upstream_ahead == 0:
         print("  ✓ Fork is up to date with upstream")
         return True
-    print(f"\n→ Fork is {upstream_ahead} commit(s) behind upstream\n→ Pulling from upstream...")
+    print(f"\n→ Fork is {upstream_ahead} commit(s) behind upstream")
+    print("  Your fork is the source of truth. Pulling from origin instead.")
     try:
-        subprocess.run(git_cmd + ["pull", "--ff-only", "upstream", "main"], cwd=cwd, check=True, **_no_prompt_git_kwargs())
+        subprocess.run(git_cmd + ["pull", "--ff-only", "origin", "main"], cwd=cwd, check=True, **_no_prompt_git_kwargs())
     except subprocess.CalledProcessError:
-        print("  ✗ Failed to pull from upstream. You may need to resolve conflicts manually.")
+        print("  ✗ Failed to pull from origin. You may need to resolve conflicts manually.")
         return False
-    print("  ✓ Updated from upstream\n→ Syncing fork...")
-    if _sync_fork_with_upstream(git_cmd, cwd):
-        print("  ✓ Fork synced with upstream")
-    else:
-        print(
-            "  ℹ Got updates from upstream but couldn't push to fork (no write access?)\n"
-            "    Your local repo is updated, but your fork on GitHub may be behind."
-        )
+    print("  ✓ Updated from origin")
     return True
 
 

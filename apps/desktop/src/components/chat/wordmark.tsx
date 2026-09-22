@@ -34,12 +34,12 @@ export function Wordmark({
         'wordmark fit-text mx-auto text-midground mix-blend-plus-lighter dark:text-foreground/90',
         className
       )}
-      style={{ '--fit-min': fitMin, width } as CSSProperties}
-    >
+      style={{ '--fit-min': fitMin, '--fit-text-line-height': '0.9', width } as CSSProperties}
+      >
       <span>
-        <span>{text}</span>
+        <span style={{ fontWeight: 700 }}>{text}</span>
       </span>
-      <span aria-hidden="true">{text}</span>
+      <span aria-hidden="true" style={{ fontWeight: 700 }}>{text}</span>
     </p>
   )
 }

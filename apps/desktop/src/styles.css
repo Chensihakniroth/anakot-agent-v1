@@ -1756,7 +1756,7 @@ body.guest-pointer-lock :is(webview, iframe) {
    wordmark rendered in body text. */
 .wordmark {
   font-family: 'StarAvenue', var(--font-sans);
-  font-weight: 400;
+  font-weight: 700;
   line-height: 0.9;
   text-transform: uppercase;
   letter-spacing: 0.08em;

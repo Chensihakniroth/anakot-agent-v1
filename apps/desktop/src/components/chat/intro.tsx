@@ -167,7 +167,7 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
-        <Wordmark className="mb-1" text={WORDMARK} />
+        <Wordmark className="mb-3" text={WORDMARK} width="88%" />
 
         <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
       </div>

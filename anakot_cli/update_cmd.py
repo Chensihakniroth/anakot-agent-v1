@@ -95,7 +95,7 @@ from anakot_cli.update_cmd_git import (  # noqa: F401
     _has_upstream_remote, _is_fork, _locate_real_git, _mark_skip_upstream_prompt,
     _normalize_managed_eol, _portable_git_candidates, _print_fetch_failure,
     _print_parked_branch_kept_notice, _print_parked_branch_skip_warning,
-    _prune_orphan_rescue_refs, _should_skip_upstream_prompt, _sync_fork_with_upstream,
+    _prune_orphan_rescue_refs, _should_skip_upstream_prompt,
     _sync_with_upstream_if_needed)
 from anakot_cli.update_cmd_maint import (  # noqa: F401
     _PRE_UPDATE_SNAPSHOT_KEEP, _PRE_UPDATE_SNAPSHOT_MAX_FILE_SIZE,
@@ -873,25 +873,12 @@ def _pull_updates(
     # Pre-pull SHA for auto-rollback (stray conflict markers once bricked every updater).
     pre_pull_sha = _capture_head_sha(git_cmd, _m().PROJECT_ROOT)
 
-    # Check if this is a rebranded fork on an orphan branch (from fresh-tree approach).
-    # If so, the tree was already replaced — skip the normal merge.
-    current_branch = _current_branch_name(git_cmd)
-    if current_branch == "HEAD" or current_branch.startswith("temp-rebrand"):
-        print("  ✓ Tree already updated via fresh-tree approach — skipping merge.")
-        return pre_pull_sha
-
-    # Also check if current HEAD is already at origin/main (fresh-tree already pushed).
-    # After the rebrand sync, local main == origin/main, so the merge is a no-op.
-    #
-    # Both SHAs must be REAL: a failed ``rev-parse`` prints nothing, so two empty
-    # results compare equal and would be read as "already updated" — silently
-    # skipping the pull (and disarming the post-pull no-op guard, which needs a
-    # truthy ``pre_pull_sha``) on a git that merely misbehaved.
+    # Check if current HEAD is already at origin/<branch>.
+    # After a fork sync, local main == origin/main, so the merge is a no-op.
     local_head = _git_run(git_cmd, ["rev-parse", "HEAD"]).stdout.strip()
     remote_head = _git_run(git_cmd, ["rev-parse", f"origin/{branch}"]).stdout.strip()
     if local_head and remote_head and local_head == remote_head:
-        print("  ✓ Tree already updated via fresh-tree approach — skipping merge.")
-        # Return the NEW HEAD SHA so _apply_pulled_update() doesn't think it's a no-op
+        print("  ✓ Already up to date with origin")
         return local_head
 
     try:
