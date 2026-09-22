@@ -1,0 +1,23 @@
+
+> anakot@0.17.6 dist:win
+> npm run build && npm run builder -- --win
+
+
+> anakot@0.17.6 prebuild
+> node scripts/assert-root-install.mjs && npm run clean
+
+Ô£ù assert-root-install: the desktop build needs electron, electron-builder, @assistant-ui/core, @assistant-ui/react, @assistant-ui/react-streamdown, @audiowave/react, @chenglou/pretext, @codemirror/commands, @codemirror/language, @codemirror/language-data, @codemirror/state, @codemirror/view, @dnd-kit/core, @dnd-kit/sortable, @dnd-kit/utilities, @anakot/shared, @icons-pack/react-simple-icons, @lezer/highlight, @nous-research/ui, @streamdown/code, @streamdown/math, @tabler/icons-react, @tanstack/react-query, @tanstack/react-virtual, @xterm/addon-fit, @xterm/addon-serialize, @xterm/addon-unicode11, @xterm/addon-web-links, @xterm/addon-webgl, @xterm/xterm, blobatar, cmdk, dnd-core, dompurify, driver.js, emojibase-data, fflate, frimousse, hast-util-from-html-isomorphic, hast-util-to-text, ignore, mermaid, node-pty, qrcode, react-arborist, react-dnd-html5-backend, react-router, react-shiki, remark-math, remend, shiki, simple-git, streamdown, unified, unist-util-visit-parents, use-stick-to-bottom, vfile, web-haptics, @electron/rebuild, @playwright/test, @rolldown/plugin-babel, @testing-library/dom, @testing-library/react, @types/d3-force, @types/hast, @types/qrcode, @vitejs/plugin-react, babel-plugin-react-compiler, bippy, concurrently, cross-env, jsdom, prettier, rcedit, typescript, vitest, wait-on, which the current install does not provide. A partial root install leaves the workspace looking present while the build cannot complete. Reinstall from the repo root: cd D:\School\PROJECT\anakot-agent-v1 && npm ci
+npm error Lifecycle script `build` failed with error:
+npm error code 1
+npm error path D:\School\PROJECT\anakot-agent-v1\apps\desktop
+npm error workspace anakot@0.17.6
+npm error location D:\School\PROJECT\anakot-agent-v1\apps\desktop
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c node scripts/assert-root-install.mjs && npm run clean
+npm error Lifecycle script `dist:win` failed with error:
+npm error code 1
+npm error path D:\School\PROJECT\anakot-agent-v1\apps\desktop
+npm error workspace anakot@0.17.6
+npm error location D:\School\PROJECT\anakot-agent-v1\apps\desktop
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c npm run build && npm run builder -- --win
