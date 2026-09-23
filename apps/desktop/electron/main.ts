@@ -4190,7 +4190,10 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     // anything.  Runs while the backend is still alive.
     preflightStateDb(ANAKOT_HOME, rememberLog)
 
-    if (IS_WINDOWS && resolveUpdateScriptHandoff(updateRoot)) {
+    // Windows-only prerequisite check for the SCRIPT path. The Tauri binary
+    // path needs no windows.ps1 — it only needs the venv python (checked
+    // below by its own gate).
+    if (IS_WINDOWS && !updater && resolveUpdateScriptHandoff(updateRoot)) {
       const message = windowsUpdatePrerequisiteError(updateRoot)
 
       if (message) {
@@ -4305,7 +4308,10 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     // checkout, so each `anakot update` refreshes the code that drives the
     // next one. Checkouts that predate the script fall back to the binary
     // path unchanged.
-    const scriptHandoff = resolveUpdateScriptHandoff(updateRoot)
+    // Prefer the staged Tauri binary when present — its own window shows the
+    // update progress UI. The repo PowerShell script is the fallback for CLI
+    // installs that have no staged anakot-setup.exe.
+    const scriptHandoff = updater ? null : resolveUpdateScriptHandoff(updateRoot)
     let child
 
     if (scriptHandoff) {
@@ -18204,6 +18210,22 @@ app.whenReady().then(() => {
     screen.on('display-metrics-changed', reposition)
 
     screen.on('display-removed', reposition)
+  }
+
+  // Stage the Tauri updater binary to ANAK_HOME so in-app updates can use it.
+  // On MSI installs, anakot-setup.exe isn't in ANAK_HOME by default — it's bundled
+  // as an extraResource and copied here on first launch.
+  if (IS_WINDOWS && IS_PACKAGED) {
+    const resourcesUpdater = path.join(process.resourcesPath || '', 'anakot-setup.exe')
+    const homeUpdater = path.join(ANAKOT_HOME, 'anakot-setup.exe')
+    if (fileExists(resourcesUpdater) && !fileExists(homeUpdater)) {
+      try {
+        fs.copyFileSync(resourcesUpdater, homeUpdater)
+        rememberLog(`[updates] staged Tauri updater to ${homeUpdater}`)
+      } catch (err) {
+        rememberLog(`[updates] could not stage Tauri updater: ${err?.message || err}`)
+      }
+    }
   }
 
   // A hard crash can interrupt the in-memory restore loop after exact remote

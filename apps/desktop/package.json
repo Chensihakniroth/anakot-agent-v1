@@ -209,7 +209,8 @@
       "dist/**",
       "assets/**",
       "public/**",
-      "package.json"
+      "package.json",
+      "scripts/desktop-update/**"
     ],
     "beforeBuild": "scripts/before-build.mjs",
     "beforePack": "scripts/before-pack.mjs",
@@ -222,6 +223,10 @@
       {
         "from": "assets/icon.ico",
         "to": "icon.ico"
+      },
+      {
+        "from": "../../bootstrap-installer/src-tauri/target/release/Anakot-Setup.exe",
+        "to": "anakot-setup.exe"
       }
     ],
     "asar": true,
