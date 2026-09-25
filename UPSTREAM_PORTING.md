@@ -78,7 +78,7 @@ for c in json.load(sys.stdin):
 | f8be6db1 | 2026-09-22 | fix(gateway): ThreadParticipationTracker.clear() takes the lock | PENDING | |
 | 7dd6bee3 | 2026-09-22 | fix(gateway): rich_sent_store writes run off event loop | PENDING | |
 | ee8a3ded | 2026-09-22 | fix(gateway): move thread-participation persist off event loop | PENDING | |
-| cb567242 | 2026-09-22 | fix(gateway): move sticker-description cache write off event loop | PENDING | |
+| cb567242 | 2026-09-22 | fix(gateway): move sticker-description cache write off event loop | SKIPPED | Current shared Telegram ingress reaches sticker handling before routed-profile scope; off-loop port would cache against the launch profile |
 | a472b0c0 | 2026-09-22 | chore: map daedalus-opus contributor email | PENDING | |
 | f16a54bf | 2026-09-22 | fix(relay): treat "relay" placeholder as unresolved ack lane | PORTED | Unknown/empty wire platforms fall through chat lane and descriptor before choosing reactions |
 | ab24fb05 | 2026-09-22 | fix(relay): use reaction Telegram allows for turn ack | PORTED | Telegram uses 👀/👍/👎; free-form platforms retain ✅/❌ |
