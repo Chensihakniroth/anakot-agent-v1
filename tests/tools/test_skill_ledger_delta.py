@@ -92,3 +92,63 @@ def test_gc_blobs_removes_only_unreferenced(ledger_home):
         fh.write("{broken\n")
     skill_ledger._store_blob(b"orphan two")
     assert skill_ledger.gc_blobs() == (0, 0)
+
+
+@pytest.mark.parametrize(
+    "failure",
+    ["unreadable", "missing", "invalid-encoding", "malformed-json", "non-dict-row"],
+)
+def test_gc_keeps_rollback_blobs_when_ledger_cannot_be_read(ledger_home, caplog, failure):
+    from tools import skill_ledger
+
+    skill = ledger_home / "skills" / "demo" / "SKILL.md"
+    skill.parent.mkdir()
+    skill.write_text("original", encoding="utf-8")
+    before = skill_ledger.snapshot_paths(skill)
+    skill.write_text("edited", encoding="utf-8")
+    entry_id = skill_ledger.record_mutation("patch", "demo", before=before, after_root=skill)
+    ledger = skill_ledger.ledger_path()
+    saved = ledger.read_bytes()
+    blobs_before = {p.name: p.read_bytes() for p in skill_ledger.blobs_dir().iterdir()}
+
+    if failure == "unreadable":
+        ledger.unlink()
+        ledger.mkdir()
+    elif failure == "missing":
+        ledger.unlink()
+    elif failure == "invalid-encoding":
+        ledger.write_bytes(b"\xff")
+    elif failure == "malformed-json":
+        ledger.write_bytes(saved + b"{broken\n")
+    else:
+        ledger.write_bytes(saved + b"[]\n")
+
+    assert skill_ledger.gc_blobs() == (0, 0)
+    assert "blob GC skipped" in caplog.text
+    assert {p.name: p.read_bytes() for p in skill_ledger.blobs_dir().iterdir()} == blobs_before
+
+    if ledger.is_dir():
+        ledger.rmdir()
+    ledger.write_bytes(saved)
+    ok, message = skill_ledger.rollback_entry(entry_id)
+    assert ok, message
+    assert skill.read_text(encoding="utf-8") == "original"
+
+
+def test_undecodable_ledger_fails_closed_without_rewriting(ledger_home, caplog):
+    from tools import skill_ledger
+
+    ledger = skill_ledger.ledger_path()
+    ledger.parent.mkdir(parents=True, exist_ok=True)
+    ledger.write_bytes(b"\xff")
+
+    assert skill_ledger.compact_ledger() == (0, 0, 0)
+    assert skill_ledger.list_entries() == []
+    assert ledger.read_bytes() == b"\xff"
+    assert "compaction skipped" in caplog.text
+    assert "listing empty" in caplog.text
+
+    ledger.unlink()
+    caplog.clear()
+    assert skill_ledger.list_entries() == []
+    assert caplog.text == ""
