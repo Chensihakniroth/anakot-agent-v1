@@ -2230,7 +2230,22 @@ class RelayAdapter(BasePlatformAdapter):
             meta["thread_id"] = str(thread_id)
         return meta
 
-    # ── Phase 3 ack lifecycle (👀 → ✅/❌) ────────────────────────────────
+    # ── Phase 3 ack lifecycle (in-progress → outcome reaction) ───────────────
+    _ACK_EMOJI_DEFAULT = ("👀", "✅", "❌")
+    _ACK_EMOJI_BY_PLATFORM = {"telegram": ("👀", "👍", "👎")}
+    _ACK_PLATFORM_UNRESOLVED = frozenset({"", "relay"})
+
+    def _ack_emoji(self, event, chat_id) -> tuple:
+        """Return the in-progress/success/failure reactions for the event's lane."""
+        for candidate in (
+            getattr(getattr(event, "source", None), "platform", None),
+            self._platform_by_chat.get(str(chat_id)),
+            getattr(self.descriptor, "platform", None),
+        ):
+            name = str(getattr(candidate, "value", candidate) or "").lower()
+            if name and name not in self._ACK_PLATFORM_UNRESOLVED:
+                return self._ACK_EMOJI_BY_PLATFORM.get(name, self._ACK_EMOJI_DEFAULT)
+        return self._ACK_EMOJI_DEFAULT
 
     async def _react(
         self,
@@ -2258,21 +2273,23 @@ class RelayAdapter(BasePlatformAdapter):
         return result is not None
 
     async def on_processing_start(self, event) -> None:
-        """Add the 👀 in-progress reaction (op-gated; silent no-op otherwise)."""
+        """Add the in-progress reaction (op-gated; silent no-op otherwise)."""
         message_id, chat_id = _event_ids(event)
         if message_id and chat_id:
-            await self._react(str(chat_id), str(message_id), "👀")
+            eyes, _ok, _fail = self._ack_emoji(event, chat_id)
+            await self._react(str(chat_id), str(message_id), eyes)
 
     async def on_processing_complete(self, event, outcome) -> None:
-        """Swap 👀 for ✅/❌ per outcome (op-gated; silent no-op otherwise)."""
+        """Swap the in-progress reaction for the outcome reaction."""
         message_id, chat_id = _event_ids(event)
         if not (message_id and chat_id):
             return
-        await self._react(str(chat_id), str(message_id), "👀", remove=True)
+        eyes, ok_emoji, fail_emoji = self._ack_emoji(event, chat_id)
+        await self._react(str(chat_id), str(message_id), eyes, remove=True)
         if outcome == ProcessingOutcome.SUCCESS:
-            await self._react(str(chat_id), str(message_id), "✅")
+            await self._react(str(chat_id), str(message_id), ok_emoji)
         elif outcome == ProcessingOutcome.FAILURE:
-            await self._react(str(chat_id), str(message_id), "❌")
+            await self._react(str(chat_id), str(message_id), fail_emoji)
 
     # ── Phase 4 thread lifecycle ──────────────────────────────────────────
 

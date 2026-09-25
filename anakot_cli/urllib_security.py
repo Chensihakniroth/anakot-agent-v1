@@ -2,6 +2,12 @@
 
 from __future__ import annotations
 
+# This module binds utils.file_signature at import time. Drop a stale pre-update
+# root module first so the first fresh import after an in-place update cannot fail.
+from anakot_cli.stale_modules import drop_stale_root_modules
+
+drop_stale_root_modules()
+
 import copy
 import logging
 import os
@@ -12,6 +18,8 @@ import urllib.request
 from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
+
+from utils import file_signature
 
 logger = logging.getLogger(__name__)
 
@@ -82,33 +90,76 @@ class _CrossOriginRequestSanitizer(urllib.request.BaseHandler):
     https_request = _sanitize
 
 
-def _resolved_https_context() -> ssl.SSLContext | None:
-    """Return the explicit CA context for Anakot-owned urllib openers."""
+# Each Anakot-owned request builds an opener, so parsing a CA bundle on every call is
+# measurable. Cache only a context built from the preferred bundle, keyed by its full file
+# signature. A race costs one duplicate parse; callers must treat the shared context as immutable.
+_HTTPS_CONTEXT_CACHE: tuple[tuple, ssl.SSLContext] | None = None
+
+
+def _ca_bundle_candidates() -> tuple[str, ...]:
+    """Return CA bundles in precedence order; empty means the stdlib default."""
+    candidates: list[str] = []
     ca_bundle = next((value for name in _CA_BUNDLE_ENV_VARS if (value := os.getenv(name, "").strip())), "")
     if ca_bundle:
         ca_path = Path(ca_bundle).expanduser()
         if ca_path.is_file():
-            try:
-                return ssl.create_default_context(cafile=str(ca_path))
-            except (OSError, ssl.SSLError) as exc:
-                logger.warning(
-                    "CA bundle could not be loaded from %s: %s — falling back to default certificates",
-                    ca_bundle, exc,
-                )
+            candidates.append(str(ca_path))
         else:
             logger.warning("CA bundle path does not exist: %s — falling back to default certificates", ca_bundle)
 
-    if sys.platform != "darwin":
-        return None
-    try:
-        import certifi
+    # Python on macOS has no usable system root store, so certifi is the final candidate.
+    if sys.platform == "darwin":
+        try:
+            import certifi
 
-        return ssl.create_default_context(cafile=certifi.where())
-    except (ImportError, OSError, ssl.SSLError) as exc:
-        logger.warning(
-            "Could not load certifi for urllib HTTPS verification: %s — falling back to default certificates", exc
-        )
+            candidates.append(certifi.where())
+        except (ImportError, OSError) as exc:
+            logger.warning(
+                "Could not load certifi for urllib HTTPS verification: %s — falling back to default certificates",
+                exc,
+            )
+    return tuple(candidates)
+
+
+def _bundle_signature(path: str) -> tuple:
+    """Return a rotation-safe signature for a CA bundle path."""
+    try:
+        return (path, *file_signature(Path(path).stat()))
+    except OSError:
+        return (path, None)
+
+
+def _resolved_https_context() -> ssl.SSLContext | None:
+    """Return the shared explicit-CA context for Anakot-owned urllib openers.
+
+    Only the preferred candidate keys the memo. A transient preferred-bundle failure is never
+    cached, whether loading falls back to another bundle or to the stdlib default.
+    """
+    global _HTTPS_CONTEXT_CACHE
+
+    candidates = _ca_bundle_candidates()
+    if not candidates:
         return None
+    key = _bundle_signature(candidates[0])
+    cached = _HTTPS_CONTEXT_CACHE
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    context, used_path = _build_https_context(candidates)
+    if used_path == candidates[0]:
+        _HTTPS_CONTEXT_CACHE = (key, context)
+    return context
+
+
+def _build_https_context(candidates: tuple[str, ...]) -> tuple[ssl.SSLContext | None, str | None]:
+    """Return the first loadable candidate and its path, or ``(None, None)``."""
+    for path in candidates:
+        try:
+            return ssl.create_default_context(cafile=path), path
+        except (OSError, ssl.SSLError) as exc:
+            logger.warning("CA bundle could not be loaded from %s: %s — trying the next bundle", path, exc)
+    if candidates:
+        logger.warning("No configured CA bundle could be loaded — falling back to default certificates")
+    return None, None
 
 
 def _secure_opener_from_installed_policy(original_url: str, *, ssl_context=None):

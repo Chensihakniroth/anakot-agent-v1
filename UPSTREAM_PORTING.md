@@ -39,30 +39,30 @@ for c in json.load(sys.stdin):
 
 | SHA | Date | Description | Status | Notes |
 |-----|------|-------------|--------|-------|
-| 1c953851 | 2026-09-22 | test: write fake CA bundles to absolute path | PENDING | |
-| c33be87a | 2026-09-22 | fix(urllib): log default-certificates fallback once | PENDING | |
-| 7a0c8287 | 2026-09-22 | perf(urllib): key CA-context memo on preferred bundle | PENDING | |
-| dd0e183f | 2026-09-22 | test: pin failed preferred bundle not memoised | PENDING | |
-| 7e421538 | 2026-09-22 | refactor(urllib): drop dead None guard on CA-context memo | PENDING | |
-| 31931491 | 2026-09-22 | refactor(urllib): key CA-context memo on file_signature | PENDING | |
-| 5fc0af70 | 2026-09-22 | fix(urllib): never memoise CA context from fallback bundle | PENDING | |
-| 62475fe3 | 2026-09-22 | test: keep invariant tests for CA-bundle memo | PENDING | |
-| f56b5d76 | 2026-09-22 | fix(urllib): never memoise failed CA-bundle load | PENDING | |
-| 966f746b | 2026-09-22 | perf(urllib): parse CA bundle once not per request | PENDING | |
-| 28bd8cc0 | 2026-09-22 | fix(memory): never dedupe indented recall lines | PENDING | |
-| 8f618d84 | 2026-09-22 | refactor(memory): match recall bullet regex once per line | PENDING | |
+| 1c953851 | 2026-09-22 | test: write fake CA bundles to absolute path | N/A | Test-path cleanup only; Anakot uses absolute `tmp_path` fixtures directly |
+| c33be87a | 2026-09-22 | fix(urllib): log default-certificates fallback once | PORTED | Per-candidate failures say they are trying the next bundle; aggregate fallback logs once |
+| 7a0c8287 | 2026-09-22 | perf(urllib): key CA-context memo on preferred bundle | PORTED | Only the preferred candidate is statted and used as the memo key |
+| dd0e183f | 2026-09-22 | test: pin failed preferred bundle not memoised | N/A | Test-only consolidation; covered by Anakot's parametrized failure invariant |
+| 7e421538 | 2026-09-22 | refactor(urllib): drop dead None guard on CA-context memo | N/A | Behavior-neutral cleanup folded into the final-state adaptation |
+| 31931491 | 2026-09-22 | refactor(urllib): key CA-context memo on file_signature | PORTED | Cache key includes mtime, size, inode, and ctime via `utils.file_signature` |
+| 5fc0af70 | 2026-09-22 | fix(urllib): never memoise CA context from fallback bundle | PORTED | A context is cached only when built from the preferred candidate |
+| 62475fe3 | 2026-09-22 | test: keep invariant tests for CA-bundle memo | N/A | Test-only row; Anakot adds rotation, retry, fallback, and logging invariants |
+| f56b5d76 | 2026-09-22 | fix(urllib): never memoise failed CA-bundle load | PORTED | Failed preferred loads are retried on the next request |
+| 966f746b | 2026-09-22 | perf(urllib): parse CA bundle once not per request | PORTED | Anakot-owned urllib requests share a preferred-bundle `SSLContext` until rotation |
+| 28bd8cc0 | 2026-09-22 | fix(memory): never dedupe indented recall lines | PORTED | Indented continuation/nested lines bypass duplicate detection entirely |
+| 8f618d84 | 2026-09-22 | refactor(memory): match recall bullet regex once per line | PORTED | Final-state helper evaluates one compiled bullet regex per eligible line |
 | 71cb9913 | 2026-09-22 | test(bot-mode): drop unused cache fixture | PENDING | |
-| 47a6f2aa | 2026-09-22 | test(memory): fold two-heading assert into repeated-bullet test | PENDING | |
-| 4607e501 | 2026-09-22 | refactor(gateway): drop test-only delivery-ledger _prune() wrapper | PENDING | |
-| b255c8fb | 2026-09-22 | fix(gateway): prune error in recording transaction not swallowed | PENDING | |
-| af0305c9 | 2026-09-22 | fix(memory): column-0 non-bullet line opens new dedupe section | PENDING | |
+| 47a6f2aa | 2026-09-22 | test(memory): fold two-heading assert into repeated-bullet test | N/A | Test-only consolidation; covered by the section invariant test |
+| 4607e501 | 2026-09-22 | refactor(gateway): drop test-only delivery-ledger _prune() wrapper | N/A | Anakot tests the real caller-owned transaction seam directly |
+| b255c8fb | 2026-09-22 | fix(gateway): prune error in recording transaction not swallowed | PORTED | Prune failures roll back the obligation instead of silently committing an unbounded ledger |
+| af0305c9 | 2026-09-22 | fix(memory): column-0 non-bullet line opens new dedupe section | PORTED | Prose, rules, markdown headings, and bold headings reset duplicate scope |
 | e1760ee4 | 2026-09-22 | test: keep invariant tests for jonpol01 perf trio | PENDING | |
 | a6af4041 | 2026-09-22 | docs(bot-mode): note capability epoch follows skills walker org gating | PENDING | |
-| 4c41d980 | 2026-09-22 | perf(gateway): delivery ledger prunes inside recording transaction | PENDING | |
-| e1ea7e74 | 2026-09-22 | fix(memory): repeated-bullet dedupe scoped per section | PENDING | |
+| 4c41d980 | 2026-09-22 | perf(gateway): delivery ledger prunes inside recording transaction | PORTED | Record and bounded retention sweep share one lock/connection/transaction |
+| e1ea7e74 | 2026-09-22 | fix(memory): repeated-bullet dedupe scoped per section | PORTED | Identical bullets under different sections are both preserved |
 | 6df45711 | 2026-09-22 | perf(bot-mode): capability epoch counts invocable skills not archived | PENDING | |
-| 83a1a9a2 | 2026-09-22 | fix(memory): only self-contained bullet deduped, bold heading not bullet | PENDING | |
-| cbe23de6 | 2026-09-22 | perf(memory): recalled line stated once per memory-context block | PENDING | |
+| 83a1a9a2 | 2026-09-22 | fix(memory): only self-contained bullet deduped, bold heading not bullet | PORTED | Bullets with indented continuation lines remain untouched; bold headings are not bullets |
+| cbe23de6 | 2026-09-22 | perf(memory): recalled line stated once per memory-context block | PORTED | Removes repeated self-contained bullets while preserving first-occurrence order and structure |
 | b9ec3993 | 2026-09-22 | fix(discord): pre-seed starter dedup before awaiting mark_async | PENDING | |
 | 6351d60a | 2026-09-22 | docs(gateway): point rich_sent_store restatements at _LOCK | PENDING | |
 | 9bc8fed2 | 2026-09-22 | fix(gateway): await mark_async in _branch_open_thread | PENDING | |
@@ -80,8 +80,8 @@ for c in json.load(sys.stdin):
 | ee8a3ded | 2026-09-22 | fix(gateway): move thread-participation persist off event loop | PENDING | |
 | cb567242 | 2026-09-22 | fix(gateway): move sticker-description cache write off event loop | PENDING | |
 | a472b0c0 | 2026-09-22 | chore: map daedalus-opus contributor email | PENDING | |
-| f16a54bf | 2026-09-22 | fix(relay): treat "relay" placeholder as unresolved ack lane | PENDING | |
-| ab24fb05 | 2026-09-22 | fix(relay): use reaction Telegram allows for turn ack | PENDING | |
+| f16a54bf | 2026-09-22 | fix(relay): treat "relay" placeholder as unresolved ack lane | PORTED | Unknown/empty wire platforms fall through chat lane and descriptor before choosing reactions |
+| ab24fb05 | 2026-09-22 | fix(relay): use reaction Telegram allows for turn ack | PORTED | Telegram uses 👀/👍/👎; free-form platforms retain ✅/❌ |
 | 836b5f82 | 2026-09-22 | fix(config): user-installed platform plugins feed env-var metadata | SKIPPED | Unsafe in Anakot's multiplexed process: import-time mutation leaks profile-owned names and lets another profile's `reload_env()` delete them; requires a profile-aware env metadata/blocklist redesign |
 | 5c0e73ef | 2026-09-22 | feat(desktop): render plugin-declared settings in Plugins tab | PENDING | |
 | 30de0e01 | 2026-09-22 | fmt(js): `npm run fix` on merge | PENDING | |

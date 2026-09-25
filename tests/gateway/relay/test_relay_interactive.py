@@ -12,8 +12,8 @@ Covers:
     through to normal dispatch;
   - the Discord type-3 hp1 decode (structured prompt_response replacing the
     bare-custom_id stub; foreign custom_ids keep the legacy text shape);
-  - on_processing_start/complete drive react ops (👀 → ✅/❌), op-gated and
-    best-effort.
+  - on_processing_start/complete drive react ops (👀 → ✅/❌ on free-form
+    platforms, 👀 → 👍/👎 on Telegram), op-gated and best-effort.
 """
 
 from __future__ import annotations
@@ -24,10 +24,11 @@ from typing import Any, Dict, Optional
 
 import pytest
 
-from gateway.config import PlatformConfig
+from gateway.config import Platform, PlatformConfig
 from gateway.platforms.event import MessageEvent, MessageType, ProcessingOutcome
 from gateway.relay.adapter import RelayAdapter
 from gateway.relay.descriptor import CONTRACT_VERSION, CapabilityDescriptor
+from gateway.relay.ws_transport import _event_from_wire
 from gateway.session import SessionSource
 
 from tests.gateway.relay.stub_connector import StubConnector
@@ -228,12 +229,12 @@ def test_discord_component_interaction_decodes_prompt_token():
 # ── react ack lifecycle ──────────────────────────────────────────────────
 
 
-def _reactable_event() -> MessageEvent:
+def _reactable_event(platform=Platform.DISCORD) -> MessageEvent:
     return MessageEvent(
         text="do something",
         message_type=MessageType.TEXT,
         source=SessionSource(
-            platform="discord",
+            platform=platform,
             chat_id="ch1",
             chat_type="channel",
             user_id="u1",
@@ -256,6 +257,61 @@ async def test_processing_lifecycle_reacts_eyes_then_check():
         ("✅", False),
     ]
     assert all(r["message_id"] == "m42" and r["chat_id"] == "ch1" for r in reacts)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "outcome,expected",
+    [(ProcessingOutcome.SUCCESS, "👍"), (ProcessingOutcome.FAILURE, "👎")],
+)
+async def test_telegram_ack_uses_supported_reactions(outcome, expected):
+    """Telegram accepts 👍/👎 but rejects ✅/❌ in its fixed reaction vocabulary."""
+    adapter, stub = _adapter()
+    event = _reactable_event(platform=Platform.TELEGRAM)
+
+    await adapter.on_processing_start(event)
+    await adapter.on_processing_complete(event, outcome)
+
+    assert [a["emoji"] for a in stub.sent if a["op"] == "react"] == ["👀", "👀", expected]
+
+
+@pytest.mark.asyncio
+async def test_unresolved_wire_platform_falls_back_to_descriptor_lane():
+    """Unknown wire platforms decode as the relay placeholder, not an empty string."""
+    adapter, stub = _adapter()  # Telegram-primary descriptor
+    event = _event_from_wire(
+        {"text": "hi", "message_id": "m42", "source": {"chat_id": "ch1", "chat_type": "channel", "user_id": "u1"}}
+    )
+    assert event.source.platform is Platform.RELAY
+
+    await adapter.on_processing_complete(event, ProcessingOutcome.SUCCESS)
+
+    assert [a["emoji"] for a in stub.sent if a["op"] == "react"] == ["👀", "👍"]
+
+
+@pytest.mark.asyncio
+async def test_unresolved_wire_platform_prefers_chat_lane_over_descriptor():
+    """A cached inbound lane wins over a different descriptor primary."""
+    adapter, stub = _adapter(platform="slack", label="Slack")
+    adapter._platform_by_chat["ch1"] = "telegram"
+    event = _event_from_wire(
+        {"text": "hi", "message_id": "m42", "source": {"chat_id": "ch1", "chat_type": "channel"}}
+    )
+
+    await adapter.on_processing_complete(event, ProcessingOutcome.SUCCESS)
+    assert [a["emoji"] for a in stub.sent if a["op"] == "react"] == ["👀", "👍"]
+
+
+@pytest.mark.asyncio
+async def test_generic_relay_primary_keeps_default_reactions():
+    """A genuinely relay-primary descriptor does not invent Telegram semantics."""
+    adapter, stub = _adapter(platform="relay", label="Relay")
+    event = _event_from_wire(
+        {"text": "hi", "message_id": "m42", "source": {"chat_id": "ch1", "chat_type": "channel"}}
+    )
+
+    await adapter.on_processing_complete(event, ProcessingOutcome.SUCCESS)
+    assert [a["emoji"] for a in stub.sent if a["op"] == "react"] == ["👀", "✅"]
 
 
 # ── fanned-out prompt answers (one press, many gateways) ─────────────────

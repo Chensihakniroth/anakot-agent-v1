@@ -263,13 +263,99 @@ class StreamingContextScrubber:
             self._at_block_boundary = self._ends_at_block_boundary(text)
 
 
+# A markdown bullet requires marker + space/tab + content. Spaced thematic breaks are excluded.
+_RECALL_BULLET_RE = re.compile(r"[-*+][ \t]+\S")
+_RECALL_THEMATIC_BREAK_RE = re.compile(r"(?:(?:\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:\+[ \t]*){3,})")
+_RECALL_FENCE_RE = re.compile(r" {0,3}(`{3,}|~{3,})")
+_RECALL_ATX_HEADING_RE = re.compile(r"#{1,6}(?:[ \t]|$)")
+_RECALL_ORDERED_ITEM_RE = re.compile(r"\d{1,9}[.)][ \t]+\S")
+
+
+def _recall_fence_marker(line: str) -> tuple[str, int] | None:
+    match = _RECALL_FENCE_RE.match(line)
+    if not match:
+        return None
+    marker = match.group(1)
+    return marker[0], len(marker)
+
+
+def _is_thematic_break(line: str) -> bool:
+    expanded = line.expandtabs(4)
+    leading_spaces = len(expanded) - len(expanded.lstrip(" "))
+    return leading_spaces <= 3 and bool(_RECALL_THEMATIC_BREAK_RE.fullmatch(expanded.strip()))
+
+
+def _has_list_continuation(lines: list[str], index: int) -> bool:
+    """Whether the next nonblank line belongs to the list item, including lazy continuation."""
+    for following in lines[index + 1:]:
+        if not following.strip():
+            continue
+        if following[0].isspace():
+            return not _is_thematic_break(following)
+        stripped = following.strip()
+        starts_block = (
+            _is_thematic_break(following)
+            or bool(_RECALL_BULLET_RE.match(stripped))
+            or bool(_RECALL_ATX_HEADING_RE.match(stripped))
+            or bool(_RECALL_ORDERED_ITEM_RE.match(stripped))
+            or stripped.startswith((">", "<!--"))
+            or _recall_fence_marker(following) is not None
+        )
+        return not starts_block
+    return False
+
+
+def _drop_repeated_recall_lines(text: str) -> str:
+    """Drop byte-identical self-contained duplicate bullets within one Markdown section.
+
+    Fenced code, thematic breaks, non-bullet headings, indented lines, and bullets with
+    blank-separated indented continuations are preserved and never suppress another bullet.
+    """
+    lines = text.split("\n")
+    seen: set[str] = set()
+    kept: list[str] = []
+    fence: tuple[str, int] | None = None
+    for index, line in enumerate(lines):
+        marker = _recall_fence_marker(line)
+        if fence is not None:
+            kept.append(line)
+            if (
+                marker is not None
+                and marker[0] == fence[0]
+                and marker[1] >= fence[1]
+                and not line.strip()[marker[1]:].strip()
+            ):
+                fence = None
+            continue
+        if marker is not None:
+            fence = marker
+            kept.append(line)
+            continue
+
+        stripped = line.strip()
+        is_thematic_break = _is_thematic_break(line)
+        if stripped and line[0].isspace() and not is_thematic_break:
+            kept.append(line)
+            continue
+        is_bullet = bool(_RECALL_BULLET_RE.match(stripped)) and not is_thematic_break
+        if stripped and not is_bullet:
+            seen.clear()
+        if is_bullet and not _has_list_continuation(lines, index):
+            if line in seen:
+                continue
+            seen.add(line)
+        kept.append(line)
+    return "\n".join(kept)
+
+
 def build_memory_context_block(raw_context: str) -> str:
     """Wrap prefetched memory in a fenced block with system note."""
     if not raw_context or not raw_context.strip():
         return ""
-    clean = sanitize_context(raw_context)
-    if clean != raw_context:
+    sanitized = sanitize_context(raw_context)
+    if sanitized != raw_context:
         logger.warning("memory provider returned pre-wrapped context; stripped")
+    clean = _drop_repeated_recall_lines(sanitized)
     return (
         "<memory-context>\n"
         "[System note: The following is recalled memory context, "

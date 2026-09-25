@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import importlib
 import json
+import logging
+import os
+import sys
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import ssl
 from threading import Thread
@@ -381,6 +385,16 @@ def test_azure_anthropic_probe_drops_api_key_and_bearer_on_redirect():
     assert "api-key" not in headers
 
 
+@pytest.fixture(autouse=True)
+def _reset_https_context_cache():
+    """Keep a cached CA context from leaking between tests."""
+    import anakot_cli.urllib_security as urllib_security
+
+    urllib_security._HTTPS_CONTEXT_CACHE = None
+    yield
+    urllib_security._HTTPS_CONTEXT_CACHE = None
+
+
 def _clear_ca_bundle_env(monkeypatch) -> None:
     for name in (
         "ANAKOT_CA_BUNDLE",
@@ -451,6 +465,45 @@ def test_resolved_https_context_uses_certifi_on_macos(monkeypatch):
     assert seen == ["/certifi/cacert.pem"]
 
 
+def test_certifi_location_failure_keeps_stdlib_default(monkeypatch, caplog):
+    """A broken packaged certifi resource must not break HTTPS opener construction."""
+    import certifi
+    import anakot_cli.urllib_security as urllib_security
+
+    _clear_ca_bundle_env(monkeypatch)
+    monkeypatch.setattr(urllib_security.sys, "platform", "darwin")
+
+    def missing_resource():
+        raise FileNotFoundError("certifi resource is missing")
+
+    monkeypatch.setattr(certifi, "where", missing_resource)
+    with caplog.at_level(logging.WARNING, logger=urllib_security.logger.name):
+        assert urllib_security._resolved_https_context() is None
+    assert "falling back to default certificates" in caplog.text
+
+
+def test_fresh_import_heals_stale_utils_before_binding_file_signature():
+    """The pre-handoff updater leaves old root modules cached; import must self-heal."""
+    stale_utils = sys.modules["utils"]
+    cached_signature = stale_utils.file_signature
+    old_urllib_security = sys.modules.pop("anakot_cli.urllib_security")
+    del stale_utils.file_signature
+    try:
+        fresh = importlib.import_module("anakot_cli.urllib_security")
+        stat = os.stat(__file__)
+        assert fresh.file_signature(stat) == (
+            stat.st_mtime_ns,
+            stat.st_size,
+            stat.st_ino,
+            stat.st_ctime_ns,
+        )
+        assert sys.modules["utils"] is not stale_utils
+    finally:
+        sys.modules["anakot_cli.urllib_security"] = old_urllib_security
+        sys.modules["utils"] = stale_utils
+        stale_utils.file_signature = cached_signature
+
+
 def test_invalid_ca_bundle_falls_back_to_certifi_on_macos(monkeypatch, tmp_path):
     import certifi
     import anakot_cli.urllib_security as urllib_security
@@ -471,6 +524,120 @@ def test_invalid_ca_bundle_falls_back_to_certifi_on_macos(monkeypatch, tmp_path)
 
     assert urllib_security._resolved_https_context() is expected_context
     assert seen == ["/certifi/cacert.pem"]
+
+
+def test_ca_context_is_memoized_until_preferred_bundle_rotates(monkeypatch, tmp_path):
+    """Repeated requests reuse one context, but a changed preferred bundle rebuilds it."""
+    import anakot_cli.urllib_security as urllib_security
+
+    _clear_ca_bundle_env(monkeypatch)
+    ca_bundle = tmp_path / "corporate-ca.pem"
+    ca_bundle.write_text("first")
+    calls = []
+
+    def create_default_context(*, cafile=None):
+        calls.append(cafile)
+        return ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+    monkeypatch.setenv("ANAKOT_CA_BUNDLE", str(ca_bundle))
+    monkeypatch.setattr(ssl, "create_default_context", create_default_context)
+
+    first = urllib_security._resolved_https_context()
+    assert urllib_security._resolved_https_context() is first
+    ca_bundle.write_text("rotated bundle with a new length")
+    rotated = urllib_security._resolved_https_context()
+
+    assert rotated is not first
+    assert calls == [str(ca_bundle), str(ca_bundle)]
+
+
+@pytest.mark.parametrize(
+    ("candidates", "expected_loads"),
+    [
+        (("corporate-ca.pem",), 2),
+        (("corporate-ca.pem", "cacert.pem"), 3),
+    ],
+)
+def test_failed_preferred_bundle_load_is_retried(
+    monkeypatch, tmp_path, candidates, expected_loads
+):
+    """Neither a total failure nor a fallback success may pin a transient preferred failure."""
+    import anakot_cli.urllib_security as urllib_security
+
+    _clear_ca_bundle_env(monkeypatch)
+    paths = tuple(tmp_path / name for name in candidates)
+    for path in paths:
+        path.write_text("pem")
+    failing_path = paths[0]
+    loads = []
+    state = {"failing": True}
+
+    def load_verify_locations(self, cafile=None, capath=None, cadata=None):
+        loads.append(cafile)
+        if state["failing"] and cafile == str(failing_path):
+            raise ssl.SSLError("transient read failure")
+
+    monkeypatch.setattr(urllib_security, "_ca_bundle_candidates", lambda: tuple(map(str, paths)))
+    monkeypatch.setattr(ssl.SSLContext, "load_verify_locations", load_verify_locations)
+
+    first = urllib_security._resolved_https_context()
+    assert (first is None) == (len(paths) == 1)
+    state["failing"] = False
+    recovered = urllib_security._resolved_https_context()
+
+    assert recovered is not None
+    assert recovered is not first
+    assert len(loads) == expected_loads
+    assert urllib_security._resolved_https_context() is recovered
+
+
+def test_fallback_change_does_not_invalidate_preferred_context(monkeypatch, tmp_path):
+    """A memo built from the preferred file must not stat an unread fallback on every request."""
+    import anakot_cli.urllib_security as urllib_security
+
+    preferred = tmp_path / "corporate-ca.pem"
+    fallback = tmp_path / "cacert.pem"
+    preferred.write_text("preferred")
+    fallback.write_text("first")
+    calls = []
+
+    def create_default_context(*, cafile=None):
+        calls.append(cafile)
+        return ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+
+    monkeypatch.setattr(ssl, "create_default_context", create_default_context)
+    monkeypatch.setattr(
+        urllib_security,
+        "_ca_bundle_candidates",
+        lambda: (str(preferred), str(fallback)),
+    )
+
+    first = urllib_security._resolved_https_context()
+    fallback.write_text("rotated fallback with a new length")
+
+    assert urllib_security._resolved_https_context() is first
+    assert calls == [str(preferred)]
+
+
+def test_bundle_failures_log_fallback_only_after_all_candidates_fail(monkeypatch, caplog):
+    """Each candidate reports its own failure; default-cert fallback is announced once."""
+    import anakot_cli.urllib_security as urllib_security
+
+    def create_default_context(*, cafile=None):
+        raise ssl.SSLError(f"bad bundle {cafile}")
+
+    monkeypatch.setattr(ssl, "create_default_context", create_default_context)
+    with caplog.at_level(logging.WARNING, logger=urllib_security.logger.name):
+        assert urllib_security._build_https_context(("C:/a.pem", "C:/b.pem")) == (None, None)
+
+    messages = [record.getMessage() for record in caplog.records]
+    per_failure = [m for m in messages if "trying the next bundle" in m]
+    assert len(per_failure) == 2
+    assert "C:/a.pem" in per_failure[0]
+    assert "C:/b.pem" in per_failure[1]
+    assert [m for m in messages if "falling back to default certificates" in m] == [
+        "No configured CA bundle could be loaded — falling back to default certificates"
+    ]
 
 
 def test_resolved_https_context_keeps_stdlib_default_off_macos(monkeypatch):

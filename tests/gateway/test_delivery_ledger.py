@@ -368,6 +368,49 @@ class TestRuntimeFailedSweep:
 
 
 class TestPrune:
+    def test_record_and_prune_share_one_transaction(self, monkeypatch):
+        """Recording a response must not open a second transaction just to prune."""
+        opened, prune_connections = [], []
+        real_connect = dl._connect
+        real_prune = dl._prune_unlocked
+
+        def tracked_connect():
+            connection = real_connect()
+            opened.append(connection)
+            return connection
+
+        def tracked_prune(connection, now):
+            prune_connections.append(connection)
+            return real_prune(connection, now)
+
+        monkeypatch.setattr(dl, "_connect", tracked_connect)
+        monkeypatch.setattr(dl, "_prune_unlocked", tracked_prune)
+        _record()
+        assert len(opened) == 1
+        assert prune_connections == opened
+
+    def test_prune_failure_rolls_back_the_record_and_prior_deletion(self, monkeypatch):
+        """A failed retention sweep must roll back both the new row and earlier deletes."""
+        _record("old")
+        dl.mark_delivered("old")
+        with dl._connect() as conn:
+            conn.execute(
+                "UPDATE delivery_obligations SET updated_at=? WHERE obligation_id=?",
+                (time.time() - dl._RETENTION_SECONDS - 60, "old"),
+            )
+
+        def fail_after_delete(connection, now):
+            connection.execute(
+                "DELETE FROM delivery_obligations WHERE obligation_id=?", ("old",)
+            )
+            raise RuntimeError("prune failed")
+
+        monkeypatch.setattr(dl, "_prune_unlocked", fail_after_delete)
+        with pytest.raises(RuntimeError, match="prune failed"):
+            _record("new")
+        assert _row("old") is not None
+        assert _row("new") is None
+
     def test_old_delivered_rows_pruned(self):
         _record()
         dl.mark_delivered("ob-1")
@@ -376,7 +419,8 @@ class TestPrune:
                 "UPDATE delivery_obligations SET updated_at=? WHERE obligation_id=?",
                 (time.time() - dl._RETENTION_SECONDS - 60, "ob-1"),
             )
-        dl._prune()
+        with dl._DB_LOCK, dl._transaction() as conn:
+            dl._prune_unlocked(conn, time.time())
         assert _row("ob-1") is None
 
 
