@@ -1,0 +1,11 @@
+{
+  "name": "free-model-suite",
+  "label": "Free Model Suite",
+  "description": "Browse, probe, and apply free models from the providers you already configured",
+  "icon": "Leaf",
+  "version": "1.0.0",
+  "tab": {
+    "hidden": true
+  },
+  "api": "plugin_api.py"
+}
