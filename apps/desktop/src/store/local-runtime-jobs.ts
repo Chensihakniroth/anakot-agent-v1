@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
-import { getApiRequestConnection } from '@/api/client'
 import { getLocalModelsJobs, installLocalRuntime } from '@/anakot'
+import { getApiRequestConnection } from '@/api/client'
 import { translateNow } from '@/i18n'
 import { $activeGatewayRoute } from '@/store/gateway'
 import { $localModelsEnabled } from '@/store/local-models-flag'

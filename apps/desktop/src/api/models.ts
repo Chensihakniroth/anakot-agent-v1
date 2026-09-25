@@ -10,8 +10,8 @@ import type {
 } from '@/types/anakot'
 
 import {
-  capabilityScoped,
   anakotApi,
+  capabilityScoped,
   type ProfileScope,
   profileScoped,
   STARTUP_REQUEST_TIMEOUT_MS

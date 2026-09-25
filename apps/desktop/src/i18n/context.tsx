@@ -1,7 +1,7 @@
 import { applyDocumentLocale, isRecord } from '@anakot/shared/i18n'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getAnakotConfigRecord, type AnakotConfigRecord, saveAnakotConfig } from '@/anakot'
+import { type AnakotConfigRecord, getAnakotConfigRecord, saveAnakotConfig } from '@/anakot'
 
 import { TRANSLATIONS } from './catalog'
 import {

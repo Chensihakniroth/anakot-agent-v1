@@ -13,6 +13,7 @@ import {
   useState
 } from 'react'
 
+import type { AnakotGateway } from '@/anakot'
 import { ComposerDirectiveActions } from '@/app/chat/composer/directive-actions'
 import { COMPOSER_DROP_ACTIVE_CLASS, COMPOSER_DROP_FADE_CLASS } from '@/app/chat/composer/drop-affordance'
 import {
@@ -51,8 +52,8 @@ import { ComposerTriggerPopover } from '@/app/chat/composer/trigger-popover'
 import { isRedoShortcut, isUndoShortcut } from '@/app/chat/composer/undo-history'
 import { chipTypedUrlOnSpace, linkifyUrls } from '@/app/chat/composer/url-refs'
 import {
-  extractDroppedFiles,
   ANAKOT_PATHS_MIME,
+  extractDroppedFiles,
   isImagePath,
   partitionDroppedFiles
 } from '@/app/chat/hooks/use-composer-actions'
@@ -66,7 +67,6 @@ import {
   USER_BUBBLE_BASE_CLASS
 } from '@/components/assistant-ui/thread/user-message'
 import { Codicon } from '@/components/ui/codicon'
-import type { AnakotGateway } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { attachmentDisplayText, attachmentId, pathLabel } from '@/lib/chat-runtime'
 import { sanitizeComposerInput } from '@/lib/composer-input-sanitize'

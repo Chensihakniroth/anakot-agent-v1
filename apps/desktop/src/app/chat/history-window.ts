@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { capabilityScoped, anakotApi, type ProfileScope } from '@/api/client'
+import { anakotApi, capabilityScoped, type ProfileScope } from '@/api/client'
 import { cachedTimelineIndex, previousPromptRowId, timelineIndexKey } from '@/components/assistant-ui/thread/timeline-index'
 import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import type { SessionMessagesResponse } from '@/types/anakot'

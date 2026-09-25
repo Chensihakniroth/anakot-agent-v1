@@ -34,7 +34,7 @@ import { installPluginSdk, sdkImportMap } from '@/sdk/runtime'
 import { notifyError } from '@/store/notifications'
 
 import { trackGatewayEventDisposers } from './events'
-import { createPluginContext, type AnakotPlugin } from './plugin'
+import { type AnakotPlugin, createPluginContext } from './plugin'
 import { $pluginRecords, dropPlugin, pluginActive, type PluginKind, publishPlugin } from './plugins-store'
 
 interface LoadOptions {

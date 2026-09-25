@@ -196,13 +196,16 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
     onRequest: callback => {
       const channel = 'anakot:screenshot:request'
       const listener = (_event, requestId) => callback(requestId)
+
       if (ipcRenderer.listenerCount(channel) === 0) {
         ipcRenderer.send('anakot:screenshot:subscribe', true)
       }
+
       ipcRenderer.on(channel, listener)
 
       return () => {
         ipcRenderer.removeListener(channel, listener)
+
         if (ipcRenderer.listenerCount(channel) === 0) {
           ipcRenderer.send('anakot:screenshot:subscribe', false)
         }

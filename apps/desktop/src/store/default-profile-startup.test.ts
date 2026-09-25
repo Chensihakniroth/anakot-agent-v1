@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { DesktopConnectionsRegistry, DesktopProfileRoute, AnakotConnection } from '@/global'
+import type { AnakotConnection, DesktopConnectionsRegistry, DesktopProfileRoute } from '@/global'
 import { deferred } from '@/test/deferred'
 
 import { _resetConnectionsForTests, initializeConnectionsRegistry } from './connections'
@@ -77,6 +77,7 @@ describe('startup default route', () => {
     window.anakotDesktop.profile.getDefault = async () => {
       throw new Error('IPC interrupted')
     }
+
     await initializeConnectionsRegistry()
     expect($connection.get()).toMatchObject({ connectionId: 'local', profile: 'personal' })
     expect(openGatewayForAgent).not.toHaveBeenCalled()
@@ -122,6 +123,7 @@ describe('startup default route', () => {
       expect($connection.get()).toMatchObject({ connectionId: route.connectionId ?? 'local', profile: route.profile })
       expect($activeGatewayProfile.get()).toBe(route.profile)
     }
+
     expect(ensureGatewayForAgent).toHaveBeenCalledWith('lab', 'research', expect.anything())
     expect(ensureGatewayForAgent).toHaveBeenCalledWith('local', 'personal', expect.anything())
   })

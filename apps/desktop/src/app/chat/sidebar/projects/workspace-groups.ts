@@ -1,5 +1,5 @@
-import type { AnakotGitWorktree } from '@/global'
 import type { ProjectInfo, SessionInfo } from '@/anakot'
+import type { AnakotGitWorktree } from '@/global'
 import { normalize } from '@/lib/text'
 
 import { rankSessions } from '../order'

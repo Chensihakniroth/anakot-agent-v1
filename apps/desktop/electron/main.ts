@@ -61,7 +61,7 @@ import {
 import { dashboardFallbackArgs } from './backend-command'
 import { createBackendConnectionState } from './backend-connection-state'
 import { BackendDialClaims } from './backend-dial-claim'
-import { buildDesktopBackendEnv, anakotManagedNodePathEntries, normalizeAnakotHomeRoot } from './backend-env'
+import { anakotManagedNodePathEntries, buildDesktopBackendEnv, normalizeAnakotHomeRoot } from './backend-env'
 import { createBackendExitRecoveryLatch } from './backend-exit-recovery'
 import { isReauthRequiredError, waitForAnakotReady } from './backend-health'
 import { backendCommandMatches, createBackendOwnership, createBackendShutdownCoordinator } from './backend-ownership'
@@ -475,13 +475,13 @@ import {
   MIN_HEIGHT as WINDOW_MIN_HEIGHT,
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
-import { hiddenWindowsChildOptions } from './windows-child-options'
 import {
   buildPathExtCandidates,
   chooseUpdaterArgs,
   getVenvSitePackagesEntries,
   resolveVenvAnakotCommand
 } from './windows-anakot-path'
+import { hiddenWindowsChildOptions } from './windows-child-options'
 import {
   connectWindowsRemote,
   detectRemotePlatform,
@@ -9945,9 +9945,11 @@ async function buildRemoteConnection(
 }
 
 const sshConnections = new Map<string, any>()
+
 const sshIsolatedKeepalives = createSshIsolatedKeepaliveRegistry({
   log: chunk => sshRememberLog(chunk)
 })
+
 const desktopInstallationId = loadOrCreateInstallationId(DESKTOP_INSTALLATION_PATH)
 
 // Managed SSH update lifecycle (#93042): while an update owns a registered
@@ -12233,6 +12235,7 @@ function startPoolIdleReaper() {
         const retiring = entry.process
           ? poolRetirer.retireIdle(profile, poolIdleMs())
           : stopPoolBackend(profile)
+
         void retiring.catch(error => rememberLog(`Pool idle retirement failed: ${String(error)}`))
       }
     }
@@ -12520,6 +12523,7 @@ async function runPoolBackendStart(profile, entry, opts: { forceLocal?: boolean;
   const startFailed = new Promise((_resolve, reject) => {
     rejectStart = reject
   })
+
   // Exit/error can now arrive while the ownership claim is still pending.
   startFailed.catch(() => {})
 
@@ -12555,6 +12559,7 @@ async function runPoolBackendStart(profile, entry, opts: { forceLocal?: boolean;
     describeOutputTail: () => outputTail.describe(),
     readyFile
   })
+
   portAnnouncement.catch(() => {})
   await claimBackendChild(child, `${backend.command} ${backend.args.join(' ')}`, profile, backendNonce, outputTail)
   assertPoolEntryStillOwned(poolKey, entry, { releaseSlot: false })
@@ -12637,10 +12642,12 @@ const poolStopper = createPoolStopper({
 
 function stopPoolBackend(profile: string): Promise<void> {
   const entry = backendPool.get(profile)
+
   const stopping = releaseLocalBackendSlotAfterExit(
     () => releaseLocalBackendSlot(entry),
     () => poolStopper.stop(profile)
   )
+
   // Fire-and-forget callers still need diagnostics; awaiters receive the
   // rejection, while physical ownership and the exit finalizer remain live.
   void stopping.catch(error => {
@@ -12671,6 +12678,7 @@ const poolRetirer = createPoolRetirer({
   onRetiring: broadcastPoolBackendRetiring,
   log: rememberLog
 })
+
 localBackendLifecycle.signal.addEventListener('abort', poolRetirer.dispose, { once: true })
 
 async function teardownPoolBackendAndWait(profile) {
@@ -12803,6 +12811,7 @@ function scheduleUnexpectedPrimaryRecovery({ code = null, signal = null, error =
     if (primaryExitRecovery.isCrashLooping()) {
       const message =
         'Anakot backend keeps crashing right after it restarts; not restarting it again. Relaunch Anakot Desktop.'
+
       rememberLog(`[supervisor] ${message}`)
       sendBackendExit({ code, signal, error: message })
 
@@ -13650,6 +13659,7 @@ function createInstanceWindow(
     source && !source.isDestroyed() ? windowConnectionRoutes.get(source.webContents.id) : null,
     { connectionId: null, profile: primaryProfileKey() }
   )
+
   validateDesktopProfileRoute(route)
   const icon = getAppIconPath()
 
@@ -16659,6 +16669,7 @@ async function dispatchRegistryApiRequest(
   // OUT of the claim: an interactive open coalescing onto an in-flight
   // passive read would otherwise inherit its "no warm backend" rejection.
   const spawnPriority = spawnPriorityFrom(request?.priority)
+
   const connection: any = request?.passive
     ? await ensureRegistryBackend(registryConnectionId, routeProfile, '', { passive: true })
     : await backendDialClaims.run(backendScopeKey(registryConnectionId, routeProfile), () =>
@@ -18218,6 +18229,7 @@ app.whenReady().then(() => {
   if (IS_WINDOWS && IS_PACKAGED) {
     const resourcesUpdater = path.join(process.resourcesPath || '', 'anakot-setup.exe')
     const homeUpdater = path.join(ANAKOT_HOME, 'anakot-setup.exe')
+
     if (fileExists(resourcesUpdater) && !fileExists(homeUpdater)) {
       try {
         fs.copyFileSync(resourcesUpdater, homeUpdater)

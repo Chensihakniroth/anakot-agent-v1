@@ -1,5 +1,5 @@
-import { profileScoped } from '@/api/client'
 import { anakotApi } from '@/anakot'
+import { profileScoped } from '@/api/client'
 
 /**
  * GPT-Live voice chat: the full-duplex voice frontend that DELEGATES to Anakot.

@@ -1,6 +1,6 @@
 import type { McpCatalogResponse, McpServerSummary } from '@/types/anakot'
 
-import { capabilityScoped, anakotApi, type ProfileScope, profileScoped } from './client'
+import { anakotApi, capabilityScoped, type ProfileScope, profileScoped } from './client'
 
 export interface McpTestResult {
   ok: boolean

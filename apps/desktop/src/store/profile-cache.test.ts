@@ -2,7 +2,7 @@ import { atom } from 'nanostores'
 import { afterEach, expect, it, vi } from 'vitest'
 
 import { setApiRequestConnection } from '@/api/client'
-import type { DesktopAgentRoster, AnakotConnection } from '@/global'
+import type { AnakotConnection, DesktopAgentRoster } from '@/global'
 import { $fleetRoster, _resetFleetRosterForTests } from '@/store/fleet-roster'
 import type { ProfileInfo } from '@/types/anakot'
 

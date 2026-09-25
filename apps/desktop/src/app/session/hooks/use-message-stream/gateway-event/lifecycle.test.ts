@@ -1,8 +1,8 @@
 import { act, cleanup, renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { useStatusSnapshot } from '@/app/shell/hooks/use-status-snapshot'
 import { getStatus } from '@/anakot'
+import { useStatusSnapshot } from '@/app/shell/hooks/use-status-snapshot'
 import { $setupReadyTick } from '@/store/live-sync'
 
 import { handleLifecycleEvent } from './lifecycle'
