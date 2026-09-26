@@ -417,7 +417,7 @@ class TestStoredPromptCwdDrift:
             "Provider: openrouter\n"
         )
 
-        with patch("os.getcwd", return_value="/project/new"):
+        with patch("agent.conversation_loop.resolve_agent_cwd", return_value=Path("/project/new")):
             assert _stored_prompt_matches_runtime(agent, stored_prompt) is False, (
                 "Expected False when stored cwd differs from current cwd"
             )
@@ -428,14 +428,18 @@ class TestStoredPromptCwdDrift:
         from agent.conversation_loop import _stored_prompt_matches_runtime
 
         agent = self._make_agent()
-        current_cwd = "/project/current"
+        # A REAL Path: the product compares ``stored_cwd != str(resolve_agent_cwd())``,
+        # so the fixture must survive the Path() round-trip production performs. A
+        # POSIX-style literal stringifies with backslashes on Windows and could never
+        # match — which is why this failed off-Linux.
+        current_cwd = Path("/project/current")
         stored_prompt = (
-            self._host_block(current_cwd)
+            self._host_block(str(current_cwd))
             + "Model: test/model\n"
-            "Provider: openrouter\n"
+            + "Provider: openrouter\n"
         )
 
-        with patch("os.getcwd", return_value=current_cwd):
+        with patch("agent.conversation_loop.resolve_agent_cwd", return_value=current_cwd):
             assert _stored_prompt_matches_runtime(agent, stored_prompt) is True, (
                 "Expected True when stored cwd matches current cwd"
             )
@@ -456,9 +460,9 @@ class TestStoredPromptCwdDrift:
         from agent.conversation_loop import _stored_prompt_matches_runtime
 
         agent = self._make_agent()
-        current_cwd = "/project/current"
+        current_cwd = Path("/project/current")
         stored_prompt = (
-            self._host_block(current_cwd)
+            self._host_block(str(current_cwd))
             + "\n# AGENTS.md\n\n"
             "Our deploy convention:\n\n"
             "Current working directory: /srv/decoy\n\n"
@@ -467,7 +471,7 @@ class TestStoredPromptCwdDrift:
             "Provider: openrouter\n"
         )
 
-        with patch("os.getcwd", return_value=current_cwd):
+        with patch("agent.conversation_loop.resolve_agent_cwd", return_value=current_cwd):
             assert _stored_prompt_matches_runtime(agent, stored_prompt) is True, (
                 "A project file that merely MENTIONS 'Current working "
                 "directory:' must not invalidate the prompt — that would "
@@ -493,7 +497,7 @@ class TestStoredPromptCwdDrift:
             "Provider: openrouter\n"
         )
 
-        with patch("os.getcwd", return_value="/project/new"):
+        with patch("agent.conversation_loop.resolve_agent_cwd", return_value=Path("/project/new")):
             assert _stored_prompt_matches_runtime(agent, stored_prompt) is False, (
                 "Embedded project text naming the new cwd must not mask real "
                 "drift in the host-info block"

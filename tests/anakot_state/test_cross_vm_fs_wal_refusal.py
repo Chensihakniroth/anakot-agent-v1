@@ -7,11 +7,18 @@ while never live-downgrading an on-disk WAL database and never flagging an ordin
 
 import logging
 import sqlite3
+import sys
 
 import pytest
 
 import anakot_state_wal
-from anakot_state_wal import WalUnsupportedError, _detect_cross_vm_fs, apply_wal_with_fallback
+from anakot_state_wal import (
+    WalUnsupportedError,
+    _CROSS_VM_FSTYPES,
+    _detect_cross_vm_fs,
+    _mountinfo_fstype,
+    apply_wal_with_fallback,
+)
 
 
 def _mountinfo(tmp_path, lines):
@@ -29,6 +36,24 @@ SPACE_VIRTIOFS = "615 25 0:55 / /mnt/my\\040share rw,relatime - virtiofs share r
 
 
 class TestDetectCrossVmFs:
+    """The mountinfo PARSER is host-independent: it takes the table path and the
+    directory as data, so it is asserted everywhere. Only the ``sys.platform``
+    gate in :func:`_detect_cross_vm_fs` is host-bound, and that gets its own
+    test below — a test must not fake the host to reach the branch under test.
+    """
+
+    @pytest.mark.parametrize("path,expected_fstype", [
+        ("/data/agent", "fuse.virtiofs"),    # fuse.virtiofs bind mount
+        ("/mnt/host/db", "9p"),              # 9p bind mount
+        ("/mnt/my share/db", "virtiofs"),    # octal-escaped mount point
+        ("/home/user/.anakot", "ext4"),      # ext4 root
+        ("/data/native/db", "ext4"),         # ext4 over the virtiofs tree — longest prefix wins
+        ("/datastore", "ext4"),              # sibling path sharing a prefix string, not a mount prefix
+    ])
+    def test_longest_prefix_mountpoint_wins(self, tmp_path, path, expected_fstype):
+        mi = _mountinfo(tmp_path, [ROOT_EXT4, BIND_VIRTIOFS, BIND_9P, NESTED_EXT4, SPACE_VIRTIOFS])
+        assert _mountinfo_fstype(path, mountinfo_path=mi) == expected_fstype
+
     @pytest.mark.parametrize("path,expected", [
         ("/data/agent", True),          # fuse.virtiofs bind mount
         ("/mnt/host/db", True),         # 9p bind mount
@@ -37,9 +62,29 @@ class TestDetectCrossVmFs:
         ("/data/native/db", False),     # ext4 mounted over the virtiofs tree — longest prefix wins
         ("/datastore", False),          # sibling path sharing a prefix string, not a mount prefix
     ])
+    @pytest.mark.linux_only
     def test_only_virtiofs_and_9p_mounts_are_flagged(self, tmp_path, path, expected):
         mi = _mountinfo(tmp_path, [ROOT_EXT4, BIND_VIRTIOFS, BIND_9P, NESTED_EXT4, SPACE_VIRTIOFS])
         assert _detect_cross_vm_fs(path, mountinfo_path=mi) is expected
+
+    def test_platform_gate_is_false_off_linux(self, tmp_path):
+        """Off Linux the answer is False by construction (no /proc/self/mountinfo).
+
+        Asserted directly rather than by patching ``sys.platform``: the gate IS
+        the host check, so there is nothing to fake.
+        """
+        mi = _mountinfo(tmp_path, [BIND_VIRTIOFS])
+        if sys.platform == "linux":
+            pytest.skip("this asserts the NON-Linux gate")
+        assert _detect_cross_vm_fs("/data/agent", mountinfo_path=mi) is False
+
+    def test_flagged_fstypes_are_exactly_the_cross_vm_set(self, tmp_path):
+        """The parser's output feeds one membership test; the contract is that
+        set, so pin the relationship rather than each fstype in isolation."""
+        for fstype in sorted(_CROSS_VM_FSTYPES):
+            mi = _mountinfo(tmp_path, [f"25 1 8:1 / /data rw,relatime - {fstype} host0 rw"])
+            assert _mountinfo_fstype("/data/agent", mountinfo_path=mi) == fstype
+            assert _mountinfo_fstype("/data/agent", mountinfo_path=mi) in _CROSS_VM_FSTYPES
 
     @pytest.mark.parametrize("fstype", [
         "ext4", "xfs", "btrfs", "zfs", "tmpfs", "overlay", "nfs", "nfs4", "cifs", "fuse.sshfs", "apfs", "f2fs",
@@ -47,10 +92,10 @@ class TestDetectCrossVmFs:
     def test_ordinary_filesystems_never_flagged(self, tmp_path, fstype):
         # A false positive here would put every session on DELETE mode — the class bug this pins absent.
         mi = _mountinfo(tmp_path, [f"25 1 8:1 / / rw,relatime shared:1 - {fstype} /dev/sda1 rw"])
-        assert _detect_cross_vm_fs("/home/user/.anakot", mountinfo_path=mi) is False
+        assert _mountinfo_fstype("/home/user/.anakot", mountinfo_path=mi) == fstype
 
     def test_missing_mountinfo_conservative_false(self, tmp_path):
-        assert _detect_cross_vm_fs("/data", mountinfo_path=str(tmp_path / "nope")) is False
+        assert _mountinfo_fstype("/data", mountinfo_path=str(tmp_path / "nope")) == ""
 
 
 class TestWalRefusalOnCrossVmFs:

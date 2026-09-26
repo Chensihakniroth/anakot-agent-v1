@@ -57,6 +57,7 @@ def _replace_file_preserving_schema(src: Path, dst: Path) -> None:
     os.rename(tmp, dst)
 
 
+@pytest.mark.linux_only
 class TestInodeReplacement:
     def test_live_holders_keep_working_handle_across_replacement(self, tmp_path):
         """Two active refs → inode replacement → third caller gets NEW
@@ -488,6 +489,7 @@ class TestAcquireSingleFlight:
         registry.release(results[1])
 
 
+@pytest.mark.linux_only
 class TestMultiGenerationTeardownBarrier:
     """One path, several closes admitted at once (#103118 review).
 
