@@ -98,6 +98,10 @@ class TestCompressionBoundaryHook:
                 f"Expected old_session_id={original_sid!r}, got {call.kwargs!r}"
             assert len(comp_calls) == 1
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()
     def test_automatic_notification_follows_core_persistence(self):
         from anakot_state import SessionDB
 
@@ -138,6 +142,10 @@ class TestCompressionBoundaryHook:
 
             assert events == ["persist", "compression"]
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()
     def test_failure_before_persistence_does_not_notify(self):
         from anakot_state import SessionDB
 
@@ -158,6 +166,10 @@ class TestCompressionBoundaryHook:
             compressor.on_session_start.assert_not_called()
 
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()
     def test_no_progress_does_not_notify(self):
         from anakot_state import SessionDB
 
@@ -180,6 +192,10 @@ class TestCompressionBoundaryHook:
             compressor.on_session_start.assert_not_called()
 
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()
     def test_no_hook_when_no_session_db(self):
         """Without session_db, session_id does not rotate and the hook is not fired."""
         from run_agent import AIAgent
@@ -253,6 +269,10 @@ class TestCompressionBoundaryHook:
             assert agent.session_id != original_sid
 
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()
 class TestSessionCompressEvent:
     """The session:compress event_callback fires after a compression split."""
 
@@ -312,6 +332,10 @@ class TestSessionCompressEvent:
             assert ctx["old_session_id"] == original_sid
             assert ctx["compression_count"] == 1
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()
     def test_no_callback_is_safe(self):
         """Compression must work when no event_callback is wired."""
         from anakot_state import SessionDB
@@ -325,3 +349,7 @@ class TestSessionCompressEvent:
             )
             assert compressed
 
+            # Release the SQLite handle BEFORE the temp dir is torn down: Windows
+            # refuses to unlink an open file (POSIX does not), so this is the only
+            # reason this suite failed on Windows.
+            db.close()

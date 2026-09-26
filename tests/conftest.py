@@ -595,6 +595,34 @@ def _isolate_anakot_home(_hermetic_environment):
 
 
 @pytest.fixture(autouse=True)
+def _tolerate_open_db_handle_on_tempdir_cleanup(monkeypatch):
+    """Let a ``tempfile.TemporaryDirectory`` tear down even with a live SQLite handle.
+
+    A test that builds ``SessionDB(db_path=tmp/...)`` inside a
+    ``TemporaryDirectory`` and never closes it passes on POSIX and FAILS on
+    Windows: the open handle blocks ``rmtree`` (WinError 32), so the suite
+    reports teardown failures that have nothing to do with the behaviour under
+    test. Cleanup runs INSIDE the test body, so a post-test fixture cannot fix
+    this — the only general lever is the temp dir's own cleanup policy, which
+    matches the existing ``TemporaryDirectory(ignore_cleanup_errors=True)``
+    convention elsewhere in the suite.
+
+    This does not paper over the handle itself: ``SessionDB`` still gets closed
+    by the owning agent/gateway in production, and any test asserting on handle
+    release keeps asserting it explicitly.
+    """
+    import tempfile
+
+    real = tempfile.TemporaryDirectory
+
+    def _tolerant(*args, **kwargs):
+        kwargs.setdefault("ignore_cleanup_errors", True)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(tempfile, "TemporaryDirectory", _tolerant)
+
+
+@pytest.fixture(autouse=True)
 def _neutralize_kanban_memory_guard(request, monkeypatch):
     """Pin the kanban dispatcher's memory guard to "no data" for every test.
 
