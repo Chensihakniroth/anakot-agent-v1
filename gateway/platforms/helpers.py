@@ -7,6 +7,7 @@ import contextlib
 import json
 import logging
 import re
+import threading
 import time
 from pathlib import Path
 from typing import Any, MutableMapping, Optional
@@ -14,6 +15,10 @@ from gateway.platforms.event import MessageEvent
 from utils import atomic_json_write
 
 logger = logging.getLogger(__name__)
+
+# Worker-thread handoff used by the off-loop persist paths. A module attribute
+# so tests can replace THIS seam instead of patching ``asyncio.to_thread``.
+_to_thread = asyncio.to_thread
 
 
 class MessageDeduplicator:
@@ -112,6 +117,17 @@ class ThreadParticipationTracker:
     def __init__(self, platform_name: str, max_tracked: int = 500):
         self._platform = platform_name
         self._max_tracked = max_tracked
+        # ``mark_async`` runs the persist on a worker thread, which removes the
+        # accidental serialization the event loop used to provide. Two locks,
+        # never nested the other way round:
+        #   ``_lock`` guards ONLY the in-memory set; held for microseconds, safe
+        #   on the loop.
+        #   ``_io_lock`` is worker-only; serializes snapshot+write in ``_save``
+        #   so two persists cannot interleave and lose an entry.
+        # ``_save`` must NOT hold ``_lock`` across ``os.replace``: the adapters'
+        # ``thread_id in tracker`` gate runs on the loop thread.
+        self._lock = threading.Lock()
+        self._io_lock = threading.Lock()
         self._threads: dict[str, None] = dict.fromkeys(str(t) for t in self._load())
 
     def _state_path(self) -> Path:
@@ -126,23 +142,53 @@ class ThreadParticipationTracker:
         return [str(thread_id) for thread_id in data] if isinstance(data, list) else []
 
     def _save(self) -> None:
-        thread_list = list(self._threads)
-        if len(thread_list) > self._max_tracked:
-            thread_list = thread_list[-self._max_tracked:]
-            self._threads = dict.fromkeys(thread_list)
-        atomic_json_write(self._state_path(), thread_list, indent=None)
+        with self._io_lock:
+            with self._lock:
+                thread_list = list(self._threads)
+                if len(thread_list) > self._max_tracked:
+                    thread_list = thread_list[-self._max_tracked:]
+                    self._threads = dict.fromkeys(thread_list)
+            atomic_json_write(self._state_path(), thread_list, indent=None)
+
+    def _remember(self, thread_id: str) -> bool:
+        """Record *thread_id* in memory; ``True`` when a persist is still owed.
+
+        The in-memory half stays synchronous even for :meth:`mark_async` so a
+        ``thread_id in tracker`` check immediately after marking is correct.
+        """
+        with self._lock:
+            if thread_id in self._threads:
+                return False
+            self._threads[thread_id] = None
+            return True
 
     def mark(self, thread_id: str) -> None:
-        """Mark *thread_id* as participated and persist."""
-        if thread_id not in self._threads:
-            self._threads[thread_id] = None
+        """Mark *thread_id* as participated and persist.
+
+        Blocking: ends in ``atomic_json_write`` -> ``os.replace``. Coroutines
+        must use :meth:`mark_async` instead.
+        """
+        if self._remember(thread_id):
             self._save()
 
+    async def mark_async(self, thread_id: str) -> None:
+        """Off-loop form of :meth:`mark`.
+
+        ``_save`` ends in ``atomic_json_write`` -> ``os.replace``, whose
+        duration is unbounded under filesystem pressure. Every caller of this
+        tracker sits on an inbound-message coroutine, so the rename must not be
+        paid inline on the event loop.
+        """
+        if self._remember(thread_id):
+            await _to_thread(self._save)
+
     def __contains__(self, thread_id: str) -> bool:
-        return thread_id in self._threads
+        with self._lock:
+            return thread_id in self._threads
 
     def clear(self) -> None:
-        self._threads.clear()
+        with self._lock:
+            self._threads.clear()
 
 
 def redact_phone(phone: str) -> str:

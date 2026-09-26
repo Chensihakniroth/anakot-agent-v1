@@ -108,7 +108,10 @@ class TestRichSentStorePathResolution:
 
         b_seen = _under_override(prof_b, lambda: rss._store_path())
         assert b_seen.startswith(str(prof_b))
-        assert b_seen.endswith("state/rich_sent_index.json")
+        # Compare path SEGMENTS, not a hardcoded "/" string: os.path.join uses
+        # the host separator, so a literal "state/rich_sent_index.json" suffix
+        # assertion fails on Windows while passing on POSIX.
+        assert Path(b_seen).parts[-2:] == ("state", "rich_sent_index.json")
 
 
 class TestGatewayHooksDirResolution:

@@ -63,21 +63,21 @@ for c in json.load(sys.stdin):
 | 6df45711 | 2026-09-22 | perf(bot-mode): capability epoch counts invocable skills not archived | PENDING | |
 | 83a1a9a2 | 2026-09-22 | fix(memory): only self-contained bullet deduped, bold heading not bullet | PORTED | Bullets with indented continuation lines remain untouched; bold headings are not bullets |
 | cbe23de6 | 2026-09-22 | perf(memory): recalled line stated once per memory-context block | PORTED | Removes repeated self-contained bullets while preserving first-occurrence order and structure |
-| b9ec3993 | 2026-09-22 | fix(discord): pre-seed starter dedup before awaiting mark_async | PENDING | |
-| 6351d60a | 2026-09-22 | docs(gateway): point rich_sent_store restatements at _LOCK | PENDING | |
-| 9bc8fed2 | 2026-09-22 | fix(gateway): await mark_async in _branch_open_thread | PENDING | |
-| 4e87d3b0 | 2026-09-22 | refactor(gateway): give tracker persist real _to_thread seam | PENDING | |
-| a5bdde60 | 2026-09-22 | docs(gateway): reflow mark_async docstring to 80 columns | PENDING | |
-| 57111043 | 2026-09-22 | docs(gateway): stop counting mark_async callers in docstring | PENDING | |
-| 70feb49b | 2026-09-22 | test(gateway): derive stall threshold from one constant | PENDING | |
-| 9056bfb5 | 2026-09-22 | docs(gateway): drop references to deleted AST sweep | PENDING | |
-| c60ce97b | 2026-09-22 | test(gateway): stop paying full barrier timeout on green paths | PENDING | |
-| 0c417ece | 2026-09-22 | fix(gateway): ThreadParticipationTracker no longer holds lock across os.replace | PENDING | |
-| c6ed9d57 | 2026-09-22 | fix(gateway): serialize rich_sent_store._update across worker threads | PENDING | |
-| 38b8af39 | 2026-09-22 | test: keep invariant tests for off-loop gateway writes | PENDING | |
-| f8be6db1 | 2026-09-22 | fix(gateway): ThreadParticipationTracker.clear() takes the lock | PENDING | |
-| 7dd6bee3 | 2026-09-22 | fix(gateway): rich_sent_store writes run off event loop | PENDING | |
-| ee8a3ded | 2026-09-22 | fix(gateway): move thread-participation persist off event loop | PENDING | |
+| b9ec3993 | 2026-09-22 | fix(discord): pre-seed starter dedup before awaiting mark_async | PORTED | Dedup pre-seed precedes the awaited mark_async |
+| 6351d60a | 2026-09-22 | docs(gateway): point rich_sent_store restatements at _LOCK | PORTED | Rich-sent write comment points at _LOCK |
+| 9bc8fed2 | 2026-09-22 | fix(gateway): await mark_async in _branch_open_thread | PORTED | N/A — no _branch_open_thread marker lane in this tree |
+| 4e87d3b0 | 2026-09-22 | refactor(gateway): give tracker persist real _to_thread seam | PORTED | helpers._to_thread is the patchable handoff seam |
+| a5bdde60 | 2026-09-22 | docs(gateway): reflow mark_async docstring to 80 columns | PORTED | Docstring reflowed |
+| 57111043 | 2026-09-22 | docs(gateway): stop counting mark_async callers in docstring | PORTED | Docstring generalized across adapters |
+| 70feb49b | 2026-09-22 | test(gateway): derive stall threshold from one constant | N/A | N/A — upstream derived a shared stall constant from a deleted AST-sweep test |
+| 9056bfb5 | 2026-09-22 | docs(gateway): drop references to deleted AST sweep | PORTED | No AST-sweep reference; docs trimmed |
+| c60ce97b | 2026-09-22 | test(gateway): stop paying full barrier timeout on green paths | PORTED | Barrier timeouts are not paid on green paths |
+| 0c417ece | 2026-09-22 | fix(gateway): ThreadParticipationTracker no longer holds lock across os.replace | PORTED | Split locks: the set lock never spans os.replace |
+| c6ed9d57 | 2026-09-22 | fix(gateway): serialize rich_sent_store._update across worker threads | PORTED | rich_sent_store._update serialized by _LOCK |
+| 38b8af39 | 2026-09-22 | test: keep invariant tests for off-loop gateway writes | PORTED | Invariant tests kept for off-loop writes |
+| f8be6db1 | 2026-09-22 | fix(gateway): ThreadParticipationTracker.clear() takes the lock | PORTED | clear() takes the lock |
+| 7dd6bee3 | 2026-09-22 | fix(gateway): rich_sent_store writes run off event loop | PORTED | record_async/record_media_async off-loop; Telegram/WhatsApp/Cloud call sites await |
+| ee8a3ded | 2026-09-22 | fix(gateway): move thread-participation persist off event loop | PORTED | mark_async off-loop; Discord/Matrix call sites await; in-memory insert stays synchronous |
 | cb567242 | 2026-09-22 | fix(gateway): move sticker-description cache write off event loop | SKIPPED | Current shared Telegram ingress reaches sticker handling before routed-profile scope; off-loop port would cache against the launch profile |
 | a472b0c0 | 2026-09-22 | chore: map daedalus-opus contributor email | PENDING | |
 | f16a54bf | 2026-09-22 | fix(relay): treat "relay" placeholder as unresolved ack lane | PORTED | Unknown/empty wire platforms fall through chat lane and descriptor before choosing reactions |
