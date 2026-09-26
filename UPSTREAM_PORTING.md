@@ -120,25 +120,25 @@ for c in json.load(sys.stdin):
 | 43833ed9 | 2026-09-22 | fix(stt): tolerate CAF work-dir cleanup errors | PORTED | CAF conversion uses an owned `TemporaryDirectory(ignore_cleanup_errors=True)` |
 | 2b2fd4b9 | 2026-09-22 | test: fold CAF isolation test into TestCafConversion | N/A | Test-only consolidation; Anakot keeps the invariant cases in `TestCafConversion` |
 | c17dafee | 2026-09-22 | fix(stt): isolate CAF conversions from source recordings | PORTED | Caller-owned work dir prevents sibling overwrite and cleans output on success or provider failure |
-| e4f76b82 | 2026-09-22 | refactor(agent): inline single-use _finish closure | PENDING | |
-| 600bee92 | 2026-09-22 | test(agent): derive lean-sampling marker bound | PENDING | |
-| 8e12cd92 | 2026-09-22 | refactor(agent): integer head/tail split in _bound_oversized_record | PENDING | |
-| e17d4917 | 2026-09-22 | refactor(agent): drop unreachable trailing-gap branch | PENDING | |
-| 56b63ecf | 2026-09-22 | refactor(agent): merge lean-sampling slices once | PENDING | |
-| c2a2a626 | 2026-09-22 | test(agent): cover slices merged when extension pass closes gap | PENDING | |
-| f3642a27 | 2026-09-22 | docs(agent): explain extension pass re-render | PENDING | |
-| be63d5bc | 2026-09-22 | fix(agent): hand out lean-sampling headroom round-robin | PENDING | |
-| 3339255a | 2026-09-22 | test: assert newest record token in lean sampling test | PENDING | |
-| c94fe7a2 | 2026-09-22 | docs(agent): say sampled_chars counts display chars | PENDING | |
-| eb05bde6 | 2026-09-22 | refactor(agent): pre-declare summary_input_* telemetry keys | PENDING | |
-| 949d1707 | 2026-09-22 | fix(agent): spend leftover lean-sampling budget on neighbors | PENDING | |
-| f94e296a | 2026-09-22 | refactor(agent): remove unreachable overflow-trim loop | PENDING | |
-| 5aeef288 | 2026-09-22 | refactor(agent): drop unreachable re-trim in _bound_oversized_record | PENDING | |
-| 33a1d46d | 2026-09-22 | feat(agent): record summary-input coverage telemetry | PENDING | |
-| 4410ced1 | 2026-09-22 | test: keep two behavioural lean-sampling tests | PENDING | |
-| a3a03d48 | 2026-09-22 | refactor(agent): sampler takes serialized records only | PENDING | |
-| e28157be | 2026-09-22 | fix(agent): keep _serialize_for_summary byte-identical to main | PENDING | |
-| 04fe735c | 2026-09-22 | fix: preserve structural record framing in lean summary sampling | PENDING | |
+| e4f76b82 | 2026-09-22 | refactor(agent): inline single-use _finish closure | PORTED | Single-use _finish closure inlined into the return |
+| 600bee92 | 2026-09-22 | test(agent): derive lean-sampling marker bound | N/A | N/A - derives a marker bound from an upstream-only test constant |
+| 8e12cd92 | 2026-09-22 | refactor(agent): integer head/tail split in _bound_oversized_record | PORTED | Integer head/tail split in _bound_oversized_record |
+| e17d4917 | 2026-09-22 | refactor(agent): drop unreachable trailing-gap branch | PORTED | Unreachable trailing-gap branch dropped from _render |
+| 56b63ecf | 2026-09-22 | refactor(agent): merge lean-sampling slices once | PORTED | Slices merged via shared _merged helper |
+| c2a2a626 | 2026-09-22 | test(agent): cover slices merged when extension pass closes gap | PORTED | Gap-closing slice merge covered |
+| f3642a27 | 2026-09-22 | docs(agent): explain extension pass re-render | PORTED | Extension pass re-render rationale documented |
+| be63d5bc | 2026-09-22 | fix(agent): hand out lean-sampling headroom round-robin | PORTED | Extension pass hands headroom out round-robin across slices |
+| 3339255a | 2026-09-22 | test: assert newest record token in lean sampling test | PORTED | Newest-record token asserted directly |
+| c94fe7a2 | 2026-09-22 | docs(agent): say sampled_chars counts display chars | PORTED | Docstring states sampled_chars counts display chars |
+| eb05bde6 | 2026-09-22 | refactor(agent): pre-declare summary_input_* telemetry keys | PORTED | Telemetry keys pre-declared in _record_summary_input_coverage |
+| 949d1707 | 2026-09-22 | fix(agent): spend leftover lean-sampling budget on neighbors | PORTED | Leftover budget spent on whole neighbouring records, round-robin |
+| f94e296a | 2026-09-22 | refactor(agent): remove unreachable overflow-trim loop | PORTED | Unreachable overflow-trim loop removed (cap holds by construction) |
+| 5aeef288 | 2026-09-22 | refactor(agent): drop unreachable re-trim in _bound_oversized_record | PORTED | Unreachable re-trim removed from _bound_oversized_record |
+| 33a1d46d | 2026-09-22 | feat(agent): record summary-input coverage telemetry | PORTED | summary_input_* coverage counters feed compression telemetry |
+| 4410ced1 | 2026-09-22 | test: keep two behavioural lean-sampling tests | N/A | N/A - upstream test reshuffle; Anakot keeps one parametrized invariant test |
+| a3a03d48 | 2026-09-22 | refactor(agent): sampler takes serialized records only | PORTED | Dual-signature wrapper dropped; sampler takes records only |
+| e28157be | 2026-09-22 | fix(agent): keep _serialize_for_summary byte-identical to main | PORTED | _serialize_for_summary stays byte-identical; records carry no rstrip |
+| 04fe735c | 2026-09-22 | fix: preserve structural record framing in lean summary sampling | PORTED | _serialize_records_for_summary keeps turn boundaries structural |
 
 ---
 

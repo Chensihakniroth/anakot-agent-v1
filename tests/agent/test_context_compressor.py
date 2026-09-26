@@ -1,6 +1,7 @@
 """Tests for agent/context_compressor.py — compression logic, thresholds, truncation fallback."""
 
 import json
+import re
 import sqlite3
 import pytest
 import time
@@ -3332,6 +3333,92 @@ class TestSummaryPromptBounding:
         # handoff prefix either.
         marker_only = bounded[bounded.index("\n\n...[summary input truncated"):]
         assert ContextCompressor.classify_summary_content(marker_only.lstrip()) is None
+
+
+class TestLeanRecordSampling:
+    """Lean sampling works on STRUCTURAL records, so a message containing blank
+    lines is never cut into pseudo-records whose fragments have no role label."""
+
+    def test_multiparagraph_records_stay_whole(self):
+        records = [f"[USER]: r{i:04d} para1\n\npara2 " + ("x" * 600) for i in range(500)]
+        records.append("[USER]: newest-user-msg para1\n\nnewest-user-msg para2 anchor")
+        sampled, _cov = ContextCompressor._sample_summary_records(records)
+        assert len(sampled) <= ContextCompressor._SUMMARY_INPUT_MAX_CHARS
+        # Every retained region starts at a real record boundary.
+        for section in re.split(r"\n*\.\.\.\[records[\d,]+-[\d,]+:[^\n]*\.\.\.\n*", sampled):
+            if section.strip():
+                assert section.lstrip().startswith(
+                    ("[USER]:", "[TOOL RESULT", "[ASSISTANT]:", "[SYSTEM]:")
+                ), section[:60]
+        # The newest record keeps BOTH paragraphs together.
+        assert "[USER]: newest-user-msg para1\n\nnewest-user-msg para2 anchor" in sampled
+
+    def test_producer_serialize_keeps_internal_blank_lines_in_one_record(self):
+        c = _lean_compressor()
+        records = c._serialize_records_for_summary([
+            {"role": "user", "content": "first para\n\nsecond para"},
+        ])
+        assert records == ["[USER]: first para\n\nsecond para"]
+
+    def test_newest_record_ending_in_blank_lines_still_anchors(self):
+        records = [f"[USER]: turn-{i:04d} " + ("y" * 600) for i in range(400)]
+        records.append("[USER]: final prompt with trailing blank lines")
+        sampled, _cov = ContextCompressor._sample_summary_records(records)
+        assert len(sampled) <= ContextCompressor._SUMMARY_INPUT_MAX_CHARS
+        assert "final prompt with trailing blank lines" in sampled
+        assert not sampled.rstrip().endswith("]...")
+
+    def test_oversized_middle_record_does_not_evict_the_newest(self):
+        cap = ContextCompressor._SUMMARY_INPUT_MAX_CHARS
+        records = [f"[USER]: record-{i:04d} " + ("x" * 1200) for i in range(50)]
+        records.append("[TOOL RESULT oversized-mid]: " + ("y" * (cap + 5000)))
+        records.extend(f"[USER]: record-{i:04d} " + ("x" * 1200) for i in range(51, 100))
+        records.append("[USER]: newest-tail-record")
+        sampled, _cov = ContextCompressor._sample_summary_records(records)
+        assert len(sampled) <= cap
+        assert sampled.rstrip().endswith("[USER]: newest-tail-record")
+        assert "[TOOL RESULT oversized-mid]: yyyy" in sampled
+        assert "...[record truncated:" in sampled
+
+    def test_coverage_counters_describe_the_bounded_transcript(self):
+        cap = ContextCompressor._SUMMARY_INPUT_MAX_CHARS
+        records = [f"[USER]: record-{i:04d} " + ("x" * 1200) for i in range(1200)]
+        sampled, cov = ContextCompressor._sample_summary_records(records)
+        whole = [b for b in sampled.split("\n\n") if b.startswith("[USER]:")]
+        assert cov["record_count"] == 1200
+        assert cov["sampled_record_count"] == len(whole)
+        assert cov["elided_record_count"] == 1200 - len(whole)
+        assert cov["sampled_chars"] == sum(map(len, whole))
+        # Every input char is accounted for: kept, or omitted (truncated/elided).
+        assert cov["input_chars"] == cov["sampled_chars"] + cov["omitted_chars"]
+        assert cov["input_chars"] > cap
+
+    def test_extension_pass_spends_headroom_without_breaching_the_cap(self):
+        """Leftover budget goes to WHOLE neighbouring records, round-robin, never
+        past the cap — the greedy fill alone leaves 5-40% of the cap unused."""
+        cap = ContextCompressor._SUMMARY_INPUT_MAX_CHARS
+        records = [f"[USER]: r{i:05d} " + ("x" * 40) for i in range(3000)]
+        sampled, cov = ContextCompressor._sample_summary_records(records)
+        assert len(sampled) <= cap
+        # And it actually fills the budget rather than stopping at the greedy pass.
+        assert len(sampled) > cap * 0.9
+        assert cov["sampled_record_count"] > ContextCompressor._SAMPLED_INPUT_SLICES
+
+    def test_extension_pass_merges_slices_that_close_a_gap(self):
+        cap = ContextCompressor._SUMMARY_INPUT_MAX_CHARS
+        records = [f"[USER]: r{i:05d} " + ("x" * 40) for i in range(1200)]
+        sampled, cov = ContextCompressor._sample_summary_records(records)
+        assert len(sampled) <= cap
+        # A gap closing means a region grew into its neighbour; coverage must reflect
+        # the merge (sampled records exceed the per-slice greedy count).
+        assert cov["sampled_record_count"] >= cov["record_count"] * 0.5
+
+
+def _lean_compressor() -> ContextCompressor:
+    return ContextCompressor(
+        model="test/model", threshold_percent=0.85, protect_first_n=2,
+        protect_last_n=2, quiet_mode=True, tail_mode="lean",
+    )
 
 
 class TestMinTailUserMessages:
