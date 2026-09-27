@@ -88,7 +88,7 @@ for c in json.load(sys.stdin):
 | 70f5dc5f | 2026-09-22 | feat(connectors): backend API for desktop Connectors page | PENDING | |
 | 966d091d | 2026-09-22 | fix(aux-hooks): tolerate test seams stubbing relay metadata | PORTED | metadata read with str(.get(...) or "") at every call site |
 | 0e580956 | 2026-09-22 | feat(plugins): fire pre/post_auxiliary_call events | PORTED | agent/auxiliary_hooks.py emits the pair at all three relay funnels; registered in VALID_HOOKS + bounded-timeout set + hooks test payloads + docs |
-| 9863e315 | 2026-09-22 | fix(plugins): per-plugin load deadline for hung register() | PENDING | |
+| 9863e315 | 2026-09-22 | fix(plugins): per-plugin load deadline for hung register() | PORTED | plugins.load_timeout_seconds (default 10s) wraps import+register on a daemon worker; ctx abandoned after overrun, late registrations refused, abandoned loaders capped at 8 |
 | d6758299 | 2026-09-22 | test(kanban): fold workspace-survival check into gc bounds parametrize | N/A | Test-only refactor; covered by Anakot retention invariant test |
 | 1c189141 | 2026-09-22 | refactor(kanban): narrow _nonnegative_int except to ValueError | PORTED | Final-state adaptation in `anakot_cli/kanban_parser.py` |
 | e8ae808b | 2026-09-22 | refactor(kanban): share _retention_seconds helper across gc sweeps | PORTED | Final-state adaptation in `anakot_cli/kanban_db.py` |

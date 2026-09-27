@@ -162,6 +162,13 @@ _SCHEMA_OVERRIDES: Dict[str, Dict[str, Any]] = {
         "type": "boolean",
         "description": "Run the local browser in headed mode (visible window). Also keeps the window open between turns; idle sessions are still reaped after browser.inactivity_timeout.",
     },
+    "plugins.load_timeout_seconds": {
+        "type": "number",
+        "description": (
+            "Deadline (seconds) for one plugin's import + register() at load. A plugin that "
+            "overruns it is skipped with the reason 'load timed out' and the rest keep loading. "
+            "0 disables the deadline; values above 600 are clamped."),
+    },
     "plugins.hook_callback_timeout": {
         "type": "number",
         "description": (

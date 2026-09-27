@@ -16,10 +16,11 @@ import re
 import sys
 import threading
 import types
+import contextvars
 from contextlib import contextmanager
 from functools import wraps
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Dict, List, Mapping, Optional
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Mapping, Optional
 
 from anakot_constants import get_anakot_home, reset_anakot_home_override, set_anakot_home_override
 from registration_lifecycle import replacement_coordinator
@@ -35,6 +36,102 @@ logger = logging.getLogger("anakot_cli.plugins")
 _NS_PARENT = "anakot_plugins"
 _MODULE_NAMESPACE_LOCK = threading.RLock()
 _BARE_MODULE_SCOPE: Dict[str, str] = {}  # bare module name -> owning scope_key
+
+# Per-plugin deadline on import + register(): ``plugins.load_timeout_seconds`` (default 10s, 0 disables,
+# clamped to the max). A plugin that never returns is skipped with a named reason and loading moves on
+# (#108139). Python cannot kill a thread, so the worker is abandoned as a daemon; the cap bounds how many
+# abandoned loaders one process may accumulate (#98382) — past it, further loads are refused, not run inline.
+_LOAD_TIMEOUT_SECS = 10.0
+_MAX_LOAD_TIMEOUT_SECS = 600.0
+_MAX_ABANDONED_LOADERS = 8
+_ABANDONED_LOADERS: List[threading.Thread] = []
+_ABANDONED_LOADERS_LOCK = threading.Lock()
+_IN_PLUGIN_LOAD = threading.local()  # ``.active`` on a loader worker thread
+
+
+class PluginLoadTimeout(Exception):
+    """Raised on the loading thread when a plugin's import + ``register()`` overran its deadline."""
+
+
+def in_plugin_load_worker() -> bool:
+    """True on a deadline worker thread; re-entrant discovery from there must not block on its own parent."""
+    return bool(getattr(_IN_PLUGIN_LOAD, "active", False))
+
+
+def _resolve_plugin_load_timeout() -> float:
+    """Effective per-plugin load deadline from ``plugins.load_timeout_seconds`` (default 10s; ``0`` runs
+    loads inline with no deadline; clamped to ``_MAX_LOAD_TIMEOUT_SECS``)."""
+    default = _LOAD_TIMEOUT_SECS
+    try:
+        from anakot_cli.config import load_config_readonly
+        plugins_cfg = (load_config_readonly() or {}).get("plugins")
+        if not isinstance(plugins_cfg, dict) or plugins_cfg.get("load_timeout_seconds") is None:
+            return default
+        timeout = float(plugins_cfg["load_timeout_seconds"])
+    except (TypeError, ValueError):
+        logger.warning("plugins.load_timeout_seconds is not a number; using default %gs", default)
+        return default
+    except Exception:
+        return default
+    if timeout < 0:
+        logger.warning("plugins.load_timeout_seconds=%g is negative; using default %gs", timeout, default)
+        return default
+    if timeout > _MAX_LOAD_TIMEOUT_SECS:
+        logger.warning("plugins.load_timeout_seconds=%g exceeds max %gs; clamping", timeout,
+                       _MAX_LOAD_TIMEOUT_SECS)
+        return _MAX_LOAD_TIMEOUT_SECS
+    return timeout
+
+
+def _reserve_abandoned_loader_slot() -> None:
+    """Drop finished abandoned loaders; refuse the load once the live cap is reached. Refusing beats
+    loading inline: at the cap the process already holds several hung loaders, so an inline load is the
+    exact startup hang this deadline exists to prevent."""
+    with _ABANDONED_LOADERS_LOCK:
+        _ABANDONED_LOADERS[:] = [t for t in _ABANDONED_LOADERS if t.is_alive()]
+        if len(_ABANDONED_LOADERS) < _MAX_ABANDONED_LOADERS:
+            return
+    raise PluginLoadTimeout(
+        f"not loaded: {_MAX_ABANDONED_LOADERS} abandoned plugin loader thread(s) are still running "
+        f"(plugins.load_timeout_seconds); restart Anakot to retry"
+    )
+
+
+def run_with_load_deadline(plugin_key: str, ctx: "PluginContext", fn: Callable[[], Any]) -> Any:
+    """Run ``fn`` (a plugin's import + ``register()``) under the per-plugin deadline.
+
+    The worker inherits the caller's context (the Anakot-home override is a ContextVar). On timeout the
+    worker is abandoned as a daemon, ``ctx`` is marked so any registration it still attempts is ignored,
+    and :class:`PluginLoadTimeout` is raised on the calling thread so the usual failure path records the
+    reason and disposes whatever was registered before the hang.
+    """
+    timeout = _resolve_plugin_load_timeout()
+    if timeout <= 0:
+        return fn()
+    _reserve_abandoned_loader_slot()
+    outcome: List[Any] = []
+    failure: List[BaseException] = []
+
+    def _worker() -> None:
+        _IN_PLUGIN_LOAD.active = True
+        try:
+            outcome.append(fn())
+        except BaseException as exc:  # re-raised on the loading thread, KeyboardInterrupt included
+            failure.append(exc)
+
+    worker = threading.Thread(
+        target=contextvars.copy_context().run, args=(_worker,), name=f"plugin-load:{plugin_key}", daemon=True,
+    )
+    worker.start()
+    worker.join(timeout)
+    if worker.is_alive():
+        ctx._abandon_load()
+        with _ABANDONED_LOADERS_LOCK:
+            _ABANDONED_LOADERS.append(worker)
+        raise PluginLoadTimeout(f"load timed out after {timeout:g}s (import + register() never returned)")
+    if failure:
+        raise failure[0]
+    return outcome[0]
 
 
 def _evict_modules(module_name: str) -> None:
@@ -294,7 +391,10 @@ class PluginLoaderMixin:
         registration_start = len(self._registration_order)
         module_name = self._policy_module_name(manifest)
         self._track_tool_override_policy(manifest, module_name)
-        try:
+        ctx = PluginContext(manifest, self)
+
+        def _import_and_register() -> bool:
+            """Import + register() — the part a plugin controls, so the part the deadline covers."""
             # Reuse a deferred platform's already-imported package so its body doesn't run twice.
             # See #78050.
             module = self._predeclared_modules.pop(plugin_key, None)
@@ -307,13 +407,19 @@ class PluginLoaderMixin:
             if register_fn is None:
                 loaded.error = "no register() function"
                 logger.warning("Plugin '%s' has no register() function", manifest.name)
-            else:
-                register_fn(PluginContext(manifest, self))
+                return False
+            register_fn(ctx)
+            return True
+
+        try:
+            if run_with_load_deadline(plugin_key, ctx, _import_and_register):
                 self._attribute_registrations(loaded, plugin_key, registration_start)
                 loaded.enabled = True
                 from anakot_cli.plugins_ledger import _hook_source_of
 
-                self._drop_fallback_hooks(_hook_source_of(manifest.name, module))
+                self._drop_fallback_hooks(_hook_source_of(manifest.name, loaded.module))
+            # PluginLoadTimeout lands here as well: the abandoned worker's later registrations are refused
+            # by ``ctx``, and whatever it registered before hanging is disposed below.
         except Exception as exc:
             owned = [r for r in self._registration_order if r.plugin_key == plugin_key]
             self._dispose_registrations(owned)
