@@ -83,7 +83,7 @@ for c in json.load(sys.stdin):
 | f16a54bf | 2026-09-22 | fix(relay): treat "relay" placeholder as unresolved ack lane | PORTED | Unknown/empty wire platforms fall through chat lane and descriptor before choosing reactions |
 | ab24fb05 | 2026-09-22 | fix(relay): use reaction Telegram allows for turn ack | PORTED | Telegram uses 👀/👍/👎; free-form platforms retain ✅/❌ |
 | 836b5f82 | 2026-09-22 | fix(config): user-installed platform plugins feed env-var metadata | SKIPPED | Unsafe in Anakot's multiplexed process: import-time mutation leaks profile-owned names and lets another profile's `reload_env()` delete them; requires a profile-aware env metadata/blocklist redesign |
-| 5c0e73ef | 2026-09-22 | feat(desktop): render plugin-declared settings in Plugins tab | PENDING | |
+| 5c0e73ef | 2026-09-22 | feat(desktop): render plugin-declared settings in Plugins tab | PORTED | Backend half: plugins_settings.py renders config_schema; plugins_state.save_plugin_setting is the shared writer; plugins.manage list carries settings_schema and the new settings action writes it. Desktop form component not ported (see note) |
 | 30de0e01 | 2026-09-22 | fmt(js): `npm run fix` on merge | PENDING | |
 | 70f5dc5f | 2026-09-22 | feat(connectors): backend API for desktop Connectors page | PENDING | |
 | 966d091d | 2026-09-22 | fix(aux-hooks): tolerate test seams stubbing relay metadata | PORTED | metadata read with str(.get(...) or "") at every call site |

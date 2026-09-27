@@ -3651,7 +3651,7 @@ export interface LegacyPluginRow {
   version: string
   enabled: boolean
 }
-/** ``toggle``: ``key``/``name`` + ``enable``; ``install``: ``identifier``/``repo`` or ``catalog_name`` (+ ``force``, ``enable``, ``ref``); ``update``: ``name``. */
+/** ``toggle``: ``key``/``name`` + ``enable``; ``install``: ``identifier``/``repo`` or ``catalog_name`` (+ ``force``, ``enable``, ``ref``); ``update``: ``name``; ``settings``: ``key`` + ``values``. */
 export interface PluginsManageParams {
   profile?: string | null
   action?: PluginsAction
@@ -3663,9 +3663,10 @@ export interface PluginsManageParams {
   catalog_name?: string | null
   force?: boolean | null
   ref?: string | null
+  values?: Record<string, unknown> | null
 }
-export type PluginsAction = 'list' | 'toggle' | 'install' | 'update'
-/** ``list`` → ``plugins`` + counts; ``toggle`` → ``ok``/``unchanged``/``name``/``plugin``; ``install`` → ``anakot_cli.plugins_cmd.dashboard_install_plugin``'s ok payload; ``update`` → ``ok``/``unchanged``/``sha``. */
+export type PluginsAction = 'list' | 'toggle' | 'install' | 'update' | 'settings'
+/** ``list`` → ``plugins`` + counts; ``toggle`` → ``ok``/``unchanged``/``name``/``plugin``; ``install`` → ``anakot_cli.plugins_cmd.dashboard_install_plugin``'s ok payload; ``update`` → ``ok``/``unchanged``/``sha``; ``settings`` → ``ok``/``name``/``written``/``plugin``. */
 export interface PluginsManageResult {
   plugins?: AgentPluginRow[] | null
   user_count?: number | null
@@ -3679,6 +3680,7 @@ export interface PluginsManageResult {
   missing_env?: string[] | null
   after_install_path?: string | null
   enabled?: boolean | null
+  written?: string[] | null
   sha?: string | null
 }
 /** ``methods_tools._plugin_rows`` + ``plugins_cmd_catalog.catalog_row_fields`` provenance. */
@@ -3692,6 +3694,7 @@ export interface AgentPluginRow {
   portable: boolean
   install_dir: string
   has_desktop_half: boolean
+  settings_schema?: PluginSettingField[] | null
   catalog_name?: string | null
   catalog_tier?: string | null
   installed_sha?: string | null
@@ -3700,6 +3703,20 @@ export interface AgentPluginRow {
   update_available?: boolean | null
   pinned_sha?: string | null
 }
+/** One ``config_schema`` key of a plugin manifest, rendered by the Plugins hub (``anakot_cli.plugins_settings.plugin_settings_fields``). ``secret`` fields carry no value: ``env`` names the ``.env`` variable and ``has_value`` whether it is set. */
+export interface PluginSettingField {
+  key: string
+  type: PluginSettingFieldType
+  label: string
+  description: string
+  required: boolean
+  value?: unknown | null
+  default?: unknown | null
+  choices?: string[] | null
+  env?: string | null
+  has_value?: boolean | null
+}
+export type PluginSettingFieldType = 'string' | 'number' | 'boolean' | 'enum' | 'secret' | 'json'
 /** Single question: ``question`` / ``choices`` (/ ``multi_select``); batch: ``questions``. ``answers`` rides only on a reconnect replay (locks the server already accepted). */
 export interface ClarifyRequestParams {
   session_id: string

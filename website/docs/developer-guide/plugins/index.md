@@ -302,7 +302,47 @@ this Anakot understands still loads with a warning.
 | `requires_plugins` | list | Inter-plugin dependencies: `- id: other-plugin` with optional `version_range: ">=1.0,<2"`. **Advisory**: a missing dependency logs a clear warning but the plugin still loads — probe at runtime with `ctx.has_plugin("other-plugin")`. Load **order** honors these edges: when A requires B, B's `register()` runs before A's (topological sort, alphabetical tiebreak; cycles warn and fall back to alphabetical order). |
 | `python_dependencies` | list of str | PEP 508 requirements (e.g. `"requests>=2.0,<3"`). Installed into Anakot' venv on `anakot plugins install` / `enable` and **re-applied after every `anakot update`** (see [Python dependencies](#python-dependencies)). A `pyproject.toml` beside `plugin.yaml` with `[project].dependencies` is the equivalent, preferred form. |
 | `python_runtime` | str | `external` — the plugin manages its own interpreter/venv (sidecar pattern); Anakot installs nothing and leaves any `pyproject.toml` alone. |
-| `config_schema` | mapping | JSON-schema-ish description of keys under `plugins.entries.<id>.settings`: `api_url: {type: str, default: "", description: "...", required: false}`. Validated at load; mismatches log actionable warnings naming the key and expected type — never load failures. Types: `str`, `int`, `float`, `bool`, `list`, `dict` (plus JSON-schema aliases). |
+| `config_schema` | mapping | JSON-schema-ish description of keys under `plugins.entries.<id>.settings`: `api_url: {type: str, default: "", description: "...", required: false}`. Validated at load; mismatches log actionable warnings naming the key and expected type — never load failures. Types: `str`, `int`, `float`, `bool`, `list`, `dict` (plus JSON-schema aliases) and `secret`. Also drives the backend settings surface — see [Settings surface](#settings-surface). |
+### Settings surface
+
+Every key you declare in the manifest's `config_schema` is rendered by
+`anakot_cli.plugins_settings.plugin_settings_fields` into a field the desktop/TUI can
+draw. `plugins.manage list` returns that schema on each plugin row as
+`settings_schema`, together with each key's current value, so no desktop code has
+to re-read the manifest. The form is table-driven by `type`:
+
+| Manifest `type` | Field | Extra keys |
+|---|---|---|
+| `str` (default) | text input | `choices: [a, b]` (or `enum:`) turns it into a dropdown |
+| `int`, `float` | number input | |
+| `bool` | switch | |
+| `list`, `dict` | JSON editor | |
+| `secret` | masked input | `env: MY_PLUGIN_TOKEN` — the `.env` variable it is stored under (default `<PLUGIN_ID>_<KEY>` upper-snaked) |
+
+Every entry also accepts `label` (shown instead of the key), `description`
+(help text under the field), `default` and `required`.
+
+```yaml
+config_schema:
+  api_url: {type: str, default: "https://api.example.com", label: "API URL", description: "Service endpoint"}
+  retries: {type: int, default: 3}
+  mode: {type: str, choices: [fast, careful], default: fast}
+  api_key: {type: secret, env: MY_PLUGIN_API_KEY, description: "Personal access token"}
+```
+
+Saving goes through the `plugins.manage settings` action, which writes with
+`plugins_state.save_plugin_setting` — the SAME writer `ctx.set_config` uses — so
+`plugins.entries.<id>.settings.<key>` is what your plugin reads back, and the
+managed-install / administrator-managed-key refusals plus the cross-process lock
+are enforced once.
+
+**Secrets never touch `config.yaml`.** A `secret` field carries only the `.env`
+name and whether a value is set; the client stores the value through the same
+credential route as provider API keys (`PUT /api/env`), and your plugin reads it
+with `os.environ.get("MY_PLUGIN_API_KEY")` — exactly like a `requires_env` entry.
+`plugins.manage settings` refuses secret keys, unknown keys, and any value whose
+type or `choices` disagree with the schema (error code 4021).
+
 | `license` | str | SPDX-style license id (e.g. `MIT`). |
 | `homepage` | str | Project URL. |
 | `tags` | list of str | Free-form discovery tags (e.g. `[gateway, telegram]`). |

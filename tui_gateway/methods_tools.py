@@ -1450,6 +1450,8 @@ def _plugin_rows() -> list[dict]:
             "source": source, "status": status, "portable": pc._is_portable_plugin_dir(_dir),
             "install_dir": str(_dir_path) if _dir_path else "",
             "has_desktop_half": bool(_dir_path and (_dir_path / "desktop" / "plugin.js").is_file()),
+            # Manifest ``config_schema`` + current values: the Plugins hub renders these as a form.
+            "settings_schema": _tools_mod("anakot_cli.plugins_settings").plugin_settings_fields(key, _dir_path),
             **cat.catalog_row_fields(_dir, pins, versions),
             **({"pinned_sha": sha} if (sha := pc.pinned_revision(name, ref_pins)) else {})})
     return out
@@ -1504,8 +1506,29 @@ def _plugins_update(rid, params):
     return _ok(rid, {"ok": True, "unchanged": not changed, "sha": sha})
 
 
+def _plugins_settings(rid, params):
+    """Write manifest-declared settings (``values`` = ``{key: value}``) through the same writer as
+    ``ctx.set_config``; secrets are refused here (the client stores them via the ``.env`` route)."""
+    key = (params.get("key") or params.get("name") or "").strip()
+    values = params.get("values")
+    if not key or not isinstance(values, dict):
+        return _err(rid, 4019, "plugins.settings requires a 'key' and a 'values' mapping")
+    pc = _tools_mod("anakot_cli.plugins_cmd")
+    found = next((p for p in pc._discover_all_plugins() if key in (p[5], p[0])), None)
+    if found is None:
+        return _err(rid, 4020, f"plugin '{key}' not found")
+    _name, _version, _desc, _source, plugin_dir, canonical = found
+    try:
+        written = _tools_mod("anakot_cli.plugins_settings").save_plugin_settings(
+            canonical, Path(str(plugin_dir)) if plugin_dir else None, values)
+    except (ValueError, PermissionError) as e:
+        return _err(rid, 4021, str(e))
+    row = next((r for r in _plugin_rows() if r["key"] == canonical), None)
+    return _ok(rid, {"ok": True, "name": canonical, "written": written, "plugin": row})
+
+
 _PLUGINS_ACTIONS = {"list": _plugins_list, "toggle": _plugins_toggle, "install": _plugins_install,
-                    "update": _plugins_update}
+                    "update": _plugins_update, "settings": _plugins_settings}
 
 
 @_scoped_rpc("plugins.manage", 5026, catch_resolve=False)

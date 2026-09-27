@@ -573,11 +573,12 @@ class PluginsAction(WireEnum):
     toggle = "toggle"
     install = "install"
     update = "update"
+    settings = "settings"
 
 
 class PluginsManageParams(ProfileParams):
     """``toggle``: ``key``/``name`` + ``enable``; ``install``: ``identifier``/``repo`` or ``catalog_name``
-    (+ ``force``, ``enable``, ``ref``); ``update``: ``name``."""
+    (+ ``force``, ``enable``, ``ref``); ``update``: ``name``; ``settings``: ``key`` + ``values``."""
 
     action: PluginsAction = PluginsAction.list
     key: str | None = None
@@ -588,6 +589,33 @@ class PluginsManageParams(ProfileParams):
     catalog_name: str | None = None
     force: bool | None = None
     ref: str | None = None
+    values: dict[str, JsonValue] | None = None
+
+
+class PluginSettingFieldType(WireEnum):
+    string = "string"
+    number = "number"
+    boolean = "boolean"
+    enum = "enum"
+    secret = "secret"
+    json = "json"
+
+
+class PluginSettingField(Result):
+    """One ``config_schema`` key of a plugin manifest, rendered by the Plugins hub
+    (``anakot_cli.plugins_settings.plugin_settings_fields``). ``secret`` fields carry no value:
+    ``env`` names the ``.env`` variable and ``has_value`` whether it is set."""
+
+    key: str
+    type: PluginSettingFieldType
+    label: str
+    description: str
+    required: bool
+    value: JsonValue | None = None
+    default: JsonValue | None = None
+    choices: list[str] | None = None
+    env: str | None = None
+    has_value: bool | None = None
 
 
 class AgentPluginRow(Result):
@@ -602,6 +630,7 @@ class AgentPluginRow(Result):
     portable: bool
     install_dir: str
     has_desktop_half: bool
+    settings_schema: list[PluginSettingField] | None = None
     catalog_name: str | None = None
     catalog_tier: str | None = None
     installed_sha: str | None = None
@@ -614,7 +643,7 @@ class AgentPluginRow(Result):
 class PluginsManageResult(Result):
     """``list`` → ``plugins`` + counts; ``toggle`` → ``ok``/``unchanged``/``name``/``plugin``;
     ``install`` → ``anakot_cli.plugins_cmd.dashboard_install_plugin``'s ok payload; ``update`` →
-    ``ok``/``unchanged``/``sha``."""
+    ``ok``/``unchanged``/``sha``; ``settings`` → ``ok``/``name``/``written``/``plugin``."""
 
     plugins: list[AgentPluginRow] | None = None
     user_count: int | None = None
@@ -628,6 +657,7 @@ class PluginsManageResult(Result):
     missing_env: list[str] | None = None
     after_install_path: str | None = None
     enabled: bool | None = None
+    written: list[str] | None = None
     sha: str | None = None
 
 
