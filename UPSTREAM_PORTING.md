@@ -51,16 +51,16 @@ for c in json.load(sys.stdin):
 | 966f746b | 2026-09-22 | perf(urllib): parse CA bundle once not per request | PORTED | Anakot-owned urllib requests share a preferred-bundle `SSLContext` until rotation |
 | 28bd8cc0 | 2026-09-22 | fix(memory): never dedupe indented recall lines | PORTED | Indented continuation/nested lines bypass duplicate detection entirely |
 | 8f618d84 | 2026-09-22 | refactor(memory): match recall bullet regex once per line | PORTED | Final-state helper evaluates one compiled bullet regex per eligible line |
-| 71cb9913 | 2026-09-22 | test(bot-mode): drop unused cache fixture | PENDING | |
+| 71cb9913 | 2026-09-22 | test(bot-mode): drop unused cache fixture | N/A | Test-only cleanup of an upstream fixture; no production change to carry |
 | 47a6f2aa | 2026-09-22 | test(memory): fold two-heading assert into repeated-bullet test | N/A | Test-only consolidation; covered by the section invariant test |
 | 4607e501 | 2026-09-22 | refactor(gateway): drop test-only delivery-ledger _prune() wrapper | N/A | Anakot tests the real caller-owned transaction seam directly |
 | b255c8fb | 2026-09-22 | fix(gateway): prune error in recording transaction not swallowed | PORTED | Prune failures roll back the obligation instead of silently committing an unbounded ledger |
 | af0305c9 | 2026-09-22 | fix(memory): column-0 non-bullet line opens new dedupe section | PORTED | Prose, rules, markdown headings, and bold headings reset duplicate scope |
-| e1760ee4 | 2026-09-22 | test: keep invariant tests for jonpol01 perf trio | PENDING | |
-| a6af4041 | 2026-09-22 | docs(bot-mode): note capability epoch follows skills walker org gating | PENDING | |
+| e1760ee4 | 2026-09-22 | test: keep invariant tests for jonpol01 perf trio | N/A | Test-only consolidation of upstream perf-trio tests; production code unchanged |
+| a6af4041 | 2026-09-22 | docs(bot-mode): note capability epoch follows skills walker org gating | PORTED | Org-gating rationale noted at the call site |
 | 4c41d980 | 2026-09-22 | perf(gateway): delivery ledger prunes inside recording transaction | PORTED | Record and bounded retention sweep share one lock/connection/transaction |
 | e1ea7e74 | 2026-09-22 | fix(memory): repeated-bullet dedupe scoped per section | PORTED | Identical bullets under different sections are both preserved |
-| 6df45711 | 2026-09-22 | perf(bot-mode): capability epoch counts invocable skills not archived | PENDING | |
+| 6df45711 | 2026-09-22 | perf(bot-mode): capability epoch counts invocable skills not archived | PORTED | bot_mode_probe._skills uses iter_skill_index_files, so the epoch tracks INVOCABLE skills; archiving one moves it once, not repeatedly |
 | 83a1a9a2 | 2026-09-22 | fix(memory): only self-contained bullet deduped, bold heading not bullet | PORTED | Bullets with indented continuation lines remain untouched; bold headings are not bullets |
 | cbe23de6 | 2026-09-22 | perf(memory): recalled line stated once per memory-context block | PORTED | Removes repeated self-contained bullets while preserving first-occurrence order and structure |
 | b9ec3993 | 2026-09-22 | fix(discord): pre-seed starter dedup before awaiting mark_async | PORTED | Dedup pre-seed precedes the awaited mark_async |
@@ -79,12 +79,12 @@ for c in json.load(sys.stdin):
 | 7dd6bee3 | 2026-09-22 | fix(gateway): rich_sent_store writes run off event loop | PORTED | record_async/record_media_async off-loop; Telegram/WhatsApp/Cloud call sites await |
 | ee8a3ded | 2026-09-22 | fix(gateway): move thread-participation persist off event loop | PORTED | mark_async off-loop; Discord/Matrix call sites await; in-memory insert stays synchronous |
 | cb567242 | 2026-09-22 | fix(gateway): move sticker-description cache write off event loop | SKIPPED | Current shared Telegram ingress reaches sticker handling before routed-profile scope; off-loop port would cache against the launch profile |
-| a472b0c0 | 2026-09-22 | chore: map daedalus-opus contributor email | PENDING | |
+| a472b0c0 | 2026-09-22 | chore: map daedalus-opus contributor email | N/A | Maps an upstream contributor's email; not an Anakot contributor |
 | f16a54bf | 2026-09-22 | fix(relay): treat "relay" placeholder as unresolved ack lane | PORTED | Unknown/empty wire platforms fall through chat lane and descriptor before choosing reactions |
 | ab24fb05 | 2026-09-22 | fix(relay): use reaction Telegram allows for turn ack | PORTED | Telegram uses 👀/👍/👎; free-form platforms retain ✅/❌ |
 | 836b5f82 | 2026-09-22 | fix(config): user-installed platform plugins feed env-var metadata | SKIPPED | Unsafe in Anakot's multiplexed process: import-time mutation leaks profile-owned names and lets another profile's `reload_env()` delete them; requires a profile-aware env metadata/blocklist redesign |
 | 5c0e73ef | 2026-09-22 | feat(desktop): render plugin-declared settings in Plugins tab | PORTED | Backend half: plugins_settings.py renders config_schema; plugins_state.save_plugin_setting is the shared writer; plugins.manage list carries settings_schema and the new settings action writes it. Desktop form component not ported (see note) |
-| 30de0e01 | 2026-09-22 | fmt(js): `npm run fix` on merge | PENDING | |
+| 30de0e01 | 2026-09-22 | fmt(js): `npm run fix` on merge | N/A | Reformats upstream's plugin update-consent block (outcome.kind/'consent', updateConsentConfirm); this tree has no consent flow — the call returns a plain boolean |
 | 70f5dc5f | 2026-09-22 | feat(connectors): backend API for desktop Connectors page | PENDING | |
 | 966d091d | 2026-09-22 | fix(aux-hooks): tolerate test seams stubbing relay metadata | PORTED | metadata read with str(.get(...) or "") at every call site |
 | 0e580956 | 2026-09-22 | feat(plugins): fire pre/post_auxiliary_call events | PORTED | agent/auxiliary_hooks.py emits the pair at all three relay funnels; registered in VALID_HOOKS + bounded-timeout set + hooks test payloads + docs |
