@@ -9,6 +9,9 @@ import {
   useState
 } from 'react'
 
+import type { ProfileScope } from '@/anakot'
+import { setEnvVar } from '@/api/config'
+import { PluginSettingsForm } from '@/app/capabilities/plugins/plugin-settings-form'
 import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import { Button } from '@/components/ui/button'
 import { Codicon } from '@/components/ui/codicon'
@@ -16,10 +19,9 @@ import { Switch } from '@/components/ui/switch'
 import { Tip } from '@/components/ui/tooltip'
 import { $pluginRecords, type PluginRecord, setPluginEnabled } from '@/contrib/plugins-store'
 import { discoverRuntimePlugins } from '@/contrib/runtime-loader'
-import type { ProfileScope } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
-import { FolderOpen, Loader2, Monitor, Package, RefreshCw } from '@/lib/icons'
+import { FolderOpen, Loader2, Monitor, Package, RefreshCw, Settings } from '@/lib/icons'
 import { cn } from '@/lib/utils'
 import {
   $agentPluginBusy,
@@ -220,6 +222,7 @@ function PackageRow({
   scope,
   scopeLabel,
   busy,
+  requestGateway,
   onAgentToggle,
   onAgentUpdate
 }: {
@@ -227,12 +230,14 @@ function PackageRow({
   scope: null | string
   scopeLabel: string
   busy: boolean
+  requestGateway: GatewayRequest
   onAgentToggle: (row: AgentPluginRow, enable: boolean) => void
   onAgentUpdate: (row: AgentPluginRow) => void
 }) {
   const { t } = useI18n()
   const p = t.skills.plugins
   const d = t.settings.plugins
+  const [showSettings, setShowSettings] = useState(false)
   const desktop = pkg.desktop
   const agent = pkg.agent
   const desktopOn = desktop ? desktop.status !== 'disabled' : false
@@ -323,6 +328,18 @@ function PackageRow({
               </Button>
             )}
             {busy && <Loader2 className="size-3.5 animate-spin text-(--ui-text-tertiary)" />}
+            {agent?.settings_schema?.length ? (
+              <Tip label={p.settings}>
+                <Button
+                  aria-label={p.settingsFor(pkg.name)}
+                  onClick={() => setShowSettings(open => !open)}
+                  size="icon"
+                  variant={showSettings ? 'secondary' : 'ghost'}
+                >
+                  <Settings className="size-3.5" />
+                </Button>
+              </Tip>
+            ) : null}
             {agentToggleable ? (
               <Switch
                 aria-label={`${p.halfAgent}: ${pkg.name}`}
@@ -356,6 +373,18 @@ function PackageRow({
           <Dash />
         )}
       </HalfCell>
+
+      {showSettings && agent?.key ? (
+        <div className="border-(--ui-border) col-span-full mt-3 border-t pt-3">
+          <PluginSettingsForm
+            fields={agent.settings_schema ?? []}
+            pluginKey={agent.key}
+            profile={scope}
+            request={requestGateway}
+            writeSecret={(name, value) => setEnvVar(name, value, scope)}
+          />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -583,6 +612,7 @@ export const PluginsTab = memo(function PluginsTab({
                   })
                 }}
                 pkg={pkg}
+                requestGateway={requestGateway}
                 scope={scope}
                 scopeLabel={label}
               />

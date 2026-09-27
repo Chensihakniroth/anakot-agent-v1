@@ -1582,6 +1582,15 @@ export interface Translations {
       updateToPin: (sha: string) => string
       updateFailed: (name: string) => string
       updated: (name: string) => string
+      settings: string
+      settingsFor: (name: string) => string
+      settingsNone: string
+      settingsSave: string
+      settingsSaving: string
+      settingsSaveFailed: string
+      settingsSecretHint: (env: string) => string
+      settingsSecretUnchanged: string
+      settingsSecretUnset: string
     }
     officialCatalog: string
     officialPill: string

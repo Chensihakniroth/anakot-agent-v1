@@ -42,6 +42,26 @@ export interface AgentPluginRow {
   has_desktop_half?: boolean
   /** Absolute install dir on the backend (informational). */
   install_dir?: string
+  /** Manifest `config_schema` rendered as fields by the backend (see `PluginSettingField`). */
+  settings_schema?: PluginSettingField[]
+}
+
+/** One manifest `config_schema` key, rendered by the Plugins tab. */
+export type PluginSettingFieldType = 'string' | 'number' | 'boolean' | 'enum' | 'secret' | 'json'
+
+export interface PluginSettingField {
+  key: string
+  type: PluginSettingFieldType
+  label: string
+  description: string
+  required: boolean
+  /** Absent on `secret` fields: the value never leaves the backend. */
+  value?: unknown
+  default?: unknown
+  choices?: string[]
+  /** `secret` only: the `.env` variable the value is stored under. */
+  env?: string
+  has_value?: boolean
 }
 
 /** A `--ref` pin is a full 40-hex commit SHA; branches and tags are refused server-side. */
@@ -272,6 +292,73 @@ export async function updateAgentPlugin(
     await loadAgentPlugins(request, profile)
 
     return !result.unchanged
+  } catch (e) {
+    notifyError(e, failMessage)
+
+    return false
+  } finally {
+    $agentPluginBusy.set(null)
+  }
+}
+
+/** Write one `.env` value through the credential route (never `plugins.manage`). */
+export type SecretWriter = (name: string, value: string) => Promise<unknown>
+
+/**
+ * Save a plugin's manifest-declared settings (#46600, #87934).
+ *
+ * Non-secret `values` go to `plugins.manage settings`, which writes them into
+ * `plugins.entries.<id>.settings` — the same namespace `ctx.set_config` reads.
+ * Secrets are split out BEFORE the RPC: the backend refuses them (a secret must
+ * never reach config.yaml), so each non-blank one is written through
+ * `writeSecret` (the `PUT /api/env` credential route, the same one provider API
+ * keys use). A blank secret value means "leave it alone", so re-saving a form
+ * the user only edited a plain field on cannot blank a token.
+ */
+export async function saveAgentPluginSettings(
+  request: GatewayRequest,
+  opts: {
+    key: string
+    values: Record<string, unknown>
+    /** `env` name -> new value; blank entries are skipped. */
+    secrets?: Record<string, string>
+    writeSecret?: SecretWriter
+    failMessage: string
+    profile?: string | null
+  }
+): Promise<boolean> {
+  const { key, values, secrets, writeSecret, failMessage, profile } = opts
+  $agentPluginBusy.set(key)
+
+  try {
+    for (const [name, value] of Object.entries(secrets ?? {})) {
+      if (value === '') {
+        continue
+      }
+
+      if (writeSecret) {
+        await writeSecret(name, value)
+      }
+    }
+
+    const result = await request<{ ok?: boolean; plugin?: AgentPluginRow | null }>(
+      'plugins.manage',
+      withProfile({ action: 'settings', key, values }, profile)
+    )
+
+    if (!result?.ok) {
+      throw new Error(failMessage)
+    }
+
+    const refreshed = result.plugin
+
+    if (refreshed) {
+      $agentPlugins.set($agentPlugins.get().map(row => (row.key === key ? { ...row, ...refreshed } : row)))
+    } else {
+      await loadAgentPlugins(request, profile)
+    }
+
+    return true
   } catch (e) {
     notifyError(e, failMessage)
 
