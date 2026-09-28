@@ -460,12 +460,22 @@ export interface ProjectFacts {
 }
 export interface ConnectionOperationParams {
   profile?: string | null
-  session_id: string
+  owner: SessionOwner | AccountOwner
   op_id: string
+}
+/** Ownership by a live chat session — today's connector authorization. */
+export interface SessionOwner {
+  type: 'session'
+  session_id: string
+}
+/** Ownership by the scoped profile's account — no chat session involved. A Connectors page has no session, so a connect started from it needs an owner that survives without one: routed by ``profile`` and authorized by the live transport the way ``mcp.*`` already is. */
+export interface AccountOwner {
+  type: 'account'
 }
 /** ``methods_connectors._operation_view``: the operation's full snapshot. */
 export interface ConnectionOperationStatus {
   op_id: string
+  seq: number
   deadline_at: number
   settled: boolean
   settled_at?: number | null
@@ -473,7 +483,7 @@ export interface ConnectionOperationStatus {
   targets: ConnectionOperationTarget[]
 }
 /** ``tools/connectors/contract.py::SettleReason``. */
-export type ConnectionSettleReason = 'all_resolved' | 'continue' | 'deadline' | 'interrupt' | 'unavailable'
+export type ConnectionSettleReason = 'all_resolved' | 'continue' | 'deadline' | 'interrupt'
 /** ``Target.snapshot``: the link minted up front rides here, never in the model result. ``extra`` keys a leg records (``tools``, ``hint``) are typed here as they appear. */
 export interface ConnectionOperationTarget {
   name: string
@@ -481,18 +491,33 @@ export interface ConnectionOperationTarget {
   action: ConnectionTargetAction
   state: ConnectionTargetState
   detail?: string | null
+  instructions?: string | null
+  discovery_error?: string | null
   connect_url?: string | null
+  connection_id?: string | null
   attempt?: string | null
+  required_env?: ConnectionTargetEnvField[] | null
   tools?: string[] | null
   hint?: string | null
 }
 export type ConnectionTargetKind = 'connector' | 'mcp'
 export type ConnectionTargetAction = 'authorize' | 'connect' | 'enable' | 'install' | 'reconnect'
 /** ``tools/connectors/contract.py::TargetState``. */
-export type ConnectionTargetState = 'pending' | 'initiated' | 'connected' | 'skipped' | 'failed' | 'expired' | 'unavailable' | 'not_connected'
+export type ConnectionTargetState = 'pending' | 'initiated' | 'connected' | 'skipped' | 'failed' | 'expired' | 'not_connected'
+/** One credential an MCP install still needs; the card renders a field per entry and sends the values back with the approval. */
+export interface ConnectionTargetEnvField {
+  name: string
+  required: boolean
+  secret: boolean
+  default: string
+  prompt?: string | null
+}
+export interface ConnectionWakeResult {
+  status: 'ok'
+}
 export interface ConnectionRespondParams {
   profile?: string | null
-  session_id: string
+  owner: SessionOwner | AccountOwner
   op_id: string
   result: ConnectionAnswer
 }
@@ -501,17 +526,17 @@ export interface ConnectionAnswer {
   targets?: ConnectionAnswerTarget[]
   settled_by?: ConnectionSettleReason | null
 }
-/** One row's answer from the card. ``status`` is what the card observed for that row (``tools/connectors/mcp.py::_OUTCOME_STATES`` maps it onto a target state); ``state`` is the older spelling of the same field and one of the two is present. */
+/** One row's answer from the card. ``env`` carries the credential values an install asked for through ``required_env``. */
 export interface ConnectionAnswerTarget {
   name: string
-  status?: string | null
-  state?: string | null
+  status: ConnectionAnswerStatus
   detail?: string | null
-  tools?: string[] | null
-  [key: string]: unknown
+  env?: Record<string, string> | null
 }
+/** What the card says about one row: ``tools/connectors/mcp.py::apply_answer``. */
+export type ConnectionAnswerStatus = 'approved' | 'skipped'
 export interface ConnectionRespondResult {
-  status: string
+  status: 'ok'
   settled: boolean
 }
 /** ``key`` selects one getter from ``_CONFIG_GETTERS``; ``cwd`` feeds the ``project`` getter, ``session_id`` lets ``reasoning`` / ``fast`` answer with the session's live pin. */
@@ -751,41 +776,6 @@ export interface ModelPricing {
   was_input?: string | null
   was_output?: string | null
 }
-export interface ConnectorsListParams {
-  profile?: string | null
-  session_id: string
-}
-export interface ConnectorsListResult {
-  available: boolean
-  connectors: ConnectorRow[]
-}
-/** One ``manage_connections`` status entry after ``connector_ui_payload`` redaction; the connector service owns the closed key set, so unknown metadata passes through. */
-export interface ConnectorRow {
-  connector?: string
-  connected?: boolean | null
-  enabled?: boolean | null
-  connectionStatus?: string | null
-  name?: string | null
-  description?: string | null
-  [key: string]: unknown
-}
-export interface ConnectorsConnectParams {
-  profile?: string | null
-  session_id: string
-  connectors: string[]
-  reconnect?: boolean
-}
-/** The operation the connect opened (or re-minted on): ``tools/connectors/managed.py`` ``_off_desktop_result`` / ``methods_connectors._reissue``. ``status``/``note`` ride along from the tool result when the call ran through ``manage_connections``. */
-export interface ConnectorsConnectResult {
-  op_id: string
-  deadline_at: number
-  settled: boolean
-  settled_at?: number | null
-  settled_by?: ConnectionSettleReason | null
-  targets: ConnectionOperationTarget[]
-  status?: string | null
-  note?: string | null
-}
 export interface ImageGenerateParams {
   prompt?: string | null
   aspect_ratio?: string | null
@@ -939,6 +929,185 @@ export interface VerificationEvidenceRow {
   exit_code?: number | null
   output_summary?: string | null
   [key: string]: unknown
+}
+export interface ConnectorsListParams {
+  profile?: string | null
+  owner: SessionOwner | AccountOwner
+}
+export interface ConnectorsListResult {
+  available: boolean
+  connectors: ConnectorRow[]
+}
+export interface ConnectorRow {
+  connector: string
+  enabled: boolean
+  connected: boolean
+  connection_status: 'pending' | 'active' | 'failed' | 'expired' | 'revoked' | 'inactive' | null
+  status_reason: string | null
+  gateway_disabled_tools: string[]
+}
+export interface ConnectorsConnectParams {
+  profile?: string | null
+  owner: SessionOwner | AccountOwner
+  connectors: string[]
+  reconnect?: boolean
+}
+/** ``methods_connectors._reissue`` / ``managed._off_desktop_result``: the operation the connect opened; ``status``/``note`` ride along from the tool result. */
+export interface ConnectorsConnectResult {
+  op_id: string
+  seq: number
+  deadline_at: number
+  settled: boolean
+  settled_at?: number | null
+  settled_by?: ConnectionSettleReason | null
+  targets: ConnectionOperationTarget[]
+  status?: 'initiated' | 'settled' | null
+  note?: string | null
+}
+export interface ConnectorToolsParams {
+  profile?: string | null
+  slug: string
+  refresh?: boolean
+}
+export interface ConnectorToolsResult {
+  connector: string
+  toolkit_version: string
+  etag: string
+  fetched_at: number
+  source: ConnectorToolsSource
+  stale: boolean
+  tools: ConnectorToolRow[]
+}
+export type ConnectorToolsSource = 'cache' | 'network' | 'revalidated'
+export interface ConnectorToolRow {
+  slug: string
+  name: string
+  description: string
+  facet: ConnectorToolFacet
+  hints: string[]
+  categories: string[]
+  no_auth: boolean
+  deprecated: boolean
+}
+export type ConnectorToolFacet = 'read' | 'write' | 'destructive' | 'unclassified'
+export interface ConnectorsCatalogResult {
+  connectors: ConnectorCatalogRow[]
+}
+export interface ConnectorCatalogRow {
+  slug: string
+  name: string
+  description: string
+  category: string
+  logo_url?: string | null
+}
+export interface ConnectorAccountsParams {
+  profile?: string | null
+  connector?: string | null
+}
+export interface ConnectorAccountsResult {
+  accounts: ConnectorAccountRow[]
+}
+export interface ConnectorAccountRow {
+  connection_id: string
+  connector: string
+  status: ConnectorAccountStatus
+  status_reason?: string | null
+  label: string
+  alias?: string | null
+  active: boolean
+  created_at: string
+  updated_at: string
+}
+export type ConnectorAccountStatus = 'pending' | 'active' | 'failed' | 'expired' | 'revoked' | 'inactive'
+export interface ConnectorAccountsRemoveParams {
+  profile?: string | null
+  connection_id: string
+}
+export interface ConnectorAccountsRemoveResult {
+  connection_id: string
+  connector: string
+  status: 'removed'
+}
+export interface ConnectorPolicyGetResult {
+  layers: ConnectorPolicyLayer[]
+  effective: ConnectorPolicyEffectiveUnrestricted | ConnectorPolicyEffectiveDenyAll | ConnectorPolicyEffectiveAllow | ConnectorPolicyEffectiveDeny
+}
+export interface ConnectorPolicyLayer {
+  kind: ConnectorPolicyLayerKind
+  revision: string
+  body: ConnectorPolicyUnrestrictedBody | ConnectorPolicyDenyAllBody | ConnectorPolicyAllowBody | ConnectorPolicyDenyBody
+}
+export type ConnectorPolicyLayerKind = 'org' | 'role' | 'member'
+export interface ConnectorPolicyUnrestrictedBody {
+  mode: 'unrestricted'
+}
+export interface ConnectorPolicyDenyAllBody {
+  mode: 'deny-all'
+}
+export interface ConnectorPolicyAllowBody {
+  mode: 'allow'
+  connectors: string[]
+  tools: Record<string, string[]>
+  tags?: ConnectorPolicyTags | null
+}
+export interface ConnectorPolicyTags {
+  enable?: string[] | null
+  disable?: string[] | null
+}
+export interface ConnectorPolicyDenyBody {
+  mode: 'deny'
+  disabled_connectors: string[]
+  tools: Record<string, string[]>
+  tags?: ConnectorPolicyTags | null
+}
+export interface ConnectorPolicyEffectiveUnrestricted {
+  version: 1
+  revision: string
+  issued_at_ms: number
+  mode: 'unrestricted'
+}
+export interface ConnectorPolicyEffectiveDenyAll {
+  version: 1
+  revision: string
+  issued_at_ms: number
+  mode: 'deny-all'
+}
+export interface ConnectorPolicyEffectiveAllow {
+  version: 1
+  revision: string
+  issued_at_ms: number
+  mode: 'allow'
+  connectors: string[]
+  tools: Record<string, string[]>
+  tags?: ConnectorPolicyTags | null
+}
+export interface ConnectorPolicyEffectiveDeny {
+  version: 1
+  revision: string
+  issued_at_ms: number
+  mode: 'deny'
+  disabled_connectors: string[]
+  tools: Record<string, string[]>
+  tags?: ConnectorPolicyTags | null
+}
+export interface ConnectorPolicySetParams {
+  profile?: string | null
+  change: ToolsChange | ConnectorChange
+  expected_revision: string
+}
+export interface ToolsChange {
+  type: 'tools'
+  connector: string
+  disabled_tools: string[]
+}
+export interface ConnectorChange {
+  type: 'connector'
+  connector: string
+  enabled: boolean
+}
+export interface ConnectorPolicySetResult {
+  revision: string
+  effective: ConnectorPolicyEffectiveUnrestricted | ConnectorPolicyEffectiveDenyAll | ConnectorPolicyEffectiveAllow | ConnectorPolicyEffectiveDeny
 }
 export interface GroupsCapabilitiesParams {
   profile?: string | null
@@ -2554,6 +2723,7 @@ export interface OpenRequestEntry {
 /** ``ConnectionOperation.request_payload``: opens the card; also the ``pending_connection`` resume snapshot so a client that missed the event restores the card with the server's deadline. */
 export interface ConnectionRequestPayload {
   op_id: string
+  seq: number
   deadline_at: number
   timeout_seconds: number
   targets: ConnectionOperationTarget[]
@@ -3829,11 +3999,13 @@ export interface TourStep {
 /** ``methods_connectors._connection_update``: one target transition (``target``/``from``/``to``/ ``actor``) or the settlement (none of those), with the full snapshot. */
 export interface ConnectionUpdatePayload {
   op_id: string
+  seq: number
   deadline_at: number
   settled: boolean
   settled_at?: number | null
   settled_by?: ConnectionSettleReason | null
   targets: ConnectionOperationTarget[]
+  owner: SessionOwner | AccountOwner
   target?: string | null
   from?: ConnectionTargetState | null
   to?: ConnectionTargetState | null
@@ -3841,7 +4013,7 @@ export interface ConnectionUpdatePayload {
   detail?: string | null
 }
 /** ``tools/connectors/contract.py::Actor``. */
-export type ConnectionActor = 'user' | 'renderer_flow' | 'backend_watcher' | 'clock'
+export type ConnectionActor = 'user' | 'backend_watcher' | 'clock'
 /** ``tui_gateway/entry.py`` (stdio) / ``tui_gateway/ws.py`` (WebSocket) first frame. */
 export interface GatewayReadyPayload {
   skin: SkinPayload
@@ -4268,12 +4440,26 @@ export interface RpcMethods {
   'config.show': { params: ConfigShowParams; result: ConfigShowResult }
   /** Per-target outcomes from the card, and an optional Continue. */
   'connection.respond': { params: ConnectionRespondParams; result: ConnectionRespondResult }
-  /** Start (or re-initiate) authorization for named connectors on the session's connection operation. */
+  /** The scoped member's hosted connector accounts, optionally filtered by connector slug. */
+  'connectors.accounts': { params: ConnectorAccountsParams; result: ConnectorAccountsResult }
+  /** Remove one hosted connector account owned by the scoped member. */
+  'connectors.accounts.remove': { params: ConnectorAccountsRemoveParams; result: ConnectorAccountsRemoveResult }
+  /** The hosted connector catalog available to the scoped member. */
+  'connectors.catalog': { params: ProfileParams; result: ConnectorsCatalogResult }
+  /** Start or re-initiate authorization for named connectors on a session or account operation. */
   'connectors.connect': { params: ConnectorsConnectParams; result: ConnectorsConnectResult }
-  /** Connector catalog + connection state for one owned session (``available=False`` when the toolset is off). */
+  /** Connector catalog + connection state for one session or profile account owner. */
   'connectors.list': { params: ConnectorsListParams; result: ConnectorsListResult }
-  /** The current snapshot of one open operation on an owned session. */
+  /** The current snapshot of one open session or account operation. */
   'connectors.operation.status': { params: ConnectionOperationParams; result: ConnectionOperationStatus }
+  /** The browser leg came back (anakot://connections/done): read the accounts now, not at the next tick. */
+  'connectors.operation.wake': { params: ConnectionOperationParams; result: ConnectionWakeResult }
+  /** Policy layers for the scoped member, from organization to member scope. */
+  'connectors.policy.get': { params: ProfileParams; result: ConnectorPolicyGetResult }
+  /** Apply one scoped member connector or tool-list policy change. */
+  'connectors.policy.set': { params: ConnectorPolicySetParams; result: ConnectorPolicySetResult }
+  /** The scoped profile's cached or current tool list for one connector. */
+  'connectors.tools': { params: ConnectorToolsParams; result: ConnectorToolsResult }
   /** List/add/remove/pause/resume cron jobs in the (optionally profile-scoped) cron store. */
   'cron.manage': { params: CronManageParams; result: CronManageResult }
   /** Block/unblock NEW spawns globally (active children keep running); returns the new state. */
@@ -4676,9 +4862,16 @@ export const RPC_METHODS = [
   'config.set',
   'config.show',
   'connection.respond',
+  'connectors.accounts',
+  'connectors.accounts.remove',
+  'connectors.catalog',
   'connectors.connect',
   'connectors.list',
   'connectors.operation.status',
+  'connectors.operation.wake',
+  'connectors.policy.get',
+  'connectors.policy.set',
+  'connectors.tools',
   'cron.manage',
   'delegation.pause',
   'delegation.status',

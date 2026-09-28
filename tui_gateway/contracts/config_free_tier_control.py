@@ -281,53 +281,6 @@ method("model.options", params=ModelOptionsParams, result=ModelOptionsResult,
        doc="Provider/model inventory for the picker, layered over the session's live provider when given.")
 
 
-# ── connectors ────────────────────────────────────────────────────────────────────────────────
-
-
-class ConnectorsListParams(ProfileParams):
-    session_id: str
-
-
-class ConnectorRow(OpenModel):
-    """One ``manage_connections`` status entry after ``connector_ui_payload`` redaction; the
-    connector service owns the closed key set, so unknown metadata passes through."""
-
-    connector: str = ""
-    connected: bool | None = None
-    enabled: bool | None = None
-    connectionStatus: str | None = None
-    name: str | None = None
-    description: str | None = None
-
-
-class ConnectorsListResult(Result):
-    available: bool
-    connectors: list[ConnectorRow]
-
-
-method("connectors.list", params=ConnectorsListParams, result=ConnectorsListResult,
-       doc="Connector catalog + connection state for one owned session (``available=False`` when the toolset is off).")
-
-
-class ConnectorsConnectParams(ProfileParams):
-    session_id: str
-    connectors: list[str]
-    reconnect: bool = False
-
-
-class ConnectorsConnectResult(ConnectionOperationStatus):
-    """The operation the connect opened (or re-minted on): ``tools/connectors/managed.py``
-    ``_off_desktop_result`` / ``methods_connectors._reissue``. ``status``/``note`` ride along from
-    the tool result when the call ran through ``manage_connections``."""
-
-    status: str | None = None
-    note: str | None = None
-
-
-method("connectors.connect", params=ConnectorsConnectParams, result=ConnectorsConnectResult,
-       doc="Start (or re-initiate) authorization for named connectors on the session's connection operation.")
-
-
 # ── image.generate ────────────────────────────────────────────────────────────────────────────
 
 

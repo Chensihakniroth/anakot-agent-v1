@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Annotated, Literal
+
 from pydantic import Field
 
 from .base import JsonValue, Params, Payload, Result, WireEnum
@@ -195,6 +197,27 @@ class SessionParams(Params):
     profile: str | None = None
 
 
+class SessionOwner(Params):
+    """Ownership by a live chat session — today's connector authorization."""
+
+    type: Literal["session"]
+    session_id: str = Field(min_length=1)
+
+
+class AccountOwner(Params):
+    """Ownership by the scoped profile's account — no chat session involved.
+
+    A Connectors page has no session, so a connect started from it needs an owner
+    that survives without one: routed by ``profile`` and authorized by the live
+    transport the way ``mcp.*`` already is.
+    """
+
+    type: Literal["account"]
+
+
+ConnectorOwner = Annotated[SessionOwner | AccountOwner, Field(discriminator="type")]
+
+
 class ProfileParams(Params):
     """Any method the desktop may route to a named profile (``requestGatewayForProfile`` adds ``profile``)."""
 
@@ -218,7 +241,7 @@ class EmptyPayload(Payload):
 
 
 __all__ = [
-    "TERMINAL_SUBAGENT_STATUSES", "EmptyPayload", "EmptyResult", "McpServerStatus", "MessageReaction", "OkResult", "OpenModel", "PendingApproval",
-    "ProfileParams", "ProjectRef", "SessionLiveInfo", "SessionParams", "StatusResult", "StoredSessionRow",
+    "TERMINAL_SUBAGENT_STATUSES", "AccountOwner", "ConnectorOwner", "EmptyPayload", "EmptyResult", "McpServerStatus", "MessageReaction", "OkResult", "OpenModel", "PendingApproval",
+    "ProfileParams", "ProjectRef", "SessionLiveInfo", "SessionOwner", "SessionParams", "StatusResult", "StoredSessionRow",
     "SubagentStatus", "TranscriptMessage", "Usage",
 ]

@@ -54,6 +54,11 @@ class HandlerRegistry:
             return fn
         return dec
 
+    def names(self) -> set[str]:
+        """Every method name this registry has claimed, for the caller's own bookkeeping
+        (e.g. ``server._LONG_HANDLERS`` — handlers that must not run on the short path)."""
+        return {name for name, _ in self._pending}
+
     def profile_scoped(self, fn):
         """Drop-in for server.py's ``@_profile_scoped`` (applied at install)."""
         fn._anakot_profile_scoped = True
