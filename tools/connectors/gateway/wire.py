@@ -10,6 +10,8 @@ from typing import Any, Literal, Optional
 from pydantic import BaseModel, ConfigDict, Field
 
 CONNECTORS_PATH = "v1/connectors"
+# The account-scoped routes (list, remove) live beside the toolkit routes.
+CONNECTOR_ACCOUNTS_PATH = f"{CONNECTORS_PATH}/accounts"
 CONNECTOR_SEARCH_PATH = f"{CONNECTORS_PATH}/search"
 CONNECTOR_SCHEMAS_PATH = f"{CONNECTORS_PATH}/schemas"
 CONNECTOR_EXECUTE_PATH = f"{CONNECTORS_PATH}/execute"
@@ -162,3 +164,28 @@ class ConnectorConnectionsResponse(_Wire):
     summary: ConnectorConnectionsSummary = Field(
         default_factory=ConnectorConnectionsSummary
     )
+
+
+class ConnectorAccount(_Wire):
+    """One bound vendor account. ``active`` marks the newest one for its connector — the account
+    the gateway actually executes with when a user has bound the same app more than once."""
+
+    connection_id: str = Field(alias="connectionId")
+    connector: str
+    status: ConnectionStatus
+    status_reason: Optional[str] = Field(default=None, alias="statusReason")
+    label: str = Field(min_length=1)
+    alias: Optional[str] = None
+    active: bool
+    created_at: str = Field(alias="createdAt")
+    updated_at: str = Field(alias="updatedAt")
+
+
+class ConnectorAccountsResponse(_Wire):
+    accounts: list[ConnectorAccount]
+
+
+class RemovedConnectorAccount(_Wire):
+    connection_id: str = Field(alias="connectionId")
+    connector: str
+    status: Literal["removed"]
