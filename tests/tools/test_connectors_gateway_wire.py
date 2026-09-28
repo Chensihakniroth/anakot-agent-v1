@@ -6,6 +6,7 @@ from pydantic import ValidationError
 
 from tools.connectors.gateway import wire
 from tools.connectors.gateway.merge import partition_calls, splice_remote_results
+from tools.connectors.turn import CARD, LINK, scoped_connection_surface
 
 
 def test_connections_result_carries_status_reason_under_either_spelling():
@@ -36,16 +37,16 @@ def _connection_required_entry():
     return entry["error"]
 
 
-def test_connection_required_on_desktop_names_the_card_and_drops_the_url(monkeypatch):
-    monkeypatch.setattr("tools.connectors.gateway.merge.session_platform", lambda: "desktop")
-    error = _connection_required_entry()
-    assert error["connector"] == "gmail"
-    assert error["connect_card_available"] is True
-    assert "connect_url" not in error
+def test_connection_required_on_desktop_names_the_card_and_drops_the_url():
+    with scoped_connection_surface(CARD):
+        error = _connection_required_entry()
+        assert error["connector"] == "gmail"
+        assert error["connect_card_available"] is True
+        assert "connect_url" not in error
 
 
-def test_connection_required_off_desktop_keeps_the_url(monkeypatch):
-    monkeypatch.setattr("tools.connectors.gateway.merge.session_platform", lambda: "tui")
-    error = _connection_required_entry()
-    assert error["connect_url"] == "https://example.test/connect/abc"
-    assert "connect_card_available" not in error
+def test_connection_required_off_desktop_keeps_the_url():
+    with scoped_connection_surface(LINK):
+        error = _connection_required_entry()
+        assert error["connect_url"] == "https://example.test/connect/abc"
+        assert "connect_card_available" not in error

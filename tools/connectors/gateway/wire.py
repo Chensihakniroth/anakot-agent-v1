@@ -89,6 +89,9 @@ class ConnectorToolError(_Wire):
     message: str
     connector: Optional[str] = None
     connect_url: Optional[str] = Field(default=None, alias="connectUrl")
+    # Echoed so a caller can match the failure to an existing account (reconnect, account
+    # removal) instead of minting a second link for a connector already half-connected.
+    connection_id: Optional[str] = Field(default=None, alias="connectionId")
     hint: Optional[str] = None
 
 
