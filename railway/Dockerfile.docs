@@ -1,0 +1,72 @@
+# Docusaurus docs site → nginx static host.
+#
+# Two stages: build the site with Node, then serve the generated `build/`
+# directory with nginx. nginx is used rather than a Node static server because
+# the site is fully static — no runtime, no Node in the final image.
+#
+# SITE_URL / BASE_URL are build args because Docusaurus bakes absolute URLs
+# (canonical links, sitemap, OpenGraph) into the output at build time. Change
+# them and rebuild; changing them at runtime has no effect.
+
+# ── Stage 1: build ─────────────────────────────────────────────
+FROM node:22-bookworm-slim AS build
+
+# prebuild.mjs shells out to python3 for the skills/plugin/catalog extractors.
+# Without pyyaml those scripts exit non-zero and the build still succeeds, but
+# the Skills Hub, Plugin Catalog, and Automation Blueprints pages all render
+# empty — a silently degraded site, so install the dep rather than accept it.
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends python3 python3-pip ca-certificates \
+ && rm -rf /var/lib/apt/lists/* \
+ && pip3 install --break-system-packages --no-cache-dir pyyaml==6.0.2 httpx==0.28.1
+
+WORKDIR /app
+
+# The prebuild extractors read the repo's skills/, plugin-catalog/, and cron/
+# trees, so the build context is the repo root with website/ as the app dir.
+COPY website/package.json website/package-lock.json ./website/
+WORKDIR /app/website
+RUN npm ci --no-audit --no-fund
+
+# WORKDIR is already /app/website, so the site source must land HERE — not in a
+# nested ./website/ subdirectory. Copying to ./website/ here put every file at
+# /app/website/website/, so `npm run build` failed with
+# "Cannot find module '/app/website/scripts/prebuild.mjs'" while the earlier
+# package.json COPY (done before the WORKDIR) masked the problem.
+COPY website/ ./
+COPY skills/ /app/skills/
+COPY optional-skills/ /app/optional-skills/
+COPY plugin-catalog/ /app/plugin-catalog/
+COPY cron/ /app/cron/
+
+# npm >= 11.17 is required by website/package.json engines.
+RUN npm install -g npm@12
+
+ARG SITE_URL
+ARG BASE_URL
+ENV SITE_URL=$SITE_URL
+ENV BASE_URL=$BASE_URL
+# Docusaurus build is memory-hungry; give Node room on small Railway builders.
+ENV NODE_OPTIONS=--max-old-space-size=4096
+
+RUN npm run build
+
+# The skills catalogs are ~100 MB of JSON (a 57 MB skills.json plus a 41 MB
+# skills-index.json) and dominate the image. They are plain JSON served
+# verbatim, so they compress to a small fraction of that — pre-gzip them and
+# let nginx serve the .gz directly instead of compressing 100 MB on every boot.
+# Browsers send Accept-Encoding: gzip, so this is transparent to visitors.
+RUN find /app/website/build/api -name '*.json' -size +1M -exec gzip -9 -k {} \; \
+ && du -sh /app/website/build
+
+# Fail the build loudly if the expected output is missing, instead of shipping
+# a container that serves an empty root.
+RUN test -f /app/website/build/index.html
+
+# ── Stage 2: serve ─────────────────────────────────────────────
+FROM nginx:alpine
+
+COPY --from=build /app/website/build /usr/share/nginx/html
+COPY railway/docs-nginx.conf.template /etc/nginx/templates/default.conf.template
+
+EXPOSE 80

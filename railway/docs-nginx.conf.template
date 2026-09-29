@@ -1,0 +1,51 @@
+server {
+    # Railway injects PORT (a random high port) and proxies the public domain to
+    # it. The nginx image envsubsts this template at container start.
+    #
+    # We deliberately listen on 80 instead: the service domain is published with
+    # target port 80, so a container bound only to the random $PORT answers every
+    # public request with 502 Bad Gateway. ${PORT:-8080} is not an option either —
+    # gettext envsubst has no ":-" default syntax and emits a literal "listen ;",
+    # which fails to parse.
+    listen 80;
+    server_name _;
+
+    # Railway terminates TLS at its edge and forwards plain HTTP to the
+    # container, so nginx's $scheme is "http" even though the visitor used
+    # https. Left alone, nginx's trailing-slash redirect emits
+    #   Location: http://<host>/<path>/
+    # which downgrades the visitor to cleartext. absolute_redirect off makes
+    # nginx emit a relative Location, so the browser keeps its own https scheme.
+    absolute_redirect off;
+    port_in_redirect off;
+
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Docusaurus emits absolute asset paths, so the site must be served from the
+    # domain root. When BASE_URL is "/", "/" is the docs home.
+    location / {
+        try_files $uri $uri/ $uri/index.html =404;
+    }
+
+    # Hashed build assets are immutable — cache them hard.
+    location /assets/ {
+        expires 1y;
+        add_header Cache-Control "public, immutable";
+        try_files $uri =404;
+    }
+
+    # The generated API JSON (skills catalog, plugin catalog, model catalog) is
+    # rewritten on every deploy — never cache it, or visitors get a stale catalog.
+    # Large catalogs ship pre-gzipped from the build stage; serve those directly
+    # rather than re-compressing ~100 MB of JSON on every request.
+    location /api/ {
+        add_header Cache-Control "no-store";
+        gzip_static on;
+        try_files $uri $uri.json $uri.json.gz =404;
+    }
+
+    gzip on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+    gzip_min_length 1024;
+}

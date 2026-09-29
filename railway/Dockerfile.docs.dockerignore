@@ -1,0 +1,52 @@
+# Build context rules for railway/Dockerfile.docs (the Docusaurus docs site).
+#
+# Why a separate file: the repo-root .dockerignore is tuned for the AGENT image,
+# which does not need the website at all. It excludes `website/`, `*.md`, and
+# `tests/`. Docker only honours ONE .dockerignore per build context, named after
+# the Dockerfile — so building `railway/Dockerfile.docs` uses THIS file and
+# ignores the root one entirely. That removes any chance of the two rule sets
+# interacting, which is what silently stripped website/src/data/ and broke the
+# build with "Can't resolve '@site/src/data/userStories.json'".
+
+# Version control and CI config
+.git
+.github
+.gitignore
+
+# Dependencies — reinstalled inside the image by `npm ci`
+node_modules
+**/node_modules
+.venv
+venv
+env
+
+# Build artefacts
+build
+**/build
+dist
+**/dist
+.docusaurus
+**/.docusaurus
+.cache
+**/.cache
+
+# Python bytecode
+__pycache__
+**/__pycache__
+*.py[cod]
+
+# Secrets — never ship these into an image layer
+.env
+.env.*
+*.pem
+*.key
+
+# Runtime data
+/data
+**/*.sqlite
+**/*.sqlite3
+**/*.db
+
+# Local agent state that has no business in a docs image
+log.txt
+*.log
