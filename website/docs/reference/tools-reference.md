@@ -8,7 +8,7 @@ description: "Authoritative reference for Anakot built-in tools, grouped by tool
 
 This page documents Anakot' built-in tools, grouped by toolset. Availability varies by platform, credentials, and enabled toolsets.
 
-**Quick counts (current registry):** ~86 tools — 10 browser tools (core) + 2 CDP-gated browser tools, 4 file tools, 4 Home Assistant tools, 2 terminal tools (`terminal`, `process`), 12 desktop-GUI tools (`read_terminal`, `close_terminal`, `open_preview`, `close_preview`, `read_preview`, `drive_preview`, `annotate_preview`, `read_window_below`, `focus_pane`, `react_to_message`, `tour`, `tip` — desktop-app sessions only), 2 web tools, 5 Feishu tools, 7 Spotify tools (registered by the bundled `spotify` plugin), 5 Yuanbao tools, 12 kanban tools (registered when the kanban dispatcher spawns the agent), 3 project tools (desktop/GUI sessions), 2 Discord tools, 3 video tools (`video_generate`, `xai_video_edit`, `xai_video_extend`), and a handful of standalone tools (`memory`, `clarify`, `delegate_task`, `execute_code`, `cronjob`, `session_search`, `skill_view`/`skill_manage`/`skills_list`, `text_to_speech`, `image_generate`, `vision_analyze`, `video_analyze`, `todo`, `computer_use`, `x_search`).
+**Quick counts (current registry):** ~94 tools — 19 browser tools (13 core navigation/screenshot tools, `browser_exec`, and 5 password-vault tools), 4 file tools, 4 Home Assistant tools, 2 terminal tools (`terminal`, `process_manage`), 10 desktop-GUI tools (`read_terminal`, `close_terminal`, `desktop_preview`, `drive_preview`, `annotate_preview`, `read_window_below`, `focus_pane`, `react_to_message`, `gui_tour`, `show_tip` — desktop-app sessions only), 2 web tools, 5 Feishu tools, 7 Spotify tools (registered by the bundled `spotify` plugin), 5 Yuanbao tools, 14 kanban tools (registered when the kanban dispatcher spawns the agent), 1 project tool (`desktop_project` — desktop/GUI sessions), 2 Discord tools, 3 video tools (`video_generate`, `xai_video_edit`, `xai_video_extend`), and a handful of standalone tools (`memory`, `clarify`, `delegate_task`, `execute_code`, `cronjob_manage`, `session_search`, `todo_list`, `manage_connections`, `text_to_speech`, `vision_analyze`, `computer_use`, `skill_view`/`skill_manage`/`skills_list`).
 
 :::tip MCP Tools
 In addition to built-in tools, Anakot can load tools dynamically from MCP servers. MCP tools appear with the prefix `mcp__<server>__` (e.g., `mcp__github__create_issue` for the `github` MCP server). See [MCP Integration](../user-guide/features/mcp.md) for configuration.
@@ -91,7 +91,7 @@ token). Other sessions do not see it.
 
 ## `feishu_doc` toolset
 
-Scoped to the Feishu document-comment intelligent-reply handler (`gateway/platforms/feishu_comment.py`). Not exposed on `anakot-cli` or the regular Feishu chat adapter.
+Scoped to the Feishu document-comment intelligent-reply handler (`plugins/platforms/feishu/feishu_comment.py`). Not exposed on `anakot-cli` or the regular Feishu chat adapter.
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
@@ -166,13 +166,11 @@ Registered when the agent is either (a) spawned by the kanban dispatcher (`ANAKO
 
 ## `project` toolset
 
-Tools for driving desktop [Projects](../user-guide/cli.md) — named, multi-folder workspaces. Registered when the `project` toolset is enabled (primarily the desktop app / dashboard surfaces).
+Tools for driving desktop [Projects](../user-guide/cli.md) — named, multi-folder workspaces. Registered when the `project` toolset is enabled (primarily the desktop app / dashboard surfaces). One tool with an `action` enum replaces the former `project_create` / `project_switch` / `project_list` trio.
 
 | Tool | Description | Requires environment |
 |------|-------------|----------------------|
-| `project_create` | Create a desktop Project (a named workspace) and switch this chat into it. Pass `path` to anchor it to a repo/folder. | — |
-| `project_list` | List the desktop Projects and which one is active. | — |
-| `project_switch` | Switch this chat into an existing Project (by name, slug, or id); moves the session workspace to the project's primary folder. | — |
+| `desktop_project` | Create or switch desktop Projects. `action="create"` creates one and switches this chat into it — pass `path` to anchor it to a repo/folder (the chat's workspace moves there and the sidebar follows). `action="switch"` moves this chat into an existing Project by `name` (name, slug, or id); this is the intentional way to move a session, not `cd`. `action="list"` returns every Project and which one is active. | — |
 
 ## `memory` toolset
 
@@ -211,20 +209,18 @@ messaging, and cron sessions.
 |------|-------------|----------------------|
 | `read_terminal` | Read what's currently shown in the in-app terminal pane of the Anakot desktop GUI (the embedded shell beside this chat). | — |
 | `close_terminal` | Close the read-only terminal tab for a background process in the Anakot desktop GUI. Does NOT kill the process — only drops the tab/view; use process(action='kill') to stop it. | — |
-| `open_preview` | Open a web URL, localhost dev-server URL, or file path in the preview pane beside the chat in the Anakot desktop app. | — |
-| `close_preview` | Close the preview pane beside the chat, or one tab inside it. Omit `url` to close the whole pane; pass a URL or file path to close that tab. | — |
-| `read_preview` | Read what's currently shown in the preview pane of the Anakot desktop GUI — the in-app Browser's page text (URL + title + rendered text, pageable with `start`/`count`), or a file/artifact tab's identity. | — |
+| `desktop_preview` | Open, close, or read the preview pane beside the chat. `action="open"` shows a web URL (bare domains fine), a localhost dev server, or a file path (HTML renders live) for the current window. `action="close"` dismisses the whole pane, or one tab via `url`. `action="read"` returns what the pane shows as `{kind, url, title, text, start, end, total_chars}` — a Browser tab's text is the rendered page's visible text, paged with `start`/`count` (char offsets); a file tab answers identity only, so read the file with `read_file`. Consolidates the former `open_preview` / `close_preview` / `read_preview` trio into one tool. | — |
 | `drive_preview` | Interact with the page open in the in-app browser: `elements` inventories what's clickable and typable (each with a ref that names it, like `btn-sign-in` or `inp-email`, plus role, label, and value), then `click`, `hover`, `type`, `scroll`, and `press` act on a ref, and `back`/`forward`/`reload` drive the pane's history. The pointer and keyboard are real input, so hover menus open. A ref lasts until the page navigates, including across a re-render that rebuilds the element, so after the first inventory every action answers with just a delta — what was added, removed, changed, or rebound — instead of the whole page again. | — |
 | `annotate_preview` | Outline an element in the in-app browser and leave the mark up until it's removed — the deliberate counterpart to the transient cues `drive_preview` draws as it works. `add` marks a ref with an optional short label, `remove` takes one down, `clear` takes them all. Marks follow their element and vanish with it, so a navigation clears them. | — |
 | `read_window_below` | Identify the OS window directly underneath the Anakot desktop window — app name, title, bounds (metadata only, never pixels). On macOS, other apps' titles appear only when Screen Recording is already granted; the tool never prompts for it. | — |
 | `focus_pane` | Reveal and focus a pane in the Anakot desktop app (chat, files, terminal, review, sessions). | — |
 | `react_to_message` | React to a message with a single emoji, iMessage-tapback style. Opt-in via Settings → Appearance (`display.message_reactions`). | — |
-| `tour` | Give a live guided tour: dim the screen, highlight an element, and attach a narrated popover (driver.js). Works on the Anakot app's own UI and on any page open in the preview pane; `targets` discovers what's on screen, `show` narrates step-by-step, `start` hands the user Next/Prev controls. | — |
-| `tip` | Point at one element with a small accent bubble and an arrow — the quiet sibling of `tour`, with no dimming, no spotlight, and no Next/Prev. Same `data-tour` handles and the same `tour(action='targets')` discovery call. | — |
+| `gui_tour` | Guided tour in the desktop GUI: dim the screen, highlight an element, attach a titled popover (driver.js). `surface` picks `app` (the Anakot app itself) or `preview` (the page in the preview pane). Always call `action="targets"` first and prefer entries marked `stable: true` — their selectors survive re-renders; re-scan if one stops matching. Then `action="show"` narrates one highlight per call (replacing the last — pair each with a chat message), or `action="start"` plus `steps` hands the user Next/Prev controls (`next`/`prev` also page it). `stop` clears. | — |
+| `show_tip` | Point at one thing in the desktop UI with a small arrow bubble and a one-sentence label — no dimming, no tour chrome. Takes the same selectors `gui_tour(action="targets")` reports (prefer `stable: true`, never guess) plus `text`, an optional `title`, and a `side` that flips at screen edges. One tip at a time, and the same thing belongs in chat too: the bubble is a pointer, not the message. Gated by Settings → Appearance (`in_app_tips`, on by default). | — |
 
 ### Tours
 
-The `tour` tool discovers its own targets — call `action='targets'` and it returns every addressable element on screen with a selector, a label, and a `stable` flag. Stable selectors key off identity (`data-tour`, `id`, `data-testid`, `aria-label`) and survive a re-render; positional `nth-child` paths don't, so stable ones sort first and should be preferred.
+The `gui_tour` tool discovers its own targets — call `action="targets"` and it returns every addressable element on screen with a selector, a label, and a `stable` flag. Stable selectors key off identity (`data-tour`, `id`, `data-testid`, `aria-label`) and survive a re-render; positional `nth-child` paths don't, so stable ones sort first and should be preferred.
 
 To give an element a durable handle of your own, mark it up:
 
@@ -275,7 +271,7 @@ nothing to page through. It's the right weight for a sentence that would be
 clearer with a finger on the thing it's about — "the model name is a button" —
 where dimming the whole app would not be.
 
-The `tip` tool takes the same selectors `tour(action='targets')` reports, so
+The `show_tip` tool takes the same selectors `gui_tour(action="targets")` reports, so
 discovery is one call for both, and the durable `data-tour` handles above name
 targets for either. One tip is on screen at a time; a new one replaces the last.
 

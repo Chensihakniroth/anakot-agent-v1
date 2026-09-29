@@ -62,7 +62,7 @@ anakot import-agent --sync            # re-import every changed source
 anakot import-agent --sync --dry-run  # preview what a sync would do
 ```
 
-Sync is prompt-free and cheap: sources whose files are unchanged are skipped by digest comparison, so it is safe to run on a schedule (e.g. a daily [cron job](features/cron.md)). Rules:
+Sync is prompt-free and cheap: sources whose files are unchanged are skipped by digest comparison, so it is safe to run on a schedule (e.g. a daily [cron job](./features/cron.md)). Rules:
 
 - **Memory and config merges stay deduplicating** — a sync never duplicates entries or patterns you already have.
 - **Skills previously imported by `import-agent` are refreshed in place** when the source copy changes.

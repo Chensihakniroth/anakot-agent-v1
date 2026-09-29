@@ -6,7 +6,7 @@ description: "Launch the modern terminal UI for Anakot — mouse-friendly, rich 
 
 # TUI
 
-The TUI is the modern front-end for Anakot — a terminal UI backed by the same Python runtime as the [Classic CLI](cli.md). Same agent, same sessions, same slash commands; a cleaner, more responsive surface for interacting with them.
+The TUI is the modern front-end for Anakot — a terminal UI backed by the same Python runtime as the [Classic CLI](./cli.md). Same agent, same sessions, same slash commands; a cleaner, more responsive surface for interacting with them.
 
 It's the recommended way to run Anakot interactively.
 
@@ -49,7 +49,7 @@ display:
 
 With `display.interface: tui`, a bare `anakot` (and `anakot chat`) launches the TUI. Explicit flags always win — run `anakot --cli` to drop back to the classic REPL for a single invocation, or `anakot --tui` / `ANAKOT_TUI=1` to force the TUI when the config default is `cli`.
 
-The classic CLI remains the shipped default. Anything documented in [CLI Interface](cli.md) — slash commands, quick commands, skill preloading, personalities, multi-line input, interrupts — works in the TUI identically.
+The classic CLI remains the shipped default. Anything documented in [CLI Interface](./cli.md) — slash commands, quick commands, skill preloading, personalities, multi-line input, interrupts — works in the TUI identically.
 
 ## Why the TUI
 
@@ -61,7 +61,7 @@ The classic CLI remains the shipped default. Anything documented in [CLI Interfa
 - **Alternate-screen rendering** — differential updates mean no flicker when streaming, no scrollback clutter after you quit.
 - **Composer affordances** — inline paste-collapse for long snippets, `Cmd+V` / `Ctrl+V` text paste with clipboard-image fallback, bracketed-paste safety, and image/file-path attachment normalization.
 
-Same [skins](features/skins.md) and [personalities](features/personality.md) apply. Switch mid-session with `/skin ares`, `/personality pirate`, and the UI repaints live. See [Skins & Themes](features/skins.md) for the full list of customizable keys and which ones apply to classic vs TUI — the TUI honors the banner palette, UI colors, prompt glyph/color, session display, completion menu, selection bg, `tool_prefix`, and `help_header`.
+Same [skins](./features/skins.md) and [personalities](./features/personality.md) apply. Switch mid-session with `/skin ares`, `/personality pirate`, and the UI repaints live. See [Skins & Themes](./features/skins.md) for the full list of customizable keys and which ones apply to classic vs TUI — the TUI honors the banner palette, UI colors, prompt glyph/color, session display, completion menu, selection bg, `tool_prefix`, and `help_header`.
 
 ### Collapsible banner sections
 
@@ -100,7 +100,7 @@ The directory must contain `dist/entry.js`.
 
 ## Keybindings
 
-Keybindings match the [Classic CLI](cli.md#keybindings) exactly. The only behavioral differences:
+Keybindings match the [Classic CLI](./cli.md#keybindings) exactly. The only behavioral differences:
 
 - **`Ctrl+T`** expands the automatic live-subagent dock into the full-height `/agents` roster. Select a worker and press **Enter** (or **`t`**) for its live transcript, **`d`** for rich details, **`e`** to steer, or **`x`** to stop it. The dock fits its row count to terminal height and preserves your composer draft. See [Monitoring subagents](./features/delegation.md#monitoring-running-subagents-agents).
 - **`F7`** toggles the live dock between its default preview and one summary line. This does not open the monitor or move composer focus; the choice lasts for this TUI process without changing config.
@@ -211,7 +211,7 @@ After a session is named, its title appears as an accent-colored badge at the fa
 | `interrupted` | Current turn was cancelled; press Enter to send again. |
 | `forging session…` / `resuming…` | Initial connect or `--resume` handshake. |
 
-The per-skin status-bar colors and thresholds are shared with the classic CLI — see [Skins](features/skins.md) for customization.
+The per-skin status-bar colors and thresholds are shared with the classic CLI — see [Skins](./features/skins.md) for customization.
 
 The status line also shows:
 
@@ -281,7 +281,7 @@ existing configs keep working unchanged.
 
 Sessions are shared between the TUI and the classic CLI — both write to the same `~/.anakot/state.db`. You can start a session in one, resume in the other. The session picker surfaces sessions from both sources, with a source tag.
 
-See [Sessions](sessions.md) for lifecycle, search, compression, and export.
+See [Sessions](./sessions.md) for lifecycle, search, compression, and export.
 
 ## How the TUI talks to its gateway
 
@@ -296,7 +296,7 @@ There is no general "point any TUI at any standalone gateway port" mode. In part
 - **Spawned gateway (default):** when the gateway process dies mid-session the TUI says *Anakot stopped unexpectedly — restarting and reopening your chat*, respawns it (bounded to a few attempts per minute) and reopens the same saved session. The reply that was in flight is lost with the process.
 - **Attached gateway (dashboard chat):** when only the WebSocket drops the TUI says *Connection to Anakot lost — reconnecting and reopening your chat…*, reconnects with growing backoff and reattaches to the same session — including a reply that is still streaming on the backend. Nothing is resubmitted.
 
-If you want multiple surfaces to share one set of sessions, use the shared `~/.anakot/state.db` (see [Sessions](sessions.md)) or the web dashboard's embedded chat (see [Web Dashboard](features/web-dashboard.md#chat)) — not a hand-set gateway URL.
+If you want multiple surfaces to share one set of sessions, use the shared `~/.anakot/state.db` (see [Sessions](./sessions.md)) or the web dashboard's embedded chat (see [Web Dashboard](./features/web-dashboard.md#chat)) — not a hand-set gateway URL.
 
 ## Reverting to the classic CLI
 
@@ -306,8 +306,8 @@ If the TUI fails to launch (no Node, missing bundle, TTY issue), Anakot prints a
 
 ## See also
 
-- [CLI Interface](cli.md) — full slash command and keybinding reference (shared)
-- [Sessions](sessions.md) — resume, branch, and history
-- [Skins & Themes](features/skins.md) — theme the banner, status bar, and overlays
-- [Voice Mode](features/voice-mode.md) — works in both interfaces
-- [Configuration](configuration.md) — all config keys
+- [CLI Interface](./cli.md) — full slash command and keybinding reference (shared)
+- [Sessions](./sessions.md) — resume, branch, and history
+- [Skins & Themes](./features/skins.md) — theme the banner, status bar, and overlays
+- [Voice Mode](./features/voice-mode.md) — works in both interfaces
+- [Configuration](./configuration.md) — all config keys

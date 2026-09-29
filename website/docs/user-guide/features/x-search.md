@@ -163,5 +163,5 @@ Causes worth checking:
 
 - [xAI Grok OAuth (SuperGrok / Premium+)](../../guides/xai-grok-oauth.md) — the OAuth setup guide
 - [xurl skill](../skills/bundled/social-media/social-media-xurl.md) — official X API CLI for authenticated account actions
-- [Web Search & Extract](web-search.md) — for general (non-X) web search
+- [Web Search & Extract](./web-search.md) — for general (non-X) web search
 - [Tools Reference](../../reference/tools-reference.md) — full tool catalog

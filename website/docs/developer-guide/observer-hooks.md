@@ -21,7 +21,7 @@ provider requests, tool arguments, or execution callbacks.
 
 Anakot also has a first-party NeMo Relay shared-metrics path. It uses these
 lifecycle boundaries directly and does not require enabling an observability
-plugin. See [Relay shared metrics](relay-shared-metrics.md).
+plugin. See [Relay shared metrics](./relay-shared-metrics.md).
 
 ## Contract
 
@@ -330,4 +330,4 @@ The native NeMo Relay SDK integration maps Anakot session, turn, LLM, and tool
 lifecycles to Relay. Explicit Relay plugin configuration can add
 [ATOF, ATIF, or OTEL](https://docs.nvidia.com/nemo/relay/configure-plugins/observability/about)
 exporters and execution middleware; see
-[Relay shared metrics](relay-shared-metrics.md).
+[Relay shared metrics](./relay-shared-metrics.md).

@@ -3,16 +3,29 @@ import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
 import relativeDocLinks from './src/remark/relativeDocLinks';
 
+// Site origin and path prefix are environment-driven so one source tree can be
+// built for any host: Railway sets SITE_URL, GitHub Pages and local `npm start`
+// fall back to the upstream values. Anything that must resolve absolutely at
+// runtime (canonical URLs, sitemap) is derived from these two.
+const siteUrl = process.env.SITE_URL || 'https://hermes-agent.nousresearch.com';
+const baseUrl = process.env.BASE_URL || '/docs/';
+
+// Where "Download" and "Home" go. Anakot ships no installer of its own — the
+// installers in this repo install the fork — so releases are the honest target.
+const repoUrl = 'https://github.com/Chensihakniroth/anakot-agent-v1';
+const releasesUrl = `${repoUrl}/releases`;
+const upstreamUrl = 'https://github.com/NousResearch/hermes-agent';
+
 const config: Config = {
   title: 'Anakot Agent',
   tagline: 'The self-improving AI agent',
   favicon: 'img/favicon.ico',
 
-  url: 'https://hermes-agent.nousresearch.com',
-  baseUrl: '/docs/',
+  url: siteUrl,
+  baseUrl,
 
-  organizationName: 'NousResearch',
-  projectName: 'anakot-agent',
+  organizationName: 'Chensihakniroth',
+  projectName: 'anakot-agent-v1',
 
   onBrokenLinks: 'warn',
 
@@ -96,20 +109,6 @@ const config: Config = {
 
   themeConfig: {
     image: 'img/anakot-agent-banner.png',
-    // Algolia DocSearch (replaces @easyops-cn/docusaurus-search-local).
-    // The local plugin shipped a ~16 MB client-side lunr index that every
-    // visitor downloaded and hydrated before their first result; DocSearch
-    // answers from Algolia's servers with no client index at all. These are
-    // public search-only credentials — safe to commit (the admin key is not
-    // in the repo). Index is populated by the Algolia Crawler configured at
-    // crawler.algolia.com; contextualSearch scopes results to the active
-    // locale via the docusaurus_tag/lang facets the crawler records carry.
-    algolia: {
-      appId: '2JLBVEYZN5',
-      apiKey: '8fda2a49223ce185ac30c2dbf6898a07',
-      indexName: 'anakot docs',
-      contextualSearch: true,
-    },
     colorMode: {
       defaultMode: 'dark',
       respectPrefersColorScheme: true,
@@ -124,7 +123,7 @@ const config: Config = {
       title: 'Anakot Agent',
       logo: {
         alt: 'Anakot Agent',
-        src: 'img/logo.png',
+        src: 'img/anakot-icon.png',
       },
       items: [
         {
@@ -144,21 +143,22 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://hermes-agent.nousresearch.com/',
+          href: releasesUrl,
           label: 'Download',
           position: 'left',
+        },
+        {
+          to: '/getting-started/installation',
+          label: 'Get started',
+          position: 'right',
+          className: 'navbar-cta',
         },
         {
           type: 'localeDropdown',
           position: 'right',
         },
         {
-          href: 'https://hermes-agent.nousresearch.com',
-          label: 'Home',
-          position: 'right',
-        },
-        {
-          href: 'https://github.com/Chensihakniroth/anakot-agent-v1',
+          href: repoUrl,
           label: 'GitHub',
           position: 'right',
         },
@@ -192,13 +192,16 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'Desktop Download', href: 'https://hermes-agent.nousresearch.com/' },
-            { label: 'GitHub', href: 'https://github.com/Chensihakniroth/anakot-agent-v1' },
-            { label: 'Nous Research', href: 'https://nousresearch.com' },
+            { label: 'Releases', href: releasesUrl },
+            { label: 'GitHub', href: repoUrl },
+            // Skills Hub is the agentskills.io open standard and is shared with
+            // upstream — deliberately kept as-is.
+            { label: 'Skills Hub', href: 'https://agentskills.io' },
+            { label: 'Upstream — Hermes', href: upstreamUrl },
           ],
         },
       ],
-      copyright: `Built by <a href="https://nousresearch.com">Nous Research</a> · MIT License · ${new Date().getFullYear()}`,
+      copyright: `Anakot Agent · MIT License · ${new Date().getFullYear()} · Fork of <a href="${upstreamUrl}">Hermes</a> by <a href="https://nousresearch.com">Nous Research</a>`,
     },
     prism: {
       theme: prismThemes.github,

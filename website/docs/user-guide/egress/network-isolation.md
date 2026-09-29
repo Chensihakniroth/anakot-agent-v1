@@ -197,5 +197,5 @@ docker compose exec gateway \
 
 - [SECURITY.md](https://github.com/Chensihakniroth/anakot-agent-v1/blob/main/SECURITY.md) — Anakot trust model and vulnerability reporting
 - [Docker](../docker.md) — running Anakot in a container
-- [Egress proxy](iron-proxy.md) — credential-injection firewall for the sandbox
+- [Egress proxy](./iron-proxy.md) — credential-injection firewall for the sandbox
 - [docker-compose.yml](https://github.com/Chensihakniroth/anakot-agent-v1/blob/main/docker-compose.yml) — default compose configuration

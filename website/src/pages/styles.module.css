@@ -1,0 +1,809 @@
+/* Landing page. Shape scale is fixed: 8px controls, 12px surfaces, 16px visual frame.
+   One accent (--ifm-color-primary) locked across every section. */
+
+.main {
+  /* Opaque chip surface: the flyer drifts behind content, so anything with a
+     background must be solid or a label reads through the object. */
+  --lp-surface-solid: #161618;
+
+  /* The flyer is fixed behind everything; content opts back in above it. */
+  --lp-gutter: clamp(1.25rem, 4vw, 3.5rem);
+  position: relative;
+  isolation: isolate;
+  background: var(--ifm-background-color);
+}
+
+/* Transparent so the same travelling glyph continues through this section. */
+.showcase {
+  position: relative;
+  z-index: 1;
+}
+
+.showcaseStage {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  padding: clamp(3rem, 6vw, 5rem) 0;
+}
+
+
+.showcaseCopy {
+  position: relative;
+  z-index: 1;
+  width: min(100%, 1080px);
+  padding: 0 clamp(1.25rem, 4vw, 2.5rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.showcaseTitle {
+  margin: 0;
+  text-align: center;
+  font-size: clamp(1.75rem, 3vw, 2.5rem);
+  font-weight: 700;
+  line-height: 1.1;
+  letter-spacing: -0.04em;
+  text-transform: uppercase;
+  display: flex;
+  flex-direction: column;
+  color: var(--ifm-font-color-base);
+}
+
+.showcaseTitle span:last-child {
+  color: var(--ifm-color-primary);
+}
+
+/* ── Hero: full-bleed editorial frame ───────────────────────────────────
+   The display type runs the width of the frame and breaks across it, the way
+   a poster does, instead of sitting in a column. The wordmark is a separate
+   line so the headline reads at two scales, like the reference. */
+
+.hero {
+  position: relative;
+  z-index: 1;
+  /* No tall track: the flyer is fixed and page-wide, so the hero no longer needs
+     a pinned stage to hold it. This is what was adding dead scroll. */
+  padding: clamp(3rem, 9vw, 7rem) 0 clamp(2.5rem, 6vw, 4.5rem);
+}
+
+.heroStage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: clamp(0.75rem, 1.5vw, 1.25rem);
+  padding: 0 clamp(1.25rem, 5vw, 3rem);
+  overflow: hidden;
+}
+
+/* Plain small text at reduced opacity. A tracked uppercase eyebrow would be the
+   most expressive element on an otherwise minimal page, which is exactly what
+   this hero is avoiding. */
+.wordmark {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--ifm-font-color-secondary);
+  opacity: 0.75;
+}
+
+.title {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  color: var(--ifm-font-color-base);
+  font-size: clamp(1.7rem, 3.2vw, 2.5rem);
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+}
+
+.title span { display: block; }
+
+/* The payoff line carries the accent so the claim has one clear focal point
+   without a second type size. A flat colour, not a gradient fill. */
+.titleAccent {
+  color: var(--ifm-color-primary);
+}
+
+.heroCopy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 52ch;
+}
+
+.lede {
+  max-width: 44ch;
+  margin: 0 0 1.25rem;
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.75;
+  color: var(--ifm-font-color-secondary);
+  text-wrap: pretty;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem;
+}
+
+/* Text links, matching the navigation bar: no fill, no radius, no border. */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.15rem 0;
+  border: 0;
+  border-radius: 0;
+  font-size: 0.9rem;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 0.12s linear;
+}
+
+.button:hover { text-decoration: underline; }
+
+.buttonPrimary {
+  background: none;
+  color: var(--ifm-color-primary);
+}
+
+.buttonPrimary:hover {
+  color: var(--ifm-color-primary-dark);
+}
+
+.buttonGhost {
+  background: transparent;
+  color: var(--ifm-font-color-base);
+}
+
+.buttonGhost:hover {
+  color: var(--ifm-color-primary);
+}
+
+/* ── Page-wide flyer ──────────────────────────────────────────────────────
+   A single fixed canvas flown along a path by scroll, so the same object drifts
+   past the hero, the bento, and the closing CTA. It sits behind the content and
+   never takes pointer events, so nothing about the page becomes harder to use. */
+
+/* Clip at the viewport, not the canvas: endpoints show exactly half the glyph
+   without widening the document or pausing an entirely off-screen canvas. */
+.flyerViewport {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.flyer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  width: clamp(900px, 110vmin, 1400px);
+  height: clamp(900px, 110vmin, 1400px);
+  /* `translate` and `transform` are independent properties, so the centring
+     survives the flight animation writing `transform`. */
+  translate: -50% -50%;
+  pointer-events: none;
+  opacity: 0.5;
+  transform: translate3d(50vw, 0, 0);
+  -webkit-mask-image: radial-gradient(closest-side, #000 68%, transparent 100%);
+  mask-image: radial-gradient(closest-side, #000 68%, transparent 100%);
+}
+
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .flyer {
+      animation: flyPath cubic-bezier(0.45, 0, 0.55, 1) both;
+      animation-timeline: scroll(root block);
+      animation-range: 0% 100%;
+    }
+  }
+}
+
+/* Centre on each viewport edge: right half -> left half, repeated to the bottom.
+   Ease each crossing so the direction reverses gently instead of bouncing. */
+@keyframes flyPath {
+  0%, 40%, 80% { transform: translate3d(50vw, 0, 0); }
+  20%, 60%, 100% { transform: translate3d(-50vw, 0, 0); }
+}
+
+@supports not (animation-timeline: scroll()) {
+  .flyer { opacity: 0.4; }
+}
+
+/* ── Install band ────────────────────────────────────────────────────────
+   The commands sit below the hero rather than inside it, so the oversized
+   display type and the primary action both stay above the fold. */
+
+.installBand {
+  position: relative;
+  z-index: 1;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 0 clamp(1.25rem, 5vw, 3rem) clamp(4rem, 9vw, 8rem);
+  display: flex;
+  justify-content: center;
+}
+
+.terminal {
+  width: 100%;
+  max-width: 640px;
+  border: 1px solid var(--docs-border);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--docs-surface);
+  max-width: 620px;
+}
+
+.terminalTabs {
+  display: flex;
+  border-bottom: 1px solid var(--docs-border);
+  background: var(--docs-surface-raised);
+}
+
+.tab {
+  flex: 1;
+  padding: 0.7rem 0.5rem;
+  border: 0;
+  border-right: 1px solid var(--docs-border);
+  background: transparent;
+  color: var(--ifm-font-color-secondary);
+  font-family: var(--ifm-font-family-base);
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.tab:last-child {
+  border-right: 0;
+}
+
+.tab:hover {
+  color: var(--ifm-font-color-base);
+}
+
+.tabActive {
+  background: color-mix(in srgb, var(--ifm-color-primary) 14%, transparent);
+  color: var(--ifm-color-primary);
+}
+
+.terminalBody {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+}
+
+.command {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.74rem;
+  line-height: 1.6;
+  color: var(--ifm-font-color-base);
+  background: none;
+  border: 0;
+  padding: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.command::-webkit-scrollbar {
+  display: none;
+}
+
+.copy {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border: 1px solid var(--docs-border);
+  border-radius: 8px;
+  background: var(--docs-surface-raised);
+  color: var(--ifm-font-color-secondary);
+  font-family: var(--ifm-font-family-base);
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.copy:hover {
+  color: var(--ifm-color-primary);
+  border-color: var(--ifm-color-primary);
+}
+
+/* ── Motion stage ──────────────────────────────────────────────────────── */
+
+/* Bento: explicit 12-column placement, two rows of 5/4/3 then 3/4/5. */
+
+.section {
+  position: relative;
+  /* Opt back in above the fixed flyer; without this the canvas paints over content. */
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: clamp(4.5rem, 11vw, 10rem) clamp(1.25rem, 5vw, 3rem);
+}
+
+.sectionTitle {
+  margin: 0 0 clamp(2.5rem, 5vw, 4rem);
+  font-size: clamp(1.35rem, 2.2vw, 1.75rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: clamp(0.75rem, 1.4vw, 1.1rem);
+}
+
+.cell {
+  display: flex;
+  flex-direction: column;
+  padding: clamp(1.75rem, 3vw, 2.5rem);
+  border: 1px solid var(--docs-border);
+  border-radius: 12px;
+  background: var(--ifm-background-color);
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.cell:hover {
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 45%, transparent);
+}
+
+/* Spans are declared, never inferred: each row sums to 12 so nothing strands. */
+.span5 { grid-column: span 5; }
+.span4 { grid-column: span 4; }
+.span3 { grid-column: span 3; }
+
+/* Two cells carry a gradient so the section is not six identical rectangles. */
+.cellTint {
+  background:
+    radial-gradient(130% 110% at 0% 0%, color-mix(in srgb, var(--ifm-color-primary) 13%, transparent) 0%, transparent 62%),
+    var(--docs-surface);
+  border-color: color-mix(in srgb, var(--ifm-color-primary) 20%, var(--docs-border));
+}
+
+.cellTitle {
+  margin: 0 0 0.55rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.cellBody {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.8;
+  color: var(--ifm-font-color-secondary);
+}
+
+/* ── Responsive ────────────────────────────────────────────────────────── */
+
+:global(html[data-theme='light']) .main {
+  --lp-surface-solid: #fcfbf9;
+}
+
+@media (max-width: 996px) {
+  /* Keep the same edge-to-edge path, with a quieter glyph on small screens. */
+  .heroStage { padding: 0 1.25rem; }
+
+  .title {
+    font-size: clamp(1.8rem, 7.4vw, 3rem);
+  }
+
+  .grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .span5,
+  .span4,
+  .span3 {
+    grid-column: span 1;
+  }
+
+  .flyer {
+    width: 150vw;
+    height: 150vw;
+    opacity: 0.28;
+  }
+}
+
+@media (max-width: 600px) {
+  .button {
+    flex: 1 1 auto;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tab {
+    font-size: 0.7rem;
+    padding: 0.6rem 0.35rem;
+  }
+}
+
+/* ── Steps ───────────────────────────────────────────────────────────────── */
+
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: clamp(1rem, 2.5vw, 2rem);
+}
+
+.step { display: flex; flex-direction: column; gap: 0.5rem; }
+
+.stepTitle {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.stepBody {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.75;
+  color: var(--ifm-font-color-secondary);
+}
+
+.stepCommand {
+  margin-top: auto;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--docs-border);
+  border-radius: 8px;
+  background: var(--docs-surface);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.72rem;
+  color: var(--ifm-font-color-base);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.stepCommand::-webkit-scrollbar { display: none; }
+
+/* ── Command reference ────────────────────────────────────────────────────── */
+
+.commands { list-style: none; margin: 0; padding: 0; }
+
+.commandRow {
+  display: flex;
+  align-items: baseline;
+  gap: 1.25rem;
+  padding: 0.95rem 0;
+  border-bottom: 1px solid var(--docs-border);
+}
+
+.commandRow:last-child { border-bottom: 0; }
+
+.commandName {
+  flex: 0 0 min(46%, 20rem);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.82rem;
+  color: var(--ifm-color-primary);
+  background: none;
+  border: 0;
+  padding: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.commandName::-webkit-scrollbar { display: none; }
+
+.commandNote {
+  font-size: 0.9rem;
+  color: var(--ifm-font-color-secondary);
+}
+
+/* ── Surfaces ─────────────────────────────────────────────────────────────
+   Grouped cards rather than one wrapped row of pills: twelve identical chips
+   had no hierarchy and always left an orphan on the last line. */
+
+.surfaceGroups {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr));
+  gap: clamp(1rem, 2.5vw, 1.75rem);
+}
+
+.surfaceGroup {
+  padding: clamp(1.25rem, 2.5vw, 1.75rem);
+  border: 1px solid var(--docs-border);
+  border-radius: 14px;
+  background: var(--lp-surface-solid);
+  transition: border-color 180ms ease, transform 180ms ease;
+}
+
+.surfaceGroup:hover {
+  border-color: var(--ifm-color-primary);
+  transform: translateY(-2px);
+}
+
+.surfaceGroupTitle {
+  margin: 0 0 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--ifm-color-primary);
+}
+
+.surfaceList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.surface {
+  padding: 0.5rem 0;
+  font-size: 0.92rem;
+  color: var(--ifm-font-color-base);
+  border-bottom: 1px solid var(--docs-border);
+}
+
+.surface:last-child { border-bottom: 0; }
+
+/* ── FAQ ────────────────────────────────────────────────────────────────────
+   A native <details> accordion: open/close, focus handling and the expanded
+   state for assistive tech all come from the platform instead of hand-rolled
+   ARIA. The first item starts open so this never reads as a wall of text. */
+
+.faq {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 0 clamp(2rem, 5vw, 4rem);
+  align-items: start;
+}
+
+.faqItem {
+  border-bottom: 1px solid var(--docs-border);
+}
+
+.faqQuestion {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+  padding: 1.35rem 0;
+  font-size: 1.02rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  cursor: pointer;
+  list-style: none;
+  transition: color 160ms ease;
+}
+
+.faqQuestion::-webkit-details-marker { display: none; }
+
+.faqQuestion:hover { color: var(--ifm-color-primary); }
+
+.faqQuestion:focus-visible {
+  outline: 2px solid var(--ifm-color-primary);
+  outline-offset: 4px;
+  border-radius: 4px;
+}
+
+/* A plus that rotates into a minus, drawn rather than typed. */
+.faqIcon {
+  position: relative;
+  flex: 0 0 1rem;
+  width: 1rem;
+  height: 1rem;
+  color: var(--ifm-color-primary);
+}
+
+.faqIcon::before,
+.faqIcon::after {
+  content: '';
+  position: absolute;
+  inset: 50% 0 auto 0;
+  height: 2px;
+  border-radius: 2px;
+  background: currentColor;
+  transition: transform 220ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.faqIcon::after { transform: rotate(90deg); }
+
+.faqItem[open] .faqIcon::after { transform: rotate(0deg); }
+
+.faqAnswer {
+  padding: 0 0 1.5rem;
+  max-width: 60ch;
+  font-size: 0.92rem;
+  line-height: 1.8;
+  color: var(--ifm-font-color-secondary);
+}
+
+/* ── Closing CTA ──────────────────────────────────────────────────────────
+   Copy on the left, actions on the right, both centred on the card's own
+   middle axis. It was a tall box with everything jammed into one corner. */
+
+.cta {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto clamp(5rem, 12vw, 11rem);
+  padding: 0 clamp(1.5rem, 5vw, 4rem);
+}
+
+.ctaInner {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) auto;
+  align-items: center;
+  gap: clamp(2rem, 6vw, 5rem);
+  padding: clamp(2.5rem, 6vw, 4.5rem);
+  border: 1px solid var(--docs-border);
+  border-radius: 20px;
+  /* Opaque: the flyer drifts behind, and a translucent card let it slice through. */
+  background: var(--lp-surface-solid);
+  background-image: radial-gradient(
+    120% 160% at 0% 0%,
+    color-mix(in srgb, var(--ifm-color-primary) 11%, transparent),
+    transparent 60%
+  );
+}
+
+.ctaCopy { max-width: 44ch; }
+
+.ctaTitle {
+  margin: 0 0 0.75rem;
+  font-size: clamp(1.6rem, 3.4vw, 2.4rem);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.04em;
+}
+
+.ctaBody {
+  margin: 0;
+  font-size: 0.98rem;
+  line-height: 1.7;
+  color: var(--ifm-font-color-secondary);
+}
+
+.ctaActions {
+  display: flex;
+  flex-wrap: wrap;
+  /* Without this, flex stretches each text link to the full column width: the
+     label still looks centred, but the hit area is a 260px band. */
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.ctaFootnote {
+  margin: 0.35rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: center;
+  color: var(--ifm-font-color-secondary);
+}
+
+@media (max-width: 860px) {
+  .ctaInner { grid-template-columns: 1fr; }
+}
+
+/* Showcase content follows the page palette; opaque panels keep rays off text. */
+
+.showcaseLede {
+  margin: 0;
+  max-width: 56ch;
+  text-align: center;
+  font-size: clamp(0.92rem, 1.5vw, 1.05rem);
+  line-height: 1.7;
+  color: var(--ifm-font-color-secondary);
+}
+
+.learnSteps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: clamp(0.75rem, 2vw, 1.5rem);
+}
+
+.learnStep {
+  padding: clamp(0.75rem, 1.5vw, 1.05rem);
+  border: 1px solid var(--docs-border);
+  border-radius: 14px;
+  background: var(--lp-surface-solid);
+  text-align: left;
+}
+
+.learnNum {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.7rem;
+  letter-spacing: 0.16em;
+  color: var(--ifm-color-primary);
+}
+
+.learnTitle {
+  margin: 0 0 0.4rem;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--ifm-font-color-base);
+}
+
+.learnBody {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  color: var(--ifm-font-color-secondary);
+}
+
+.skillSample {
+  margin: 0;
+  width: 100%;
+  max-width: 620px;
+  border: 1px solid var(--docs-border);
+  border-radius: 14px;
+  background: var(--lp-surface-solid);
+  overflow: hidden;
+  text-align: left;
+}
+
+.skillCaption {
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--docs-border);
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ifm-color-primary);
+}
+
+.skillCode {
+  margin: 0;
+  padding: 1rem;
+  background: var(--lp-surface-solid);
+  color: var(--ifm-font-color-base);
+  overflow-x: auto;
+  font-family: var(--ifm-font-family-monospace);
+  font-size: 0.68rem;
+  line-height: 1.6;
+  white-space: pre;
+  scrollbar-width: thin;
+}
+
+@media (max-width: 860px) {
+  .learnSteps { grid-template-columns: 1fr; }
+  .showcaseCopy { justify-content: flex-start; }
+}

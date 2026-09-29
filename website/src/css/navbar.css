@@ -1,0 +1,115 @@
+/* Arch-style text bar: flat, square, no fills, no glow, no blur. Text and
+   hairlines only. Deliberately NO transform/filter/backdrop-filter on .navbar
+   or .navbar__inner — the search dialog is a fixed-position child of the bar,
+   and any of those would trap it inside the strip. */
+.navbar {
+  height: var(--ifm-navbar-height);
+  padding: 0 clamp(0.75rem, 2.5vw, 1.5rem);
+  background: var(--ifm-background-color);
+  box-shadow: none;
+  border-bottom: 1px solid var(--docs-border);
+}
+
+.navbar__inner {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  gap: 0.5rem;
+  max-width: 1320px;
+  height: 100%;
+  margin-inline: auto;
+}
+
+.navbar__items { display: flex; align-items: center; flex-wrap: nowrap; gap: 0; }
+
+/* One real gutter between the utility controls. The links below drop their own
+   horizontal padding so this gap is genuine empty space rather than padding
+   that varies per control — otherwise "Get started" crowds the locale picker
+   while the theme toggle drifts away from Search. */
+.navbar__items--right { flex: 0 0 auto; gap: 0.9rem; }
+.navbar__items--right > .navbar__link,
+.navbar__items--right > .navbar__item { padding-inline: 0; margin-inline: 0; }
+.navbar__items--right > [class*='navbarSearchContainer'] .opener,
+.navbar__items--right > [class*='navbarSearchContainer'] button { padding-inline: 0; }
+
+.navbar__brand {
+  flex-shrink: 0;
+  gap: 0.5rem;
+  margin-right: 1rem;
+}
+
+.navbar__logo { height: 1.5rem; margin-right: 0; }
+
+/* Wordmark: sentence case, regular weight, no tracking. */
+.navbar__title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Plain text links. Underline appears on hover, disappears otherwise. */
+.navbar__link {
+  position: relative;
+  padding: 0.2rem 0.55rem;
+  font-size: 0.83rem;
+  font-weight: 400;
+  color: var(--ifm-font-color-secondary);
+  white-space: nowrap;
+  text-decoration: none;
+  transition: color 120ms linear;
+}
+
+.navbar__link:hover { color: var(--ifm-color-primary); text-decoration: underline; }
+
+.navbar__link--active,
+.navbar__link[aria-current='page'] { color: var(--ifm-color-primary); }
+
+.navbar__link > svg { opacity: 0.5; }
+.navbar__item.dropdown { padding-inline: 0.1rem; }
+.navbar__link[role='button']:hover { text-decoration: none; }
+
+.navbar .dropdown__menu {
+  margin-top: 0.5rem;
+  padding: 0.35rem 0;
+  border: 1px solid var(--docs-border);
+  background: var(--ifm-background-color);
+}
+
+.navbar .dropdown__link { font-size: 0.83rem; border-radius: 0; }
+
+/* "Get started" stays a text link like every other item — no filled control. */
+.navbar__link.navbar-cta {
+  padding: 0.2rem 0;
+  background: none;
+  color: var(--ifm-color-primary);
+  font-size: 0.83rem;
+  font-weight: 600;
+  box-shadow: none;
+}
+.navbar__items--right > .navbar__link.navbar-cta { margin-right: 0.4rem; }
+.navbar__link.navbar-cta:hover { background: none; transform: none; }
+
+.navbar-sidebar {
+  width: min(88vw, 360px);
+  background: var(--ifm-background-color);
+}
+.navbar-sidebar__backdrop { background: rgb(0 0 0 / 65%); }
+.navbar-sidebar .menu { padding: 1.25rem 0.75rem !important; }
+.navbar-sidebar .navbar__brand { margin-right: auto; }
+
+@media (min-width: 997px) and (max-width: 1199px) {
+  .navbar { --ifm-navbar-item-padding-horizontal: 0.25rem; }
+  .navbar__brand { gap: 0.35rem; margin-right: 0.5rem; }
+  .navbar__link { padding-inline: 0.4rem; font-size: 0.8rem; }
+  .navbar__link.navbar-cta { margin-left: 0.25rem; }
+}
+
+@media (max-width: 996px) {
+  .navbar__brand { margin-right: 0.25rem; }
+  .navbar__toggle { margin-right: 0.35rem; color: var(--ifm-font-color-base); }
+  .navbar__link.navbar-cta { display: none; }
+}
+
+@media (max-width: 360px) {
+  .navbar__title { font-size: 0.85rem; }
+}

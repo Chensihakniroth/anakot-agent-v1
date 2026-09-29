@@ -64,7 +64,7 @@ Once `himalaya` works from your own shell, the agent can use it too — the bund
 
 ## 3. Poll the inbox on a schedule
 
-The Himalaya path is pull-based: the agent only sees mail when it looks. Add a [cron job](automate-with-cron.md) so it looks regularly:
+The Himalaya path is pull-based: the agent only sees mail when it looks. Add a [cron job](./automate-with-cron.md) so it looks regularly:
 
 ```
 anakot cron add
@@ -89,5 +89,5 @@ Email is an unauthenticated inbound channel — anyone can write to the agent's 
 
 - [Himalaya skill reference](../user-guide/skills/bundled/email/email-himalaya.md) — full command set the agent uses
 - [Email gateway adapter](../user-guide/messaging/email.md) — chat with Anakot over email instead
-- [Automate with Cron](automate-with-cron.md) — scheduling patterns
+- [Automate with Cron](./automate-with-cron.md) — scheduling patterns
 - [Security](../user-guide/security.md) — the wider prompt-injection and credential-handling picture

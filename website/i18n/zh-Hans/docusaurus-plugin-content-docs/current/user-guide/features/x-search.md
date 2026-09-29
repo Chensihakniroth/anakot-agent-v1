@@ -143,5 +143,5 @@ agent 将：
 ## 另请参阅
 
 - [xAI Grok OAuth (SuperGrok / Premium+)](../../guides/xai-grok-oauth.md) — OAuth 配置指南
-- [Web 搜索与提取](web-search.md) — 用于一般（非 X）网页搜索
+- [Web 搜索与提取](./web-search.md) — 用于一般（非 X）网页搜索
 - [工具参考](../../reference/tools-reference.md) — 完整工具目录

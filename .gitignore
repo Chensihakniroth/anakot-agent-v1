@@ -43,6 +43,12 @@ data/
 # `data/` pattern above would otherwise swallow it.
 !hermes_cli/data/
 !anakot_cli/data/
+# Same trap, third instance: the bare `data/` above matches a directory named
+# "data" at ANY depth, so it silently untracked website/src/data/ — and with it
+# userStories.json, which the Docusaurus build imports. That broke the docs
+# deploy with "Can't resolve '@site/src/data/userStories.json'". Any future
+# data/ dir in the tree needs an explicit negation here.
+!website/src/data/
 .pytest_cache/
 test_durations.json
 .pytest-cache/
@@ -153,6 +159,16 @@ website/static/api/plugins-meta.json
 # automation-blueprints-index.json is a build artifact emitted by
 # website/scripts/extract-automation-blueprints.py during prebuild.
 website/static/api/automation-blueprints-index.json
+# search-index.json is a build artifact emitted by
+# website/scripts/build-search-index.mjs during prebuild (local docs search).
+# Same reasoning as the catalogs above: large, generated, changes every build,
+# and the Docker build regenerates it from the committed sources.
+website/static/search-index.json
+# llms.txt / llms-full.txt are build artifacts emitted by
+# website/scripts/generate-llms-txt.py during prebuild. llms-full.txt is ~7.7 MB
+# and both are rewritten on every docs change.
+website/static/llms.txt
+website/static/llms-full.txt
 models-dev-upstream/
 
 # Local editor / agent tooling (machine-specific; keep in global config, not the repo)
@@ -316,3 +332,12 @@ native/fts5_cjk/*.so
 
 # Disposable profile created by scripts/probe_active_session_exclusivity.py
 .probe-home/
+
+# Local dev scratch — build logs, scratch notes, maintainer-only trackers.
+# None of these belong in a public checkout.
+dist-win-build.log
+npm-ci.log
+note.md
+UPSTREAM_PORTING.md
+.anakot-last-merged
+.kilo/

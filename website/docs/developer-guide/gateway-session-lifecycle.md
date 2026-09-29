@@ -630,7 +630,7 @@ conversation boundaries and shutdown.
 The canonical transcript lives in the `sessions` and `messages` tables. FTS5
 tables and their sync triggers are derived indexes that can be detached and
 rebuilt without deleting canonical messages. See
-[State DB recovery](state-db-recovery.md) for the bounded live failure
+[State DB recovery](./state-db-recovery.md) for the bounded live failure
 mode and the explicit repair procedure.
 
 ### Conversation lifetime

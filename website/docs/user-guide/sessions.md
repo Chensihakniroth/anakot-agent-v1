@@ -893,7 +893,7 @@ procedures; it saves memories and skills from the expiring session
 automatically, but an explicit nudge helps. Restarting the machine or the
 gateway is **not** a boundary — the same session resumes.
 
-See [Memory](features/memory.md) for what gets carried across boundaries.
+See [Memory](./features/memory.md) for what gets carried across boundaries.
 
 
 ### Continuity After Crashes and Restarts

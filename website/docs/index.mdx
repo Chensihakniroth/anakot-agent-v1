@@ -1,92 +1,89 @@
 ---
-slug: /
+slug: /overview
 sidebar_position: 0
-title: "Hermes Agent Documentation"
-description: "The self-improving AI agent built by Nous Research. A built-in learning loop that creates skills from experience, improves them during use, and remembers across sessions."
+title: "Anakot Agent Documentation"
+description: "Anakot — a lean, extended fork of Hermes Agent. A self-improving AI agent with a built-in learning loop that creates skills from experience, improves them during use, and remembers across sessions."
 hide_table_of_contents: true
+hide_title: true
+sidebar_label: Overview
 displayed_sidebar: docs
 ---
 
 import Link from "@docusaurus/Link";
 
-# Hermes Agent
+<section className="docs-home-hero" aria-labelledby="anakot-agent">
+  <div className="docs-eyebrow">Anakot Agent / Documentation</div>
+  <h1 id="anakot-agent">Your agent.<br /><span>Your way of working.</span></h1>
+  <p className="docs-home-lead">Set up Anakot, connect your tools, and build an agent that remembers. Everything you need to go from your first conversation to workflows that run on their own.</p>
+  <div className="docs-home-actions">
+    <Link className="button button--primary" to="/getting-started/installation">Get started →</Link>
+    <Link className="button button--secondary" to="/getting-started/quickstart">Take the quickstart</Link>
+    <a className="button button--secondary" href="https://github.com/Chensihakniroth/anakot-agent-v1">View on GitHub</a>
+  </div>
+  <p className="docs-home-note">Open source. Your choice of model. Built on Hermes by Nous Research.</p>
+</section>
 
-The self-improving AI agent built by [Nous Research](https://nousresearch.com). The only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, and builds a deepening model of who you are across sessions.
+## Find your starting point
 
-<div
-  style={{
-    display: "flex",
-    gap: "1rem",
-    marginBottom: "2rem",
-    flexWrap: "wrap",
-  }}
->
-  <Link
-    to="/getting-started/installation"
-    style={{
-      display: "inline-block",
-      padding: "0.6rem 1.2rem",
-      backgroundColor: "#FFD700",
-      color: "#07070d",
-      borderRadius: "8px",
-      fontWeight: 600,
-      textDecoration: "none",
-    }}
-  >
-    Get Started →
+<div className="docs-card-grid">
+  <Link className="docs-card" to="/getting-started/installation">
+    <span className="docs-card-label">01 / START</span>
+    <strong>Up and running</strong>
+    <p>Install Anakot, choose a provider, and start your first conversation.</p>
+    <span className="docs-card-arrow" aria-hidden="true">↗</span>
   </Link>
-  <Link
-    to="/user-guide/bot-mode"
-    style={{
-      display: "inline-block",
-      padding: "0.6rem 1.2rem",
-      border: "1px solid rgba(255,215,0,0.2)",
-      borderRadius: "8px",
-      textDecoration: "none",
-    }}
-  >
-    Explore Bot Mode
+  <Link className="docs-card" to="/user-guide/configuration">
+    <span className="docs-card-label">02 / CUSTOMIZE</span>
+    <strong>Make it yours</strong>
+    <p>Configure models, tools, and the way your agent works with you.</p>
+    <span className="docs-card-arrow" aria-hidden="true">↗</span>
   </Link>
-  <a
-    href="https://hermes-agent.nousresearch.com/"
-    style={{
-      display: "inline-block",
-      padding: "0.6rem 1.2rem",
-      border: "1px solid rgba(255,215,0,0.2)",
-      borderRadius: "8px",
-      textDecoration: "none",
-    }}
-  >
-    Download Desktop
-  </a>
-  <a
-    href="https://github.com/NousResearch/hermes-agent"
-    style={{
-      display: "inline-block",
-      padding: "0.6rem 1.2rem",
-      border: "1px solid rgba(255,215,0,0.2)",
-      borderRadius: "8px",
-      textDecoration: "none",
-    }}
-  >
-    View on GitHub
-  </a>
+  <Link className="docs-card" to="/user-guide/bot-mode">
+    <span className="docs-card-label">03 / AUTOMATE</span>
+    <strong>Build your team</strong>
+    <p>Give specialist Bots their own memory, skills, and routines.</p>
+    <span className="docs-card-arrow" aria-hidden="true">↗</span>
+  </Link>
+  <Link className="docs-card" to="/skills">
+    <span className="docs-card-label">04 / TEACH</span>
+    <strong>Explore skills</strong>
+    <p>Discover reusable workflows and teach your agent new approaches.</p>
+    <span className="docs-card-arrow" aria-hidden="true">↗</span>
+  </Link>
+  <Link className="docs-card" to="/plugins">
+    <span className="docs-card-label">05 / CONNECT</span>
+    <strong>Extend your toolkit</strong>
+    <p>Browse plugins that connect Anakot to more tools and services.</p>
+    <span className="docs-card-arrow" aria-hidden="true">↗</span>
+  </Link>
+  <Link className="docs-card" to="/developer-guide/architecture">
+    <span className="docs-card-label">06 / BUILD</span>
+    <strong>Under the hood</strong>
+    <p>Understand the architecture and start building on the agent core.</p>
+    <span className="docs-card-arrow" aria-hidden="true">↗</span>
+  </Link>
 </div>
+
+**Anakot is a fork of [Hermes Agent](https://github.com/NousResearch/hermes-agent) by [Nous Research](https://nousresearch.com)** — the agent, the learning loop, and the tool ecosystem are their work. This fork strips the bloat and adds a Free Model Suite, a connectors layer, and a long tail of performance fixes.
+
+Its built-in learning loop creates skills from experience, improves them during use, and persists knowledge across sessions.
+
+[Explore Bot Mode](./user-guide/bot-mode.md) · [Download Desktop](https://github.com/Chensihakniroth/anakot-agent-v1/releases)
 
 ## Install
 
 ### Windows or macOS
 
-To easily install the command-line and desktop applications, [download the Hermes Desktop installer](https://hermes-agent.nousresearch.com/) from our website and run it.
+To easily install the command-line and desktop applications, [download the Anakot Desktop installer](https://anakot-agent-doc.up.railway.app/) from our website and run it.
 
-### Without Hermes Desktop:
+### Without Anakot Desktop:
 
-For a command-line only install without Hermes Desktop, run:
+For a command-line only install without Anakot Desktop, run:
 
 #### Linux / macOS / WSL2 / Android (Termux)
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.sh | bash
 ```
 
 #### Windows (native)
@@ -94,16 +91,16 @@ curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
 Run in powershell:
 
 ```powershell
-iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+iex (irm https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.ps1)
 ```
 
 See the full **[Installation Guide](./getting-started/installation.md)** for what the installer does, the per-user vs root layout, and Windows-specific notes. For the complete platform support matrix, see **[Platform Support](./getting-started/platform-support.md)**.
 
 :::tip Fastest path to a working agent
-After installing, run `hermes setup --portal` — one OAuth covers a model plus all four Tool Gateway tools (web search, image generation, TTS, browser). See [Nous Portal](./integrations/nous-portal.md).
+After installing, run `anakot setup --portal` — one OAuth covers a model plus all four Tool Gateway tools (web search, image generation, TTS, browser). See [Nous Portal](./integrations/nous-portal.md).
 :::
 
-## What is Hermes Agent?
+## What is Anakot Agent?
 
 It's not a coding copilot tethered to an IDE or a chatbot wrapper around a single API. It's an **autonomous agent** that gets more capable the longer it runs. It lives wherever you put it — a $5 VPS, a GPU cluster, or serverless infrastructure (Daytona, Modal) that costs nearly nothing when idle. Talk to it from Telegram while it works on a cloud VM you never SSH into yourself. It's not tied to your laptop.
 
@@ -120,14 +117,14 @@ It's not a coding copilot tethered to an IDE or a chatbot wrapper around a singl
 | 🔧 **[Tools & Toolsets](./user-guide/features/tools.md)**                   | 60+ built-in tools and how to configure them                          |
 | 🧠 **[Memory System](./user-guide/features/memory.md)**                     | Persistent memory that grows across sessions                          |
 | 📚 **[Skills System](./user-guide/features/skills.md)**                     | Procedural memory the agent creates and reuses                        |
-| 🔌 **[MCP Integration](./user-guide/features/mcp.md)**                      | Connect to MCP servers, filter their tools, and extend Hermes safely  |
-| 🧭 **[Use MCP with Hermes](./guides/use-mcp-with-hermes.md)**               | Practical MCP setup patterns, examples, and tutorials                 |
+| 🔌 **[MCP Integration](./user-guide/features/mcp.md)**                      | Connect to MCP servers, filter their tools, and extend Anakot safely  |
+| 🧭 **[Use MCP with Anakot](./guides/use-mcp-with-anakot.md)**               | Practical MCP setup patterns, examples, and tutorials                 |
 | 🎙️ **[Voice Mode](./user-guide/features/voice-mode.md)**                    | Real-time voice interaction in CLI, Telegram, Discord, and Discord VC |
-| 🗣️ **[Use Voice Mode with Hermes](./guides/use-voice-mode-with-hermes.md)** | Hands-on setup and usage patterns for Hermes voice workflows          |
-| 🎭 **[Personality & SOUL.md](./user-guide/features/personality.md)**        | Define Hermes' default voice with a global SOUL.md                    |
+| 🗣️ **[Use Voice Mode with Anakot](./guides/use-voice-mode-with-anakot.md)** | Hands-on setup and usage patterns for Anakot voice workflows          |
+| 🎭 **[Personality & SOUL.md](./user-guide/features/personality.md)**        | Define Anakot' default voice with a global SOUL.md                    |
 | 📄 **[Context Files](./user-guide/features/context-files.md)**              | Project context files that shape every conversation                   |
 | 🔒 **[Security](./user-guide/security.md)**                                 | Command approval, authorization, container isolation                  |
-| 💡 **[Tips & Best Practices](./guides/tips.md)**                            | Quick wins to get the most out of Hermes                              |
+| 💡 **[Tips & Best Practices](./guides/tips.md)**                            | Quick wins to get the most out of Anakot                              |
 | 🏗️ **[Architecture](./developer-guide/architecture.md)**                    | How it works under the hood                                           |
 | ❓ **[FAQ & Troubleshooting](./reference/faq.md)**                          | Common questions and solutions                                        |
 
@@ -136,14 +133,14 @@ It's not a coding copilot tethered to an IDE or a chatbot wrapper around a singl
 - **A closed learning loop** — Agent-curated memory with periodic nudges, autonomous skill creation, skill self-improvement during use, FTS5 cross-session recall with LLM summarization, and [Honcho](https://github.com/plastic-labs/honcho) dialectic user modeling
 - **Runs anywhere, not just your laptop** — 7 terminal backends: local, Docker, SSH, Daytona, Singularity, Modal, Vercel Sandbox. Daytona and Modal offer serverless persistence — your environment hibernates when idle, costing nearly nothing
 - **Lives where you do** — CLI, Telegram, Discord, Slack, WhatsApp, Signal, Matrix, Mattermost, Email, SMS, DingTalk, Feishu, WeCom, Weixin, QQ Bot, Yuanbao, BlueBubbles, Home Assistant, Microsoft Teams, Google Chat, and more — 20+ platforms from one gateway
-- **Built by model trainers** — Created by [Nous Research](https://nousresearch.com), the lab behind Hermes, Nomos, and Psyche. Works with [Nous Portal](https://portal.nousresearch.com), [OpenRouter](https://openrouter.ai), OpenAI, or any endpoint
+- **Built by model trainers** — Created by [Nous Research](https://nousresearch.com), the lab behind Anakot, Nomos, and Psyche. Works with [Nous Portal](https://portal.nousresearch.com), [OpenRouter](https://openrouter.ai), OpenAI, or any endpoint
 - **Scheduled automations** — Built-in cron with delivery to any platform
 - **[Bot Mode](./user-guide/bot-mode.md)** — Build a durable team of specialist Bots that work together in group chats and through `@mentions`
 - **Delegates & parallelizes** — Spawn isolated subagents for parallel workstreams. Programmatic Tool Calling via `execute_code` collapses multi-step pipelines into single inference calls
 - **Open standard skills** — Compatible with [agentskills.io](https://agentskills.io). Skills are portable, shareable, and community-contributed via the Skills Hub
 - **Full web control** — Search, extract, browse, vision, image generation, TTS — one subscription via [Nous Portal](./integrations/nous-portal.md) bundles all of them
 - **MCP support** — Connect to any MCP server for extended tool capabilities
-- **Research-ready** — Batch processing, trajectory export, RL training with Atropos. Built by [Nous Research](https://nousresearch.com) — the lab behind Hermes, Nomos, and Psyche models
+- **Research-ready** — Batch processing, trajectory export, RL training with Atropos. Built by [Nous Research](https://nousresearch.com) — the lab behind Anakot, Nomos, and Psyche models
 
 ## For LLMs and coding agents
 

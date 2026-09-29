@@ -1,280 +1,182 @@
-/**
- * Anakot Agent — Custom Docusaurus Theme
- * Matches the landing page branding: amber-on-dark, terminal aesthetic
- * Colors from landingpage/style.css
- */
-
-/* Import fonts to match landing page */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
+/** Anakot documentation: charcoal + peach, with a warm-paper light theme. */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;650;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import './navbar.css';
 :root {
-  /* Dark amber palette for light mode — readable on white (WCAG AA compliant)
-     Current gold #FFD700 has only 1.4:1 contrast on white; these tones pass 4.5:1+ */
-  --ifm-color-primary: #8B6508;
-  --ifm-color-primary-dark: #7A5800;
-  --ifm-color-primary-darker: #6E4F00;
-  --ifm-color-primary-darkest: #5A4100;
-  --ifm-color-primary-light: #9E7410;
-  --ifm-color-primary-lighter: #B38319;
-  --ifm-color-primary-lightest: #C89222;
-
+  --ifm-color-primary: #96502c;
+  --ifm-color-primary-dark: #874828;
+  --ifm-color-primary-darker: #804425;
+  --ifm-color-primary-darkest: #69381f;
+  --ifm-color-primary-light: #a55830;
+  --ifm-color-primary-lighter: #ad5c33;
+  --ifm-color-primary-lightest: #c36839;
+  --docs-accent-rgb: 150 80 44;
+  --docs-accent-soft: #f5e9df;
+  --docs-border: #e2dfda;
+  --docs-surface: #f6f5f2;
+  --docs-surface-raised: #ffffff;
+  --ifm-background-color: #fcfbf9;
+  --ifm-background-surface-color: var(--docs-surface-raised);
+  --ifm-font-color-base: #292724;
+  --ifm-font-color-secondary: #69635d;
+  --ifm-navbar-background-color: var(--ifm-background-color);
+  --ifm-footer-background-color: var(--docs-surface);
   --ifm-font-family-base: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --ifm-font-family-monospace: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', monospace;
-
-  --ifm-code-font-size: 90%;
-  --ifm-heading-font-weight: 600;
-
-  --ifm-link-color: #7A5800;
-  --ifm-link-hover-color: #5A4100;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Cascadia Code', monospace;
+  --ifm-line-height-base: 1.75;
+  --ifm-heading-font-weight: 650;
+  --ifm-heading-line-height: 1.25;
+  --ifm-code-font-size: 85%;
+  --ifm-code-background: var(--docs-surface);
+  --ifm-global-radius: 0.6rem;
+  --ifm-link-color: var(--ifm-color-primary);
+  --ifm-link-hover-color: var(--ifm-color-primary-dark);
+  --ifm-navbar-height: 4rem;
+  --ifm-navbar-shadow: none;
+  --ifm-toc-border-color: var(--docs-border);
+  --ifm-hr-border-color: var(--docs-border);
+  --ifm-table-border-color: var(--docs-border);
+  --ifm-table-stripe-background: var(--docs-surface);
+  --ifm-menu-color: var(--ifm-font-color-secondary);
+  --ifm-menu-color-background-active: var(--docs-accent-soft);
+  --ifm-menu-color-background-hover: var(--docs-surface);
+  --doc-sidebar-width: 280px;
+  --docusaurus-highlighted-code-line-bg: var(--docs-accent-soft);
 }
-
-/* Dark mode — the PRIMARY mode, matches landing page */
 [data-theme='dark'] {
-  --ifm-color-primary: #FFD700;
-  --ifm-color-primary-dark: #E6C200;
-  --ifm-color-primary-darker: #D9B700;
-  --ifm-color-primary-darkest: #B39600;
-  --ifm-color-primary-light: #FFDD33;
-  --ifm-color-primary-lighter: #FFE14D;
-  --ifm-color-primary-lightest: #FFEB80;
-
-  --ifm-background-color: #07070d;
-  --ifm-background-surface-color: #0f0f18;
-  --ifm-navbar-background-color: #07070dEE;
-  --ifm-footer-background-color: #050509;
-  --ifm-color-emphasis-100: #14142a;
-  --ifm-color-emphasis-200: #1a1a30;
-
-  --ifm-font-color-base: #e8e4dc;
-  --ifm-font-color-secondary: #9a968e;
-
-  --ifm-link-color: #FFD700;
-  --ifm-link-hover-color: #FFBF00;
-
-  --ifm-code-background: #0f0f18;
-
-  --ifm-toc-border-color: rgba(255, 215, 0, 0.08);
-  --ifm-hr-border-color: rgba(255, 215, 0, 0.08);
-
-  --docusaurus-highlighted-code-line-bg: rgba(255, 215, 0, 0.08);
+  --ifm-color-primary: #fab283;
+  --ifm-color-primary-dark: #f89b5e;
+  --ifm-color-primary-darker: #f78f4c;
+  --ifm-color-primary-darkest: #f46d15;
+  --ifm-color-primary-light: #fcc9a8;
+  --ifm-color-primary-lighter: #fdd5ba;
+  --ifm-color-primary-lightest: #fff7f2;
+  --docs-accent-rgb: 250 178 131;
+  --docs-accent-soft: #302720;
+  --docs-border: #2d2d30;
+  --docs-surface: #1b1b1e;
+  --docs-surface-raised: #212124;
+  --ifm-background-color: #161618;
+  --ifm-background-surface-color: var(--docs-surface-raised);
+  --ifm-font-color-base: #eeece8;
+  --ifm-font-color-secondary: #aaa6a0;
+  --ifm-color-emphasis-100: #212124;
+  --ifm-color-emphasis-200: #2d2d30;
+  --ifm-color-emphasis-300: #414145;
+  --ifm-color-emphasis-600: #aaa6a0;
+  --ifm-color-emphasis-700: #cbc7c1;
+  --ifm-link-hover-color: #fcc9a8;
 }
+body { -webkit-font-smoothing: antialiased; }
+::selection { background: var(--docs-accent-soft); color: var(--ifm-color-primary); }
+:focus-visible { outline: 2px solid var(--ifm-color-primary); outline-offset: 4px; }
+h1, h2, h3 { letter-spacing: -0.035em; }
 
-/* Subtle dot grid background matching landing page */
-[data-theme='dark'] .main-wrapper {
-  background-image: radial-gradient(rgba(255, 215, 0, 0.02) 1px, transparent 1px);
-  background-size: 32px 32px;
+.theme-doc-sidebar-container { border-right-color: var(--docs-border) !important; }
+.menu { padding: 1.25rem 0.85rem !important; font-size: 0.84rem; }
+.menu__link { border-radius: 6px; padding: 0.45rem 0.7rem; line-height: 1.5; }
+.menu__list-item { margin-top: 0.2rem; }
+.menu__list-item-collapsible > .menu__link { font-weight: 600; color: var(--ifm-font-color-base); }
+.menu__link--active:not(.menu__link--sublist) { background: var(--docs-accent-soft); color: var(--ifm-color-primary); }
+.menu__list .menu__list { margin-left: 0.65rem; padding-left: 0.65rem; border-left: 1px solid var(--docs-border); }
+.menu__caret::before { background-size: 1.15rem; }
+.theme-doc-markdown { font-size: 0.96rem; }
+.theme-doc-markdown h1 { font-size: clamp(2rem, 4vw, 2.9rem); margin-bottom: 1.4rem; }
+.theme-doc-markdown h2 { font-size: 1.65rem; margin-top: 2.8rem; padding-top: 0.5rem; }
+.theme-doc-markdown h3 { font-size: 1.2rem; margin-top: 2rem; }
+.theme-doc-markdown p, .theme-doc-markdown li { overflow-wrap: break-word; }
+.theme-doc-markdown > p:first-of-type { color: var(--ifm-font-color-secondary); }
+.theme-doc-markdown a:not(.button):not(.docs-card):not(.hash-link) { text-underline-offset: 0.2em; }
+.breadcrumbs { font-size: 0.75rem; margin-bottom: 1.75rem; }
+.table-of-contents { font-size: 0.78rem; line-height: 1.6; }
+.table-of-contents__link { color: var(--ifm-font-color-secondary); }
+.table-of-contents__link--active { color: var(--ifm-color-primary); }
+.pagination-nav__link { background: var(--docs-surface); border-color: var(--docs-border); padding: 1.15rem; }
+.pagination-nav__sublabel { color: var(--ifm-font-color-secondary); font-size: 0.75rem; }
+.pagination-nav__label { font-size: 0.95rem; }
+code { border: 1px solid var(--docs-border); border-radius: 4px; padding: 0.12rem 0.3rem; }
+pre { border: 1px solid var(--docs-border); border-radius: 10px; }
+pre code { border: 0; }
+[data-theme='dark'] .prism-code { background: #1b1b1e !important; }
+pre.prism-code:is(.language-text, .language-plaintext, .language-txt, .language-ascii) {
+  white-space: pre; overflow-x: auto; line-height: 1.35;
+  font-family: 'JetBrains Mono', 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
+  font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0;
 }
-
-/* Navbar styling */
-.navbar {
-  backdrop-filter: blur(12px);
-  border-bottom: 1px solid rgba(255, 215, 0, 0.08);
+pre.prism-code:is(.language-text, .language-plaintext, .language-txt, .language-ascii) code {
+  white-space: pre; font-variant-ligatures: none; font-feature-settings: "liga" 0, "calt" 0;
 }
-
-/* backdrop-filter creates a stacking context that hides
-   .navbar-sidebar menu content (Docusaurus #6996). Remove it
-   while the mobile sidebar is open — both classes live on the
-   same <nav> element. */
-.navbar.navbar-sidebar--show {
-  backdrop-filter: none;
+.theme-mermaid { margin: 1.5rem 0; text-align: center; overflow-x: auto; }
+.theme-mermaid svg { max-width: 100%; height: auto; }
+.docs-terminal-figure { display: block; width: 100%; max-width: 900px; margin: 1.25rem auto 0.5rem; border: 1px solid var(--docs-border); border-radius: 12px; }
+.docs-figure-caption { text-align: center; color: var(--ifm-font-color-secondary); font-size: 0.85rem; }
+.alert { box-shadow: none; border-radius: 8px; border-left-width: 3px; }
+.alert--info { --ifm-alert-background-color: var(--docs-accent-soft); --ifm-alert-border-color: var(--ifm-color-primary); }
+table { font-size: 0.88rem; }
+table th { background: var(--docs-surface); }
+table th, table td { border-color: var(--docs-border); padding: 0.85rem 1rem; }
+.footer, .footer--dark {
+  --ifm-footer-background-color: var(--docs-surface);
+  --ifm-footer-color: var(--ifm-font-color-secondary);
+  --ifm-footer-link-color: var(--ifm-font-color-secondary);
+  --ifm-footer-title-color: var(--ifm-font-color-base);
+  border-top: 1px solid var(--docs-border); padding: 3rem 2rem 2rem;
 }
+.footer__title { font-size: 0.8rem; }
+.footer__link-item, .footer__copyright { font-size: 0.8rem; }
+.footer a:hover { color: var(--ifm-color-primary); }
 
-.navbar__title {
-  font-weight: 600;
-  letter-spacing: -0.02em;
-}
 
-/* Sidebar tweaks */
-[data-theme='dark'] .menu {
-  background-color: transparent;
-}
 
-[data-theme='dark'] .menu__link--active:not(.menu__link--sublist) {
-  background-color: rgba(255, 215, 0, 0.08);
-  border-left: 3px solid #FFD700;
-  padding-left: calc(var(--ifm-menu-link-padding-horizontal) - 3px);
-}
-
-/* Light mode sidebar active */
-[data-theme='light'] .menu__link--active:not(.menu__link--sublist) {
-  background-color: rgba(139, 101, 8, 0.08);
-  border-left: 3px solid #8B6508;
-  padding-left: calc(var(--ifm-menu-link-padding-horizontal) - 3px);
-}
-
-/* Code blocks */
-[data-theme='dark'] .prism-code {
-  background-color: #0a0a12 !important;
-  border: 1px solid rgba(255, 215, 0, 0.06);
-}
-
-/* Text diagrams: preserve spacing, disable ligatures, and prefer box-drawing-safe fonts */
-pre.prism-code.language-text,
-pre.prism-code.language-plaintext,
-pre.prism-code.language-txt,
-pre.prism-code.language-ascii {
-  white-space: pre;
-  overflow-x: auto;
-  line-height: 1.35;
-  font-family: 'JetBrains Mono', 'Cascadia Mono', 'Cascadia Code', 'Fira Code', 'SFMono-Regular', 'DejaVu Sans Mono', 'Liberation Mono', monospace;
-  font-variant-ligatures: none;
-  font-feature-settings: "liga" 0, "calt" 0;
-  text-rendering: optimizeSpeed;
-}
-
-pre.prism-code.language-text code,
-pre.prism-code.language-plaintext code,
-pre.prism-code.language-txt code,
-pre.prism-code.language-ascii code {
-  white-space: pre;
-  font-variant-ligatures: none;
-  font-feature-settings: "liga" 0, "calt" 0;
-}
-
-.theme-mermaid {
-  margin: 1.5rem 0;
-  text-align: center;
-}
-
-.theme-mermaid svg {
-  max-width: 100%;
+* { scrollbar-width: thin; scrollbar-color: var(--docs-border) transparent; }
+/* Lenis smooth scroll. These rules ship here rather than as an import of
+   lenis/dist/lenis.css because that bare CSS import never reached the served
+   stylesheet, leaving the class applied but its rules missing. */
+html.lenis,
+html.lenis body {
   height: auto;
 }
 
-.docs-terminal-figure {
-  display: block;
-  width: 100%;
-  max-width: 900px;
-  margin: 1.25rem auto 0.5rem;
-  border: 1px solid rgba(255, 215, 0, 0.08);
-  border-radius: 12px;
-  background: #0a0a12;
+.lenis:not(.lenis-autoToggle).lenis-stopped {
+  overflow: clip;
 }
 
-.docs-figure-caption {
-  margin-top: 0.35rem;
-  text-align: center;
-  color: var(--ifm-font-color-secondary);
-  font-size: 0.95rem;
+.lenis.lenis-smooth iframe {
+  pointer-events: none;
 }
 
-/* Admonitions — gold-tinted */
-[data-theme='dark'] .alert--info {
-  --ifm-alert-background-color: rgba(255, 215, 0, 0.05);
-  --ifm-alert-border-color: rgba(255, 215, 0, 0.15);
+/* Keep the overview a document, preserving its existing anchors and content. */
+.docs-eyebrow { color: var(--ifm-color-primary); font: 500 0.72rem var(--ifm-font-family-monospace); text-transform: uppercase; letter-spacing: 0.13em; }
+.docs-home-hero { padding: 1rem 0 2rem; border-bottom: 1px solid var(--docs-border); margin-bottom: 2rem; }
+.docs-home-hero h1 { max-width: 700px; font-size: clamp(2.4rem, 4.6vw, 4rem); line-height: 1.08; letter-spacing: -0.055em; margin: 1.2rem 0; }
+.docs-home-hero h1 span { color: var(--ifm-color-primary); }
+.docs-home-lead { max-width: 640px; color: var(--ifm-font-color-secondary); font-size: 1.05rem; line-height: 1.8; }
+.docs-home-actions { display: flex; flex-wrap: wrap; gap: 0.7rem; margin-top: 1.5rem; }
+.docs-home-actions .button { font-size: 0.85rem; border-radius: 7px; padding: 0.7rem 1.1rem; font-weight: 600; }
+.docs-home-actions .button--primary { color: var(--ifm-background-color); background: var(--ifm-color-primary); border-color: var(--ifm-color-primary); }
+.docs-home-actions .button--secondary { color: var(--ifm-font-color-base); background: var(--docs-surface); border-color: var(--docs-border); }
+.docs-home-actions .button:hover { filter: brightness(1.08); }
+.docs-home-note { margin-top: 1.2rem; font-size: 0.75rem; color: var(--ifm-font-color-secondary); }
+.docs-card-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.8rem; margin: 1.5rem 0 2.5rem; }
+.docs-card { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; padding: 1.25rem; border: 1px solid var(--docs-border); border-radius: 10px; color: var(--ifm-font-color-base); background: var(--docs-surface); transition: border-color 150ms, background 150ms; }
+.docs-card:hover { color: var(--ifm-font-color-base); border-color: var(--ifm-color-primary); background: var(--docs-surface-raised); text-decoration: none; }
+.docs-card-label { color: var(--ifm-color-primary); font: 500 0.72rem var(--ifm-font-family-monospace); }
+.docs-card strong { font-size: 1rem; letter-spacing: -0.02em; }
+.docs-card p { font-size: 0.82rem; color: var(--ifm-font-color-secondary); margin: 0; line-height: 1.65; }
+.docs-card-arrow { color: var(--ifm-color-primary); margin-top: auto; }
+@media (min-width: 997px) {
+  .theme-doc-markdown { padding-top: 0.5rem; }
+  main .container { padding-top: 2rem !important; padding-bottom: 3rem !important; }
 }
-
-/* Table styling */
-[data-theme='dark'] table {
-  border-collapse: collapse;
-}
-
-[data-theme='dark'] table th {
-  background-color: rgba(255, 215, 0, 0.06);
-  border-color: rgba(255, 215, 0, 0.12);
-}
-
-[data-theme='dark'] table td {
-  border-color: rgba(255, 215, 0, 0.06);
-}
-
-/* Light mode table styling */
-[data-theme='light'] table th {
-  background-color: rgba(139, 101, 8, 0.06);
-  border-color: rgba(139, 101, 8, 0.15);
-}
-
-[data-theme='light'] table td {
-  border-color: rgba(139, 101, 8, 0.10);
-}
-
-/* Footer */
-.footer {
-  border-top: 1px solid rgba(255, 215, 0, 0.08);
-}
-
-.footer a {
-  color: #9a968e;
-  transition: color 0.2s;
-}
-
-[data-theme='dark'] .footer a:hover {
-  color: #FFD700;
-  text-decoration: none;
-}
-
-[data-theme='light'] .footer a:hover {
-  color: #7A5800;
-  text-decoration: none;
-}
-
-/* Scrollbar */
-[data-theme='dark'] ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-track {
-  background: #07070d;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-thumb {
-  background: #1a1a30;
-  border-radius: 4px;
-}
-
-[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
-  background: #2a2a40;
-}
-
-/* Search bar */
-[data-theme='dark'] .DocSearch-Button {
-  background-color: #0f0f18;
-  border: 1px solid rgba(255, 215, 0, 0.08);
-}
-
-/* ─── Mobile sidebar improvements ─────────────────────────────────────────── */
-
-/* Larger touch targets on mobile */
 @media (max-width: 996px) {
-  .menu__link {
-    padding: 0.6rem 0.75rem;
-    font-size: 0.95rem;
-  }
-
-  .menu__list-item-collapsible > .menu__link {
-    font-weight: 600;
-    font-size: 1rem;
-    padding: 0.75rem 0.75rem;
-    border-bottom: 1px solid rgba(255, 215, 0, 0.06);
-  }
-
-  /* Category caret — more visible */
-  .menu__caret::before {
-    background-size: 1.5rem 1.5rem;
-  }
-
-  /* Indent subcategories clearly */
-  .menu__list .menu__list {
-    padding-left: 0.75rem;
-    border-left: 1px solid rgba(255, 215, 0, 0.06);
-    margin-left: 0.5rem;
-  }
-
-  /* Sidebar overlay — slightly more opaque for readability */
-  .navbar-sidebar__backdrop {
-    background-color: rgba(0, 0, 0, 0.6);
-  }
-
-  /* Sidebar width on mobile — use more of the screen */
-  .navbar-sidebar {
-    width: 85vw;
-    max-width: 360px;
-  }
+  .menu__link { min-height: 44px; display: flex; align-items: center; }
+  .docs-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
-
-/* Hero banner for docs landing if needed */
-.hero--anakot {
-  background: linear-gradient(135deg, #07070d 0%, #0f0f18 100%);
-  padding: 4rem 0;
+@media (max-width: 600px) {
+  .docs-card-grid { grid-template-columns: 1fr; }
+  .docs-home-hero { padding-top: 0.6rem; }
+  .docs-home-actions .button { flex: 1 1 auto; }
+  .footer, .footer--dark { padding: 2rem 1rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
 }

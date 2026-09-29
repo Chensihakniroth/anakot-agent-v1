@@ -413,5 +413,5 @@ Most users running Anakot for personal projects prefer Baileys. Most users runni
 ## See also
 
 - [Meta's official WhatsApp Business Cloud API docs](https://developers.facebook.com/documentation/business-messaging/whatsapp/) — authoritative reference for the underlying platform, pricing, App Review, and Meta-side rate limits.
-- [WhatsApp (Baileys bridge) Setup](whatsapp.md) — the alternative integration for personal projects.
-- [Messaging Platforms overview](index.md) — all messaging integrations at a glance.
+- [WhatsApp (Baileys bridge) Setup](./whatsapp.md) — the alternative integration for personal projects.
+- [Messaging Platforms overview](./index.md) — all messaging integrations at a glance.

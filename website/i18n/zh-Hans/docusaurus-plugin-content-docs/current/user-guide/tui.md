@@ -6,7 +6,7 @@ description: "启动 Anakot 的现代终端 UI——支持鼠标操作、丰富�
 
 # TUI
 
-TUI 是 Anakot 的现代前端——一个终端 UI（用户界面），与 [Classic CLI](cli.md) 共享同一 Python 运行时。相同的 agent、相同的会话、相同的斜杠命令；交互界面更简洁、响应更流畅。
+TUI 是 Anakot 的现代前端——一个终端 UI（用户界面），与 [Classic CLI](./cli.md) 共享同一 Python 运行时。相同的 agent、相同的会话、相同的斜杠命令；交互界面更简洁、响应更流畅。
 
 这是以交互方式运行 Anakot 的推荐方式。
 
@@ -36,7 +36,7 @@ anakot          # 现在使用 TUI
 anakot chat     # 同上
 ```
 
-Classic CLI 仍作为默认方式保留。[CLI 界面](cli.md)中记录的所有内容——斜杠命令、快捷命令、skill 预加载、personality、多行输入、中断——在 TUI 中均完全一致。
+Classic CLI 仍作为默认方式保留。[CLI 界面](./cli.md)中记录的所有内容——斜杠命令、快捷命令、skill 预加载、personality、多行输入、中断——在 TUI 中均完全一致。
 
 ## 为什么选择 TUI
 
@@ -48,7 +48,7 @@ Classic CLI 仍作为默认方式保留。[CLI 界面](cli.md)中记录的所有
 - **备用屏幕渲染** — 差量更新意味着流式传输时无闪烁，退出后无滚动历史残留。
 - **编辑器增强** — 长片段的内联折叠粘贴、`Cmd+V` / `Ctrl+V` 文本粘贴（带剪贴板图片回退）、括号粘贴安全保护，以及图片/文件路径附件规范化。
 
-同样的 [skins](features/skins.md) 和 [personalities](features/personality.md) 均适用。会话中途使用 `/skin ares`、`/personality pirate` 切换，UI 实时重绘。完整的可定制键列表及其对 classic 与 TUI 的适用范围，请参阅 [Skins & Themes](features/skins.md)——TUI 支持 banner 调色板、UI 颜色、prompt 字形/颜色、会话显示、补全菜单、选区背景色、`tool_prefix` 和 `help_header`。
+同样的 [skins](./features/skins.md) 和 [personalities](./features/personality.md) 均适用。会话中途使用 `/skin ares`、`/personality pirate` 切换，UI 实时重绘。完整的可定制键列表及其对 classic 与 TUI 的适用范围，请参阅 [Skins & Themes](./features/skins.md)——TUI 支持 banner 调色板、UI 颜色、prompt 字形/颜色、会话显示、补全菜单、选区背景色、`tool_prefix` 和 `help_header`。
 
 ### 可折叠的 banner 区块
 
@@ -83,7 +83,7 @@ anakot --tui
 
 ## 快捷键
 
-快捷键与 [Classic CLI](cli.md#keybindings) 完全一致。仅有以下行为差异：
+快捷键与 [Classic CLI](./cli.md#keybindings) 完全一致。仅有以下行为差异：
 
 - **`Ctrl+T`** — 将输入框上方的实时子智能体栏展开为完整 `/agents` 列表；**Enter/t** 查看实时日志，**`d`** 查看详细信息，**`e`** 引导，**`x`** 停止选中的工作者。可见行数随终端高度调整，关闭后保留输入草稿。
 - **`F7`** — 在多行预览和单行摘要之间切换，保留输入焦点，不写入配置。
@@ -167,7 +167,7 @@ TUI 的状态栏实时跟踪 agent 状态：
 | `interrupted` | 当前轮次已取消；按 Enter 重新发送。 |
 | `forging session…` / `resuming…` | 初始连接或 `--resume` 握手中。 |
 
-各 skin 的状态栏颜色和阈值与 classic CLI 共享——请参阅 [Skins](features/skins.md) 了解自定义方式。
+各 skin 的状态栏颜色和阈值与 classic CLI 共享——请参阅 [Skins](./features/skins.md) 了解自定义方式。
 
 状态栏还显示：
 
@@ -229,7 +229,7 @@ TUI 附带有主见的按区块默认值，将轮次以实时转录形式流式�
 
 会话在 TUI 和 classic CLI 之间共享——两者均写入同一个 `~/.anakot/state.db`。可以在一个界面开始会话，在另一个界面恢复。会话选择器显示来自两个来源的会话，并带有来源标签。
 
-会话生命周期、搜索、压缩和导出，请参阅[会话](sessions.md)。
+会话生命周期、搜索、压缩和导出，请参阅[会话](./sessions.md)。
 
 ## TUI 如何与其 gateway 通信
 
@@ -239,7 +239,7 @@ TUI 附带有主见的按区块默认值，将轮次以实时转录形式流式�
 
 不存在通用的"将任意 TUI 指向任意独立 gateway 端口"的模式。特别是，OpenAI 兼容 API 服务器（`anakot gateway` / `api_server` 平台）**不**提供 `/api/ws`——它是模型后端接口（`/v1/chat/completions`、`/v1/models` 等），并刻意不暴露 TUI 的 JSON-RPC 控制通道。将 `ANAKOT_TUI_GATEWAY_URL` 设置为该端口将返回 404。
 
-如果你希望多个界面共享同一组会话，请使用共享的 `~/.anakot/state.db`（参见[会话](sessions.md)）或 Web 仪表板的内嵌聊天（参见 [Web Dashboard](features/web-dashboard.md#chat)）——而不是手动设置 gateway URL。
+如果你希望多个界面共享同一组会话，请使用共享的 `~/.anakot/state.db`（参见[会话](./sessions.md)）或 Web 仪表板的内嵌聊天（参见 [Web Dashboard](./features/web-dashboard.md#chat)）——而不是手动设置 gateway URL。
 
 ## 回退到 Classic CLI
 
@@ -249,8 +249,8 @@ TUI 附带有主见的按区块默认值，将轮次以实时转录形式流式�
 
 ## 另请参阅
 
-- [CLI 界面](cli.md) — 完整的斜杠命令和快捷键参考（共享）
-- [会话](sessions.md) — 恢复、分支和历史记录
-- [Skins & Themes](features/skins.md) — 自定义 banner、状态栏和浮层主题
-- [语音模式](features/voice-mode.md) — 在两种界面中均可使用
-- [配置](configuration.md) — 所有配置键
+- [CLI 界面](./cli.md) — 完整的斜杠命令和快捷键参考（共享）
+- [会话](./sessions.md) — 恢复、分支和历史记录
+- [Skins & Themes](./features/skins.md) — 自定义 banner、状态栏和浮层主题
+- [语音模式](./features/voice-mode.md) — 在两种界面中均可使用
+- [配置](./configuration.md) — 所有配置键

@@ -20,7 +20,7 @@ Models), with search, tier filters (Official / Community), capability chips, and
 copyable install commands for every entry.
 
 The catalog complements — it does not replace — the existing
-[plugin system](plugins.md). Anything you can install from the catalog is a
+[plugin system](./plugins.md). Anything you can install from the catalog is a
 normal plugin under the hood; the catalog just adds discovery and a review
 layer on top.
 
@@ -76,7 +76,7 @@ The catalog is designed so you know exactly what you're installing:
   date. The installer refuses to install anything on the removed list.
 - **Installed ≠ enabled.** Installing a catalog plugin puts it on disk; like
   any plugin it must still be enabled before it loads. See
-  [Plugins → Enabling and disabling](plugins.md).
+  [Plugins → Enabling and disabling](./plugins.md).
 
 :::warning Catalog review is a point-in-time review
 A catalog entry means the pinned commit was looked at by a human, capability
@@ -137,7 +137,7 @@ unreviewed name index. Install such plugins by `owner/repo` or Git URL instead
 ### Live refresh
 
 The docs build publishes the catalog as one JSON document
-(`https://hermes-agent.nousresearch.com/docs/api/plugin-catalog.json`).
+(`https://anakot-agent-doc.up.railway.app/docs/api/plugin-catalog.json`).
 `search`/`install`/`update` fetch it at most every six hours and cache it under
 `~/.anakot/cache/`, so new entries and removals reach installed clients without
 updating Anakot. Offline, the copy shipped with your checkout is used (a failed
@@ -185,8 +185,8 @@ checks out exactly the new pin.
 
 ## See also
 
-- [Plugins](plugins.md) — the plugin system itself: manifest format, enabling,
+- [Plugins](./plugins.md) — the plugin system itself: manifest format, enabling,
   configuration
-- [Built-in Plugins](built-in-plugins.md) — plugins that ship with Anakot
+- [Built-in Plugins](./built-in-plugins.md) — plugins that ship with Anakot
 - [Build a Anakot Plugin](../../developer-guide/plugins/index.md) — write your own
 - [Plugin Catalog page](/plugins) — the browsable catalog

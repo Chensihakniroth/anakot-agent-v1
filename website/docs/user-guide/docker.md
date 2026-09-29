@@ -34,7 +34,7 @@ result before hitting Enter.
 mkdir -p ~/.anakot
 docker run -it --rm \
   -v ~/.anakot:/opt/data \
-  nousresearch/anakot-agent setup
+  ghcr.io/chensihakniroth/anakot-agent setup
 ```
 
 This drops you into the setup wizard, which will prompt you for your API keys and write them to `~/.anakot/.env`. You only need to do this once. It is highly recommended to set up a chat system for the gateway to work with at this point.
@@ -53,7 +53,7 @@ docker run -d \
   --restart unless-stopped \
   -v ~/.anakot:/opt/data \
   -p 8642:8642 \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 Port 8642 exposes the gateway's [OpenAI-compatible API server](./features/api-server.md) and health endpoint. It's optional if you only use chat platforms (Telegram, Discord, etc.), but required if you want the dashboard or external tools to reach the gateway.
@@ -91,7 +91,7 @@ docker run -d \
   -e API_SERVER_HOST=0.0.0.0 \
   -e API_SERVER_KEY="$(openssl rand -hex 32)" \
   -e API_SERVER_CORS_ORIGINS='*' \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 Opening any port on an internet facing machine is a security risk. You should not do it unless you understand the risks.
@@ -108,7 +108,7 @@ docker run -d \
   -p 8642:8642 \
   -p 9119:9119 \
   -e ANAKOT_DASHBOARD=1 \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 The dashboard is supervised by s6 — if it crashes, `s6-supervise` restarts it automatically after a short backoff. Dashboard stdout/stderr is forwarded to `docker logs <container>` (no prefix; the gateway's own output now lives in a per-profile s6-log file — see [Where the logs go](#where-the-logs-go) below — so the two streams don't clash).
@@ -133,7 +133,7 @@ There are three bundled ways to satisfy the second condition:
 - **OAuth (Nous Portal)** — for hosted/public deploys: the `dashboard_auth/nous` provider activates whenever `ANAKOT_DASHBOARD_OAUTH_CLIENT_ID` is set.
 - **Self-hosted OIDC** — to authenticate against your own identity provider via standard OpenID Connect: the `dashboard_auth/self_hosted` provider activates when `ANAKOT_DASHBOARD_OIDC_ISSUER` + `ANAKOT_DASHBOARD_OIDC_CLIENT_ID` are set.
 
-Whichever you choose, the gate redirects callers to a login page before they can reach any protected route. See [Web Dashboard → Authentication](features/web-dashboard.md#authentication-gated-mode) for all three providers.
+Whichever you choose, the gate redirects callers to a login page before they can reach any protected route. See [Web Dashboard → Authentication](./features/web-dashboard.md#authentication-gated-mode) for all three providers.
 
 When a reverse proxy such as Traefik or nginx runs in another container, its
 bridge-network address is not trusted by default. Set the dashboard's public
@@ -168,7 +168,7 @@ To open an interactive chat session against a running data directory:
 ```sh
 docker run -it --rm \
   -v ~/.anakot:/opt/data \
-  nousresearch/anakot-agent
+  ghcr.io/chensihakniroth/anakot-agent
 ```
 
 Or if you have already opened a terminal in your running container (via Docker Desktop for instance), just run:
@@ -309,7 +309,7 @@ In those cases, declare one service per profile with distinct `container_name`, 
 ```yaml
 services:
   anakot-work:
-    image: nousresearch/anakot-agent:latest
+    image: ghcr.io/chensihakniroth/anakot-agent:latest
     container_name: anakot-work
     restart: unless-stopped
     command: gateway run
@@ -319,7 +319,7 @@ services:
       - ~/.anakot-work:/opt/data
 
   anakot-personal:
-    image: nousresearch/anakot-agent:latest
+    image: ghcr.io/chensihakniroth/anakot-agent:latest
     container_name: anakot-personal
     restart: unless-stopped
     command: gateway run
@@ -356,13 +356,13 @@ docker run -it --rm \
   -v ~/.anakot:/opt/data \
   -e ANTHROPIC_API_KEY="sk-ant-..." \
   -e OPENAI_API_KEY="sk-..." \
-  nousresearch/anakot-agent
+  ghcr.io/chensihakniroth/anakot-agent
 ```
 
 Direct `-e` flags override values from `.env`. This is useful for CI/CD or secrets-manager integrations where you don't want keys on disk.
 
 :::note Looking for Docker as the **terminal backend**?
-This page covers running Anakot itself inside Docker. If you want Anakot to execute the agent's `terminal` / `execute_code` calls inside a Docker sandbox container (one long-lived container shared across Anakot processes — see issue #20561), that's a separate config block — `terminal.backend: docker` plus `terminal.docker_image`, `terminal.docker_volumes`, `terminal.docker_forward_env`, `terminal.docker_env`, `terminal.docker_run_as_host_user`, `terminal.docker_extra_args`, `terminal.docker_persist_across_processes`, and `terminal.docker_orphan_reaper`. See [Configuration → Docker Backend](configuration.md#docker-backend) for the full set including container-lifecycle rules.
+This page covers running Anakot itself inside Docker. If you want Anakot to execute the agent's `terminal` / `execute_code` calls inside a Docker sandbox container (one long-lived container shared across Anakot processes — see issue #20561), that's a separate config block — `terminal.backend: docker` plus `terminal.docker_image`, `terminal.docker_volumes`, `terminal.docker_forward_env`, `terminal.docker_env`, `terminal.docker_run_as_host_user`, `terminal.docker_extra_args`, `terminal.docker_persist_across_processes`, and `terminal.docker_orphan_reaper`. See [Configuration → Docker Backend](./configuration.md#docker-backend) for the full set including container-lifecycle rules.
 :::
 
 ## Docker Compose example
@@ -372,7 +372,7 @@ For persistent deployment with both the gateway and dashboard, a `docker-compose
 ```yaml
 services:
   anakot:
-    image: nousresearch/anakot-agent:latest
+    image: ghcr.io/chensihakniroth/anakot-agent:latest
     container_name: anakot
     restart: unless-stopped
     command: gateway run
@@ -427,7 +427,7 @@ ctl.!default {
 Then build a small derived image with the ALSA PulseAudio plugin installed:
 
 ```dockerfile title="Dockerfile.audio"
-FROM nousresearch/anakot-agent:latest
+FROM ghcr.io/chensihakniroth/anakot-agent:latest
 
 USER root
 RUN apt-get update \
@@ -494,7 +494,7 @@ docker run -d \
   --restart unless-stopped \
   --memory=4g --cpus=2 \
   -v ~/.anakot:/opt/data \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 ## What the Dockerfile does
@@ -540,7 +540,7 @@ If you must override the entrypoint, add Docker's init as PID 1 so orphans are r
 ```yaml
 services:
   anakot-dashboard:
-    image: nousresearch/anakot-agent:latest
+    image: ghcr.io/chensihakniroth/anakot-agent:latest
     init: true                                      # docker-init becomes PID 1 and reaps orphans
     entrypoint: ["/opt/anakot/.venv/bin/anakot"]
     command: ["dashboard", "--host", "0.0.0.0", "--port", "9119", "--no-open", "--skip-build"]
@@ -583,13 +583,13 @@ When a migration is needed, Anakot writes timestamped backups next to
 `config.yaml` and `.env` first.
 
 ```sh
-docker pull nousresearch/anakot-agent:latest
+docker pull ghcr.io/chensihakniroth/anakot-agent:latest
 docker rm -f anakot
 docker run -d \
   --name anakot \
   --restart unless-stopped \
   -v ~/.anakot:/opt/data \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 Or with Docker Compose:
@@ -626,10 +626,10 @@ This is a good fit for tools that are quick to install and used occasionally. Fo
 
 ### Durable installs — build a derived image
 
-When a tool must be available immediately on every container start with no re-install delay, build a new image that inherits from `nousresearch/anakot-agent` and installs the tool in a layer:
+When a tool must be available immediately on every container start with no re-install delay, build a new image that inherits from `ghcr.io/chensihakniroth/anakot-agent` and installs the tool in a layer:
 
 ```dockerfile
-FROM nousresearch/anakot-agent:latest
+FROM ghcr.io/chensihakniroth/anakot-agent:latest
 
 USER root
 RUN apt-get update \
@@ -650,7 +650,7 @@ docker run -d \
   my-anakot:latest gateway run
 ```
 
-The entrypoint script and `/opt/data` semantics are inherited unchanged, so the rest of this page still applies. Remember to rebuild the image when pulling a newer upstream `nousresearch/anakot-agent`.
+The entrypoint script and `/opt/data` semantics are inherited unchanged, so the rest of this page still applies. Remember to rebuild the image when pulling a newer upstream `ghcr.io/chensihakniroth/anakot-agent`.
 
 ### Complex tools or multi-service stacks — run a sidecar container
 
@@ -659,7 +659,7 @@ For tools that bring their own service (a database, a web server, a queue, a hea
 ```yaml
 services:
   anakot:
-    image: nousresearch/anakot-agent:latest
+    image: ghcr.io/chensihakniroth/anakot-agent:latest
     container_name: anakot
     restart: unless-stopped
     command: gateway run
@@ -717,7 +717,7 @@ services:
             - capabilities: [gpu]
 
   anakot:
-    image: nousresearch/anakot-agent:latest
+    image: ghcr.io/chensihakniroth/anakot-agent:latest
     container_name: anakot
     restart: unless-stopped
     command: gateway run
@@ -761,7 +761,7 @@ docker run -d \
   --name anakot \
   -v ~/.anakot:/opt/data \
   -p 8642:8642 \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 ```yaml
@@ -780,7 +780,7 @@ docker run -d \
   --name anakot \
   --network host \
   -v ~/.anakot:/opt/data \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 ```yaml
@@ -844,7 +844,7 @@ docker run -d \
   --name anakot \
   -e PUID=1000 -e PGID=10 \
   -v /volume1/docker/anakot:/opt/data \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 `docker exec anakot <cmd>` automatically drops to UID 10000 too — see [`docker exec` automatically drops to the `anakot` user](#docker-exec-automatically-drops-to-the-anakot-user) for details and the per-invocation opt-out.
@@ -876,7 +876,7 @@ docker run -d \
   --name anakot \
   --shm-size=1g \
   -v ~/.anakot:/opt/data \
-  nousresearch/anakot-agent gateway run
+  ghcr.io/chensihakniroth/anakot-agent gateway run
 ```
 
 ### Gateway not reconnecting after network issues
@@ -891,6 +891,6 @@ docker restart anakot
 
 ```sh
 docker logs --tail 50 anakot          # Recent logs
-docker run -it --rm nousresearch/anakot-agent:latest version     # Verify version
+docker run -it --rm ghcr.io/chensihakniroth/anakot-agent:latest version     # Verify version
 docker stats anakot                    # Resource usage
 ```

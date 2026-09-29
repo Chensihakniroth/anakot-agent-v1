@@ -308,7 +308,7 @@ coder config set terminal.cwd /absolute/path/to/project
 
 ### From the dashboard
 
-The [web dashboard](features/web-dashboard.md#managing-multiple-profiles)
+The [web dashboard](./features/web-dashboard.md#managing-multiple-profiles)
 is a machine-level surface that can manage **any** profile's config, API
 keys, skills, MCPs, and model via the profile switcher in its sidebar — no
 per-profile dashboard needed. `coder dashboard` routes to the machine

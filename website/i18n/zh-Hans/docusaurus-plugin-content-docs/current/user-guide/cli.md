@@ -9,7 +9,7 @@ description: "掌握 Anakot Agent 终端界面——命令、快捷键、人格�
 Anakot Agent 的 CLI 是一个完整的终端用户界面（TUI），而非 Web UI。它支持多行编辑、斜杠命令自动补全、对话历史、中断并重定向，以及流式工具输出。专为常驻终端的用户而生。
 
 :::tip
-Anakot 还提供了一个现代 TUI，支持模态覆盖层、鼠标选择和非阻塞输入。使用 `anakot --tui` 启动——参见 [TUI](tui.md) 指南。
+Anakot 还提供了一个现代 TUI，支持模态覆盖层、鼠标选择和非阻塞输入。使用 `anakot --tui` 启动——参见 [TUI](./tui.md) 指南。
 :::
 
 ## 运行 CLI
@@ -88,7 +88,7 @@ anakot -w -z "Fix issue #123"     # 在 worktree 中以单次查询模式运行
 
 ### 会话恢复显示
 
-恢复之前的会话时（`anakot -c` 或 `anakot --resume <id>`），横幅与输入提示符之间会出现一个"Previous Conversation"面板，显示对话历史的简洁摘要。详情及配置说明参见[会话——恢复时的对话摘要](sessions.md#conversation-recap-on-resume)。
+恢复之前的会话时（`anakot -c` 或 `anakot --resume <id>`），横幅与输入提示符之间会出现一个"Previous Conversation"面板，显示对话历史的简洁摘要。详情及配置说明参见[会话——恢复时的对话摘要](./sessions.md#conversation-recap-on-resume)。
 
 ## 快捷键
 
@@ -136,7 +136,7 @@ anakot -w -z "Fix issue #123"     # 在 worktree 中以单次查询模式运行
 
 完整的内置 CLI 和消息列表，参见[斜杠命令参考](../reference/slash-commands.md)。
 
-语音模式的设置、提供商、静音调节以及消息/Discord 语音用法，参见[语音模式](features/voice-mode.md)。
+语音模式的设置、提供商、静音调节以及消息/Discord 语音用法，参见[语音模式](./features/voice-mode.md)。
 
 :::tip
 命令不区分大小写——`/HELP` 与 `/help` 效果相同。已安装的 skill 也会自动成为斜杠命令。

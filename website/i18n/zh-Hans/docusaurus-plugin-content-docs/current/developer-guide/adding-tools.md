@@ -6,7 +6,7 @@ description: "如何向 Anakot Agent 添加新工具——schema、handler、注
 
 # 添加工具
 
-在编写工具之前，先问自己：**这是否应该是一个 [skill](creating-skills.md)？**
+在编写工具之前，先问自己：**这是否应该是一个 [skill](./creating-skills.md)？**
 
 :::warning 仅限内置核心工具
 本页面用于向仓库本身添加 **Anakot 内置工具**。

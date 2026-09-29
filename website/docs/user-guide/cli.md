@@ -13,7 +13,7 @@ One command — `anakot setup --portal` — and you're ready to `anakot chat`. S
 :::
 
 :::tip
-Anakot also ships a modern TUI with modal overlays, mouse selection, and non-blocking input. Launch it with `anakot --tui` — see the [TUI](tui.md) guide.
+Anakot also ships a modern TUI with modal overlays, mouse selection, and non-blocking input. Launch it with `anakot --tui` — see the [TUI](./tui.md) guide.
 :::
 
 ## Running the CLI
@@ -185,7 +185,7 @@ On the `openai-codex` provider, `/usage` also shows any banked usage-limit reset
 
 ### Session Resume Display
 
-When resuming a previous session (`anakot -c` or `anakot --resume <id>`), a "Previous Conversation" panel appears between the banner and the input prompt, showing a compact recap of the conversation history. See [Sessions — Conversation Recap on Resume](sessions.md#conversation-recap-on-resume) for details and configuration.
+When resuming a previous session (`anakot -c` or `anakot --resume <id>`), a "Previous Conversation" panel appears between the banner and the input prompt, showing a compact recap of the conversation history. See [Sessions — Conversation Recap on Resume](./sessions.md#conversation-recap-on-resume) for details and configuration.
 
 ## Keybindings
 
@@ -255,7 +255,7 @@ Common examples:
 
 For the full built-in CLI and messaging lists, see [Slash Commands Reference](../reference/slash-commands.md).
 
-For setup, providers, silence tuning, and messaging/Discord voice usage, see [Voice Mode](features/voice-mode.md).
+For setup, providers, silence tuning, and messaging/Discord voice usage, see [Voice Mode](./features/voice-mode.md).
 
 :::tip
 Commands are case-insensitive — `/HELP` works the same as `/help`. Installed skills also become slash commands automatically.

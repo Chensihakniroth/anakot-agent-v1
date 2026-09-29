@@ -141,6 +141,18 @@ if (!existsSync(extractScript)) {
   }
 }
 
+// 1b) search-index.json - powers the local docs search (src/components/SiteSearch).
+//     Runs in-process; it is pure Node and needs none of the python deps below.
+{
+  const r = spawnSync(process.execPath, [join(scriptDir, "build-search-index.mjs")], {
+    stdio: "inherit",
+    cwd: websiteDir,
+  });
+  if (r.status !== 0) {
+    console.warn("[prebuild] build-search-index.mjs failed; search will not find results");
+  }
+}
+
 // 2) llms.txt + llms-full.txt — agent-friendly docs entrypoints. Non-fatal.
 runPython(llmsScript, "generate-llms-txt.py");
 

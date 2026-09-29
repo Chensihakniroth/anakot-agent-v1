@@ -139,6 +139,6 @@ ANAKOT_COMPUTER_USE_BACKEND=noop   # records calls, no side effects
 
 ## 另请参阅
 
-- [通用技能：`macos-computer-use`](https://github.com/Chensihakniroth/anakot-agent-v1/blob/main/skills/apple/macos-computer-use/SKILL.md)
+- [Anakot 技能：`computer-use`](https://github.com/Chensihakniroth/anakot-agent-v1/blob/main/skills/autonomous-ai-agents/computer-use/SKILL.md) —— 教会 Anakot `computer_use` 的动作词汇表，这是 agent 实际加载的技能。
 - [cua-driver 源码（trycua/cua）](https://github.com/trycua/cua)
 - 跨平台 Web 任务请参阅[浏览器自动化](./browser.md)。

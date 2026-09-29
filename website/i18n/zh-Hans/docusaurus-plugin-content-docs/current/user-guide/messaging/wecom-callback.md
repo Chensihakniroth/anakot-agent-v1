@@ -8,7 +8,7 @@ sidebar_position: 15
 
 :::info WeCom Bot 与 WeCom 回调
 Anakot 支持两种企业微信集成模式：
-- **[WeCom Bot](wecom.md)** — Bot 风格，通过 WebSocket 连接。配置简单，支持群聊。
+- **[WeCom Bot](./wecom.md)** — Bot 风格，通过 WebSocket 连接。配置简单，支持群聊。
 - **WeCom 回调**（本页）— 自建应用，接收加密 XML 回调。在用户企业微信侧边栏中显示为一级应用，支持多企业路由。
 :::
 

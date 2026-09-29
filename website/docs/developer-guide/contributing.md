@@ -16,7 +16,7 @@ We value contributions in this order:
 2. **Cross-platform compatibility** — macOS, different Linux distros, WSL2
 3. **Security hardening** — shell injection, prompt injection, path traversal
 4. **Performance and robustness** — retry logic, error handling, graceful degradation
-5. **New skills** — broadly useful ones (see [Creating Skills](creating-skills.md))
+5. **New skills** — broadly useful ones (see [Creating Skills](./creating-skills.md))
 6. **New tools** — rarely needed; most capabilities should be skills
 7. **Documentation** — fixes, clarifications, new examples
 
@@ -49,7 +49,7 @@ development environment on the same layout the CLI, updater, lazy dependency
 installer, gateway, and docs assume.
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.sh | bash
 cd "${ANAKOT_HOME:-$HOME/.anakot}/anakot-agent"
 
 # Add dev/test extras on top of the standard install.

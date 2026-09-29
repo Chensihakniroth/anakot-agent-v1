@@ -6,7 +6,7 @@ description: "How to add a new tool to Anakot Agent — schemas, handlers, regis
 
 # Adding Tools
 
-Before writing a tool, ask yourself: **should this be a [skill](creating-skills.md) instead?**
+Before writing a tool, ask yourself: **should this be a [skill](./creating-skills.md) instead?**
 
 :::warning Built-in Core Tools Only
 This page is for adding a **built-in Anakot tool** to the repository itself.
