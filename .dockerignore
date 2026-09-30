@@ -59,8 +59,11 @@ htmlcov/
 # Documentation
 *.md
 
-# Runtime data (bind-mounted at /opt/data; must not leak into build context)
-data/
+# Runtime data (bind-mounted at /data; must not leak into build context).
+# Anchored to the root on purpose: a bare `data/` also matches ANY directory
+# named data at any depth, which silently stripped website/src/data/ and broke
+# the Docusaurus build with "Can't resolve '@site/src/data/userStories.json'".
+/data/
 .hermes-docker/
 .notebooklm-home/
 
@@ -81,7 +84,43 @@ apps/
 tests/
 
 # Documentation site (Docusaurus)
-website/
+#
+# The agent image does not need it; railway/Dockerfile.docs does. The `docs`
+# Railway service builds it, so the source must reach the daemon.
+#
+# Negation alone is not enough here: Docker prunes an excluded directory and
+# will not re-include anything beneath it, so `website/` + `!website/**` still
+# ships an empty tree. The build also needs the .md/.mdx sources, which the
+# top-level `*.md` rule would otherwise strip. Excluding website by default and
+# re-including it wholesale (plus its doc sources) is the combination that
+# actually works.
+# Website (Docusaurus).
+#
+# Previously excluded outright, on the assumption that only the agent image
+# builds here. That is wrong: railway/Dockerfile.docs builds the docs site from
+# this same context, and BuildKit used the ROOT .dockerignore for it (a
+# per-Dockerfile `railway/Dockerfile.docs.dockerignore` is not honoured by
+# Railway's builder), so the docs build failed with
+#   "/website/package.json": not found
+# then, once re-included, "Can't resolve '@site/src/data/userStories.json'".
+#
+# The website source is ~27 MB and the only heavy parts are node_modules and a
+# stale local build/, both excluded below. Shipping the source costs the agent
+# image nothing (it never COPYs website/) and keeps one rule set for both.
+!website/
+website/node_modules/
+website/node_modules/**
+website/build/
+website/build/**
+website/.docusaurus/
+website/.docusaurus/**
+website/.cache/
+website/.cache/**
+
+# Docusaurus compiles its pages from .md/.mdx, and the blanket `*.md` rule
+# above would otherwise strip every doc source and yield an empty site.
+!website/**/*.md
+!website/**/*.mdx
 
 # Assets only used by the GitHub README
 assets/

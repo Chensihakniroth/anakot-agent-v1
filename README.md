@@ -1,101 +1,105 @@
-
 # Anakot Agent ☤
+
+> **Anakot is a fork of [Nous Research's Hermes Agent](https://github.com/NousResearch/hermes-agent).** Enormous credit to the Nous Research team — the agent, the self-improving learning loop, the tool ecosystem, the gateway, and the desktop app are all their work. This project would not exist without it.
+>
+> This fork does what forks are for: **cut the weight, and add what upstream doesn't have.** Upstream is not deprecated and not abandoned — if you want the canonical project, use [hermes-agent](https://github.com/NousResearch/hermes-agent). If you want the leaner build with a free-model browser and a connectors layer, you're in the right place.
+
 <p align="center">
-  <a href="https://hermes-agent.nousresearch.com/">Anakot Agent</a> | <a href="https://hermes-agent.nousresearch.com/">Anakot Desktop</a>
+  <a href="https://github.com/Chensihakniroth/anakot-agent-v1/releases">⬇ Releases</a> ·
+  <a href="#quick-install">⬇ Install</a> ·
+  <a href="#what-this-fork-adds">What this fork adds</a> ·
+  <a href="https://github.com/Chensihakniroth/anakot-agent-v1/issues">Issues</a>
 </p>
 <p align="center">
-  <a href="https://hermes-agent.nousresearch.com/docs/"><img src="https://img.shields.io/badge/Docs-anakot--agent.nousresearch.com-FFD700?style=for-the-badge" alt="Documentation"></a>
-  <a href="https://discord.gg/NousResearch"><img src="https://img.shields.io/badge/Discord-5865F2?style=for-the-badge&logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://github.com/Chensihakniroth/anakot-agent-v1/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="License: MIT"></a>
-  <a href="https://nousresearch.com"><img src="https://img.shields.io/badge/Built%20by-Nous%20Research-blueviolet?style=for-the-badge" alt="Built by Nous Research"></a>
-  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/Lang-中文-red?style=for-the-badge" alt="中文"></a>
-  <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/Lang-اردو-green?style=for-the-badge" alt="اردو"></a>
-  <a href="README.es.md"><img src="https://img.shields.io/badge/Lang-Español-orange?style=for-the-badge" alt="Español"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License"></a>
+  <a href="https://github.com/NousResearch/hermes-agent"><img src="https://img.shields.io/badge/fork%20of-hermes--agent-blueviolet?style=for-the-badge" alt="Fork of hermes-agent"></a>
+  <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/中文-red?style=for-the-badge" alt="中文"></a>
+  <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/اردو-green?style=for-the-badge" alt="اردو"></a>
+  <a href="README.es.md"><img src="https://img.shields.io/badge/Español-orange?style=for-the-badge" alt="Español"></a>
 </p>
 
-**The self-improving AI agent built by [Nous Research](https://nousresearch.com).** It's the only agent with a built-in learning loop — it creates skills from experience, improves them during use, nudges itself to persist knowledge, searches its own past conversations, and builds a deepening model of who you are across sessions. Run it on a $5 VPS, a GPU cluster, or serverless infrastructure that costs nearly nothing when idle. It's not tied to your laptop — talk to it from Telegram while it works on a cloud VM.
+---
 
-Use any model you want — [Nous Portal](https://portal.nousresearch.com), OpenRouter, OpenAI, your own endpoint, and [many others](https://hermes-agent.nousresearch.com/docs/integrations/providers). Switch with `anakot model` — no code changes, no lock-in.
+## What this fork adds
 
-<table>
-<tr><td><b>A real terminal interface</b></td><td>Full TUI with multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output.</td></tr>
-<tr><td><b>Lives where you do</b></td><td>Telegram, Discord, Slack, WhatsApp, Signal, and CLI — all from a single gateway process. Voice memo transcription, cross-platform conversation continuity.</td></tr>
-<tr><td><b>A closed learning loop</b></td><td>Agent-curated memory with periodic nudges. Autonomous skill creation after complex tasks. Skills self-improve during use. FTS5 session search with LLM summarization for cross-session recall. <a href="https://github.com/plastic-labs/honcho">Honcho</a> dialectic user modeling. Compatible with the <a href="https://agentskills.io">agentskills.io</a> open standard.</td></tr>
-<tr><td><b>Scheduled automations</b></td><td>Built-in cron scheduler with delivery to any platform. Daily reports, nightly backups, weekly audits — all in natural language, running unattended.</td></tr>
-<tr><td><b>Delegates and parallelizes</b></td><td>Spawn isolated subagents for parallel workstreams. Write Python scripts that call tools via RPC, collapsing multi-step pipelines into zero-context-cost turns.</td></tr>
-<tr><td><b>Runs anywhere, not just your laptop</b></td><td>Seven terminal backends — local, Docker, SSH, Singularity, Modal, Daytona, and Vercel Sandbox. Daytona and Modal offer serverless persistence — your agent's environment hibernates when idle and wakes on demand, costing nearly nothing between sessions. Run it on a $5 VPS or a GPU cluster.</td></tr>
-<tr><td><b>Research-ready</b></td><td>Batch trajectory generation, trajectory compression for training the next generation of tool-calling models.</td></tr>
-</table>
+Everything below is fork work. Everything else is upstream Hermes, credited as such.
+
+| | |
+|---|---|
+| **Free Model Suite**<br>`plugins/free-model-suite` | Browse, probe, and apply free models from providers you've already configured. Test a candidate with a one-shot completion *before* you commit to it. Reads your existing model inventory — it owns no provider or model policy of its own. |
+| **Connectors**<br>`tools/connectors/portal` | Connect an app without opening a chat session. Portal catalog, account management, policy checks, and a cached tool list. |
+| **Disk Cleanup + Security Guidance** | Hardened ports of both plugins. |
+| **Plugin-declared settings** | Plugins now render their own settings in the desktop Plugins tab, and each gets a **per-plugin load deadline** — one hung `register()` can no longer stall app startup. |
+| **Aux-call hooks** | Plugins can fire `pre_auxiliary_call` / `post_auxiliary_call` around every auxiliary LLM call. |
+| **Bloat removed** | 30 MB of duplicate 3 MB icon PNGs collapsed to real display sizes. Build logs, scratch notes, and generated `egg-info` are untracked. |
+| **~20 perf & hardening fixes** | Gateway thread and rich-sent persists moved **off the event loop**, leaner structural summary input, context/TLS/ledger hardening, retention and temp-media cleanup, Tauri updater staging. |
+
+> **Not in this fork:** the CLI/TUI skin work lives in separate Anakot trees, not here. Don't expect it from this repo.
 
 ---
 
 ## Quick Install
 
+The installers in this repository install **Anakot** — they point at this fork, not upstream.
+
 ### Linux, macOS, WSL2, Termux
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.sh | bash
 ```
 
 ### Windows (native, PowerShell)
 
-> **Heads up:** Native Windows runs Anakot without WSL — CLI, gateway, TUI, and tools all work natively. If you'd rather use WSL2, the Linux/macOS one-liner above works there too. Found a bug? Please [file issues](https://github.com/Chensihakniroth/anakot-agent-v1/issues).
-
-Run this in PowerShell:
-
 ```powershell
-iex (irm https://hermes-agent.nousresearch.com/install.ps1)
+iex (irm https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.ps1)
 ```
 
-The installer handles everything: uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit, unpacked to `%LOCALAPPDATA%\anakot\git` — no admin required, completely isolated from any system Git install). Anakot uses this bundled Git Bash to run shell commands.
+Native Windows is fully supported without WSL — CLI, gateway, TUI, and tools all work. Prefer WSL2? The Linux one-liner works there too. Native installs live under `%LOCALAPPDATA%\anakot`; WSL2 installs under `~/.anakot`.
 
-If you already have Git installed, the installer detects it and uses that instead. Otherwise a ~45MB MinGit download is all you need — it won't touch or interfere with any system Git.
+The installer handles uv, Python 3.11, Node.js, ripgrep, ffmpeg, **and a portable Git Bash** (MinGit → `%LOCALAPPDATA%\anakot\git`, no admin, fully isolated). If you already have Git, it's detected and used instead.
 
-> **Android / Termux:** The tested manual path is documented in the [Termux guide](https://hermes-agent.nousresearch.com/docs/getting-started/termux). On Termux, Anakot installs a curated `.[termux]` extra because the full `.[all]` extra currently pulls Android-incompatible voice dependencies.
->
-> **Windows:** Native Windows is fully supported — the PowerShell one-liner above installs everything. If you'd rather use WSL2, the Linux command works there too. Native Windows install lives under `%LOCALAPPDATA%\anakot`; WSL2 installs under `~/.anakot` as on Linux.
-
-After installation:
+Then:
 
 ```bash
-source ~/.bashrc    # reload shell (or: source ~/.zshrc)
-anakot              # start chatting!
+source ~/.bashrc    # or: source ~/.zshrc
+anakot              # start chatting
 ```
 
-### Troubleshooting
+<details>
+<summary><b>Android / Termux</b></summary>
 
-#### Windows Defender or antivirus flags `uv.exe` as malware
+Anakot installs a curated `.[termux]` extra, because the full `.[all]` extra pulls Android-incompatible voice dependencies.
+</details>
 
-If your antivirus (Bitdefender, Windows Defender, etc.) quarantines `uv.exe` from the Anakot `bin` folder (`%LOCALAPPDATA%\anakot\bin\uv.exe`), this is a **false positive**. The file is Astral's `uv` — the Rust Python package manager Anakot bundles to manage its Python environment. ML-based antivirus engines commonly flag unsigned Rust binaries that download and install packages.
+<details>
+<summary><b>Windows Defender flags <code>uv.exe</code> as malware</b></summary>
 
-**To verify your copy is authentic:**
+A **false positive**. `uv.exe` is Astral's Rust-based Python package manager, which Anakot bundles to manage its Python environment. ML-based engines commonly flag unsigned Rust binaries that download packages.
+
+Verify your copy is authentic:
 
 ```powershell
-# Install GitHub CLI if needed
 winget install --id GitHub.cli
-
-# Login to GitHub
 gh auth login
 
-# Run verification
 $uv = "$env:LOCALAPPDATA\anakot\bin\uv.exe"
 $ver = (& $uv --version).Split(' ')[1]
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-$zip = "$env:TEMP\uv.zip"
-Invoke-WebRequest "https://github.com/astral-sh/uv/releases/download/$ver/uv-x86_64-pc-windows-msvc.zip" -OutFile $zip -UseBasicParsing
-gh attestation verify $zip --repo astral-sh/uv
-Expand-Archive $zip "$env:TEMP\uv_x" -Force
+Invoke-WebRequest "https://github.com/astral-sh/uv/releases/download/$ver/uv-x86_64-pc-windows-msvc.zip" -OutFile "$env:TEMP\uv.zip" -UseBasicParsing
+gh attestation verify "$env:TEMP\uv.zip" --repo astral-sh/uv
+Expand-Archive "$env:TEMP\uv.zip" "$env:TEMP\uv_x" -Force
 (Get-FileHash "$env:TEMP\uv_x\uv.exe").Hash -eq (Get-FileHash $uv).Hash
 ```
 
-If attestation says "Verification succeeded" and the last line prints `True`, you're good.
+Attestation says "Verification succeeded" **and** the last line prints `True` → you're good.
 
-**To whitelist Anakot:**
-- **Windows Defender:** Run PowerShell as Admin → `Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\anakot\bin"`
-- **Bitdefender:** Add an exception in the Bitdefender console (Protection > Antivirus > Settings > Manage Exceptions)
-- Whitelist the **folder**, not the file hash — Anakot updates `uv` and the hash changes every version
+Whitelist the **folder**, not the file hash — Anakot updates `uv` and the hash changes every version:
 
-For more context, see the upstream Astral reports: [astral-sh/uv#13553](https://github.com/astral-sh/uv/issues/13553), [astral-sh/uv#15011](https://github.com/astral-sh/uv/issues/15011), [astral-sh/uv#10079](https://github.com/astral-sh/uv/issues/10079).
+- **Windows Defender:** `Add-MpPreference -ExclusionPath "$env:LOCALAPPDATA\anakot\bin"` (as Admin)
+- **Bitdefender:** Protection → Antivirus → Settings → Manage Exceptions
+
+Upstream reports: [astral-sh/uv#13553](https://github.com/astral-sh/uv/issues/13553) · [#15011](https://github.com/astral-sh/uv/issues/15011) · [#10079](https://github.com/astral-sh/uv/issues/10079)
+</details>
 
 ---
 
@@ -106,135 +110,120 @@ anakot              # Interactive CLI — start a conversation
 anakot model        # Choose your LLM provider and model
 anakot tools        # Configure which tools are enabled
 anakot config set   # Set individual config values
-anakot config get   # Print individual config values
 anakot gateway      # Start the messaging gateway (Telegram, Discord, etc.)
-anakot setup        # Run the full setup wizard (configures everything at once)
-anakot claw migrate # Migrate from OpenClaw (if coming from OpenClaw)
+anakot setup        # Full setup wizard
+anakot claw migrate # Migrate from OpenClaw
 anakot update       # Update to the latest version
 anakot doctor       # Diagnose any issues
 ```
 
-📖 **[Full documentation →](https://hermes-agent.nousresearch.com/docs/)**
+### Use any model you want
 
----
+Nous Portal, OpenRouter, OpenAI, your own endpoint, and [many others](https://hermes-agent.nousresearch.com/docs/integrations/providers). Switch with `anakot model` — no code changes, no lock-in.
 
-## Skip the API-key collection — Nous Portal
+**Want free models?** That's what the [Free Model Suite](#what-this-fork-adds) is for — browse what's actually available on the providers you've configured, probe it, then apply it.
 
-Anakot works with whatever provider you want — that's not changing. But if you'd rather not collect five separate API keys for the model, web search, image generation, TTS, and a cloud browser, **[Nous Portal](https://portal.nousresearch.com)** covers all of them under one subscription:
+### Skip the API-key collection
 
-- **300+ models** — pick any of them with `/model <name>`
-- **Tool Gateway** — web search (Firecrawl), image generation (FAL), text-to-speech (OpenAI), cloud browser (Browser Use), all routed through your sub. No extra accounts.
+If you'd rather not collect five separate keys for the model, web search, image generation, TTS, and a cloud browser, **[Nous Portal](https://portal.nousresearch.com)** covers all of them under one subscription:
 
-One command from a fresh install:
+- **300+ models** — pick any with `/model <name>`
+- **Tool Gateway** — web search (Firecrawl), image generation (FAL), TTS (OpenAI), cloud browser (Browser Use), all through your sub
 
 ```bash
 anakot setup --portal
 ```
 
-That logs you in via OAuth, sets Nous as your provider, and turns on the Tool Gateway. Check what's wired up any time with `anakot portal info`. Full details on the [Tool Gateway docs page](https://hermes-agent.nousresearch.com/docs/user-guide/features/tool-gateway).
-
-You can still bring your own keys per-tool whenever you want — the gateway is per-backend, not all-or-nothing.
+Logs you in via OAuth, sets Nous as your provider, and enables the Tool Gateway. Check wiring anytime with `anakot portal info`. You can still bring your own per-tool keys — it's per-backend, not all-or-nothing.
 
 ---
 
-## CLI vs Messaging Quick Reference
+## What you get
 
-Anakot has two entry points: start the terminal UI with `anakot`, or run the gateway and talk to it from Telegram, Discord, Slack, WhatsApp, Signal, or Email. Once you're in a conversation, many slash commands are shared across both interfaces.
-
-| Action                         | CLI                                           | Messaging platforms                                                              |
-| ------------------------------ | --------------------------------------------- | -------------------------------------------------------------------------------- |
-| Start chatting                 | `anakot`                                      | Run `anakot gateway setup` + `anakot gateway start`, then send the bot a message |
-| Start fresh conversation       | `/new` or `/reset`                            | `/new` or `/reset`                                                               |
-| Change model                   | `/model [provider:model]`                     | `/model [provider:model]`                                                        |
-| Set a personality              | `/personality [name]`                         | `/personality [name]`                                                            |
-| Retry or undo the last turn    | `/retry`, `/undo`                             | `/retry`, `/undo`                                                                |
-| Compress context / check usage | `/compress`, `/usage`, `/insights [--days N]` | `/compress`, `/usage`, `/insights [days]`                                        |
-| Browse skills                  | `/skills` or `/<skill-name>`                  | `/<skill-name>`                                                                  |
-| Interrupt current work         | `Ctrl+C` or send a new message                | `/stop` or send a new message                                                    |
-| Platform-specific status       | `/platforms`                                  | `/status`, `/sethome`                                                            |
-
-For the full command lists, see the [CLI guide](https://hermes-agent.nousresearch.com/docs/user-guide/cli) and the [Messaging Gateway guide](https://hermes-agent.nousresearch.com/docs/user-guide/messaging).
+| | |
+|---|---|
+| **A real terminal interface** | Full TUI with multiline editing, slash-command autocomplete, conversation history, interrupt-and-redirect, and streaming tool output. |
+| **Lives where you do** | Telegram, Discord, Slack, WhatsApp, Signal, and CLI — from a single gateway process. Voice memo transcription and cross-platform continuity. |
+| **A closed learning loop** | Agent-curated memory with periodic nudges. Autonomous skill creation after complex tasks, and skills that self-improve during use. FTS5 session search with LLM summarization for cross-session recall, plus [Honcho](https://github.com/plastic-labs/honcho) dialectic user modeling. Compatible with the [agentskills.io](https://agentskills.io) open standard. |
+| **Scheduled automations** | Built-in cron scheduler with delivery to any platform. Daily reports, nightly backups, weekly audits — natural language, unattended. |
+| **Delegates and parallelizes** | Spawn isolated subagents for parallel workstreams. Write Python scripts that call tools over RPC, collapsing multi-step pipelines into zero-context-cost turns. |
+| **Runs anywhere** | Seven terminal backends — local, Docker, SSH, Singularity, Modal, Daytona, Vercel Sandbox. Modal and Daytona offer serverless persistence, so the environment hibernates when idle. Run it on a $5 VPS or a GPU cluster. |
+| **Research-ready** | Batch trajectory generation and trajectory compression for training next-generation tool-calling models. |
 
 ---
 
-## Documentation
+## CLI vs Messaging
 
-All documentation lives at **[hermes-agent.nousresearch.com/docs](https://hermes-agent.nousresearch.com/docs/)**:
+Two entry points: the terminal UI with `anakot`, or the gateway talking to you from Telegram, Discord, Slack, WhatsApp, Signal, or Email. Most slash commands are shared.
 
-| Section                                                                                             | What's Covered                                             |
-| --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [Quickstart](https://hermes-agent.nousresearch.com/docs/getting-started/quickstart)                 | Install → setup → first conversation in 2 minutes          |
-| [CLI Usage](https://hermes-agent.nousresearch.com/docs/user-guide/cli)                              | Commands, keybindings, personalities, sessions             |
-| [Configuration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration)                | Config file, providers, models, all options                |
-| [Messaging Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/messaging)                | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
-| [Security](https://hermes-agent.nousresearch.com/docs/user-guide/security)                          | Command approval, DM pairing, container isolation          |
-| [Tools & Toolsets](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools)            | 40+ tools, toolset system, terminal backends               |
-| [Skills System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills)              | Procedural memory, Skills Hub, creating skills             |
-| [Memory](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory)                     | Persistent memory, user profiles, best practices           |
-| [MCP Integration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp)               | Connect any MCP server for extended capabilities           |
-| [Cron Scheduling](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron)              | Scheduled tasks with platform delivery                     |
-| [Context Files](https://hermes-agent.nousresearch.com/docs/user-guide/features/context-files)       | Project context that shapes every conversation             |
-| [Architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture)             | Project structure, agent loop, key classes                 |
-| [Contributing](https://hermes-agent.nousresearch.com/docs/developer-guide/contributing)             | Development setup, PR process, code style                  |
-| [CLI Reference](https://hermes-agent.nousresearch.com/docs/reference/cli-commands)                  | All commands and flags                                     |
-| [Environment Variables](https://hermes-agent.nousresearch.com/docs/reference/environment-variables) | Complete env var reference                                 |
+| Action | CLI | Messaging |
+|---|---|---|
+| Start chatting | `anakot` | `anakot gateway setup` + `anakot gateway start` |
+| Fresh conversation | `/new` or `/reset` | `/new` or `/reset` |
+| Change model | `/model [provider:model]` | `/model [provider:model]` |
+| Set a personality | `/personality [name]` | `/personality [name]` |
+| Retry / undo last turn | `/retry`, `/undo` | `/retry`, `/undo` |
+| Compress / usage | `/compress`, `/usage`, `/insights [--days N]` | `/compress`, `/usage`, `/insights [days]` |
+| Browse skills | `/skills` or `/<skill-name>` | `/<skill-name>` |
+| Interrupt work | `Ctrl+C` or a new message | `/stop` or a new message |
+| Platform status | `/platforms` | `/status`, `/sethome` |
 
 ---
 
 ## Migrating from OpenClaw
 
-If you're coming from OpenClaw, Anakot can automatically import your settings, memories, skills, and API keys.
-
-**During first-time setup:** The setup wizard (`anakot setup`) automatically detects `~/.openclaw` and offers to migrate before configuration begins.
-
-**Anytime after install:**
+Anakot imports your settings, memories, skills, and API keys automatically. The setup wizard detects `~/.openclaw` and offers migration before configuration begins.
 
 ```bash
 anakot claw migrate              # Interactive migration (full preset)
-anakot claw migrate --dry-run    # Preview what would be migrated
+anakot claw migrate --dry-run    # Preview what would move
 anakot claw migrate --preset user-data   # Migrate without secrets
 anakot claw migrate --overwrite  # Overwrite existing conflicts
 ```
 
-What gets imported:
+Imports SOUL.md, memories (MEMORY.md / USER.md), user-created skills → `~/.anakot/skills/openclaw-imports/`, command allowlist, messaging settings, allowlisted API keys (Telegram, OpenRouter, OpenAI, Anthropic, ElevenLabs), TTS assets, and AGENTS.md workspace instructions.
 
-- **SOUL.md** — persona file
-- **Memories** — MEMORY.md and USER.md entries
-- **Skills** — user-created skills → `~/.anakot/skills/openclaw-imports/`
-- **Command allowlist** — approval patterns
-- **Messaging settings** — platform configs, allowed users, working directory
-- **API keys** — allowlisted secrets (Telegram, OpenRouter, OpenAI, Anthropic, ElevenLabs)
-- **TTS assets** — workspace audio files
-- **Workspace instructions** — AGENTS.md (with `--workspace-target`)
+---
 
-See `anakot claw migrate --help` for all options, or use the `openclaw-migration` skill for an interactive agent-guided migration with dry-run previews.
+## Documentation
+
+Upstream's docs remain the reference for the bulk of the agent, and they're good: **[hermes-agent.nousresearch.com/docs](https://hermes-agent.nousresearch.com/docs/)**.
+
+The full documentation source — **461 pages** — also ships in this repo under [`website/docs`](website/docs), so the fork can self-host docs that match its own code. Key sections:
+
+| Section | Covers |
+|---|---|
+| [Quickstart](https://hermes-agent.nousresearch.com/docs/getting-started/quickstart) | Install → setup → first conversation |
+| [CLI Usage](https://hermes-agent.nousresearch.com/docs/user-guide/cli) | Commands, keybindings, personalities, sessions |
+| [Configuration](https://hermes-agent.nousresearch.com/docs/user-guide/configuration) | Config file, providers, models, all options |
+| [Messaging Gateway](https://hermes-agent.nousresearch.com/docs/user-guide/messaging) | Telegram, Discord, Slack, WhatsApp, Signal, Home Assistant |
+| [Security](https://hermes-agent.nousresearch.com/docs/user-guide/security) | Command approval, DM pairing, container isolation |
+| [Tools & Toolsets](https://hermes-agent.nousresearch.com/docs/user-guide/features/tools) | 40+ tools, toolset system, terminal backends |
+| [Skills System](https://hermes-agent.nousresearch.com/docs/user-guide/features/skills) | Procedural memory, Skills Hub, creating skills |
+| [Memory](https://hermes-agent.nousresearch.com/docs/user-guide/features/memory) | Persistent memory, user profiles, best practices |
+| [MCP Integration](https://hermes-agent.nousresearch.com/docs/user-guide/features/mcp) | Connect any MCP server |
+| [Cron Scheduling](https://hermes-agent.nousresearch.com/docs/user-guide/features/cron) | Scheduled tasks with platform delivery |
+| [Architecture](https://hermes-agent.nousresearch.com/docs/developer-guide/architecture) | Project structure, agent loop, key classes |
+| [Contributing](https://hermes-agent.nousresearch.com/docs/developer-guide/contributing) | Development setup, PR process, code style |
+| [Environment Variables](https://hermes-agent.nousresearch.com/docs/reference/environment-variables) | Complete env var reference |
 
 ---
 
 ## Contributing
 
-We welcome contributions! See the [Contributing Guide](https://hermes-agent.nousresearch.com/docs/developer-guide/contributing) for development setup, code style, and PR process.
-
-Quick start for contributors — use the standard installer, then work from the
-full git checkout it creates at `$ANAKOT_HOME/anakot-agent` (usually
-`~/.anakot/anakot-agent`). This matches the layout used by `anakot update`, the
-managed venv, lazy dependencies, gateway, and docs tooling.
+Use the standard installer first, then work from the git checkout it creates at `$ANAKOT_HOME/anakot-agent` (usually `~/.anakot/anakot-agent`). That matches the layout `anakot update`, the managed venv, lazy dependencies, gateway, and docs tooling all expect.
 
 ```bash
-curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Chensihakniroth/anakot-agent-v1/main/scripts/install.sh | bash
 cd "${ANAKOT_HOME:-$HOME/.anakot}/anakot-agent"
 uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```
 
-Manual clone fallback (for throwaway clones/CI where you intentionally do not
-want the managed install layout):
-
-Create the venv outside the cloned source tree — a venv inside the directory
-the agent operates from can be wiped by a relative-path command the agent runs
-against its own checkout, destroying the running runtime mid-session.
+**Manual clone fallback** (for throwaway clones or CI where you deliberately don't want the managed layout) — create the venv *outside* the source tree, since a venv inside the directory the agent operates from can be wiped by a relative-path command the agent runs against its own checkout:
 
 ```bash
+git clone https://github.com/Chensihakniroth/anakot-agent-v1.git
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv venv ~/.anakot/venvs/anakot-dev --python 3.11
 source ~/.anakot/venvs/anakot-dev/bin/activate
@@ -242,15 +231,17 @@ uv pip install -e ".[all,dev]"
 scripts/run_tests.sh
 ```
 
+**Syncing from upstream:** the porting tracker that records what's synced, what's skipped, and why is maintained outside the public tree. Open an issue if you need a specific upstream change ported.
+
 ---
 
 ## Community
 
-- 💬 [Discord](https://discord.gg/NousResearch)
+- 🐛 [Issues](https://github.com/Chensihakniroth/anakot-agent-v1/issues) — fork-specific bugs and features
+- 💬 [Nous Research Discord](https://discord.gg/NousResearch) — upstream community, where the core agent is discussed
 - 📚 [Skills Hub](https://agentskills.io)
-- 🐛 [Issues](https://github.com/Chensihakniroth/anakot-agent-v1/issues)
-- 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — Linux desktop-control MCP server for Anakot and other MCP hosts, with AT-SPI accessibility trees, Wayland/X11 input, screenshots, and compositor window targeting.
-- 🔌 [AnakotClaw](https://github.com/AaronWong1999/anakotclaw) — Community WeChat bridge: Run Anakot Agent and OpenClaw on the same WeChat account.
+- 🔌 [computer-use-linux](https://github.com/avifenesh/computer-use-linux) — Linux desktop-control MCP server with AT-SPI accessibility trees, Wayland/X11 input, and compositor window targeting
+- 🔌 [AnakotClaw](https://github.com/AaronWong1999/anakotclaw) — community WeChat bridge for running Anakot and OpenClaw on one account
 
 ---
 
@@ -258,4 +249,4 @@ scripts/run_tests.sh
 
 MIT — see [LICENSE](LICENSE).
 
-Built by [Nous Research](https://nousresearch.com).
+Originally built by [Nous Research](https://nousresearch.com). This fork is maintained independently under the same MIT terms.

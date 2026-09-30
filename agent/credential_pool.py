@@ -232,6 +232,15 @@ class PooledCredential:
     # usable for its sibling models.  Keep that observation separate from the
     # credential-wide status used for auth and billing failures.
     model_cooldowns: Optional[Dict[str, float]] = None
+    # ---- success/failure health (P2: proactive failover hardening) ----
+    # The pool used to learn only from failures. ``consecutive_failures`` is the
+    # escalation counter and MUST be reset by a real success (mark_success),
+    # otherwise a key that fails once and then works for months eventually
+    # reaches the escalation threshold and is retired as DEAD.
+    last_success_at: Optional[float] = None
+    consecutive_failures: int = 0
+    # Rolling last-success latency, milliseconds. None until first success.
+    latency_ms: Optional[float] = None
     extra: Dict[str, Any] = None  # type: ignore[assignment]
 
     def __post_init__(self):
