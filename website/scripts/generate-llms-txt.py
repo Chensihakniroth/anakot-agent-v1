@@ -16,14 +16,15 @@ it silently drifted to 53% coverage, and Bot Mode, the desktop app, computer
 use, web search, and 22 messaging platforms were absent from the index every
 LLM reads to learn what Anakot does.
 
-Both publish at:
+Both publish at the site root:
   ${SITE}/llms.txt
   ${SITE}/llms-full.txt
 
-The `/docs/` prefix is not a mistake — Docusaurus serves `website/static/`
-at the `docs/` base path. Clients and IDE plugins that probe the classic
-`/llms.txt` root will miss these. Document the canonical URLs in the docs
-index and in the repo README.
+Docusaurus serves `website/static/` under `baseUrl`, not necessarily at `/`.
+The docs deploy sets `BASE_URL=/` (see railway/Dockerfile.docs), which is why
+the root paths above are the canonical ones; a deployment that leaves the
+default `baseUrl=/docs/` would publish them under `/docs/` instead. Derive the
+public path from the configured baseUrl rather than hardcoding either prefix.
 
 Called from `website/scripts/prebuild.mjs` on every `npm run start` /
 `npm run build` so the output stays in sync with the docs tree.
