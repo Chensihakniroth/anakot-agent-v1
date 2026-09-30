@@ -17,11 +17,7 @@ import {fileURLToPath} from 'node:url';
 const scriptDir = dirname(fileURLToPath(import.meta.url));
 const websiteDir = resolve(scriptDir, '..');
 
-/** locale -> docs source dir */
-const SOURCES = [
-  {locale: 'en', dir: join(websiteDir, 'docs')},
-  {locale: 'zh-Hans', dir: join(websiteDir, 'i18n', 'zh-Hans', 'docusaurus-plugin-content-docs', 'current')},
-];
+const DOCS_DIR = join(websiteDir, 'docs');
 
 const OUT_FILE = join(websiteDir, 'static', 'search-index.json');
 
@@ -75,9 +71,8 @@ function toText(md) {
     .trim();
 }
 
-function urlFor(locale, file) {
+function urlFor(file) {
   let rel = relative(websiteDir, file).replace(/\\/g, '/');
-  rel = rel.replace(/^i18n\/zh-Hans\/docusaurus-plugin-content-docs\/current\//, 'zh-Hans/');
   rel = rel.replace(/^docs\//, '');
   rel = rel.replace(/\.mdx?$/, '');
   rel = rel.replace(/\/index$/, '');
@@ -88,30 +83,27 @@ function urlFor(locale, file) {
 
 const docs = [];
 
-for (const {locale, dir} of SOURCES) {
-  for (const file of walk(dir)) {
-    const raw = readFileSync(file, 'utf8');
-    const {data, body} = frontmatter(raw);
-    if (data.sidebar_class_name || data.hide) continue;
-    const title = (data.title || '').trim();
-    const h1 = body.match(/^#\s+(.+)$/m);
-    const name = title || (h1 ? h1[1].trim() : '');
-    if (!name) continue;
+for (const file of walk(DOCS_DIR)) {
+  const raw = readFileSync(file, 'utf8');
+  const {data, body} = frontmatter(raw);
+  if (data.sidebar_class_name || data.hide) continue;
+  const title = (data.title || '').trim();
+  const h1 = body.match(/^#\s+(.+)$/m);
+  const name = title || (h1 ? h1[1].trim() : '');
+  if (!name) continue;
 
-    const headings = [...body.matchAll(/^#{2,4}\s+(.+)$/gm)]
-      .map((m) => toText(m[1]).slice(0, HEADING_CHARS))
-      .filter(Boolean)
-      .slice(0, MAX_HEADINGS);
+  const headings = [...body.matchAll(/^#{2,4}\s+(.+)$/gm)]
+    .map((m) => toText(m[1]).slice(0, HEADING_CHARS))
+    .filter(Boolean)
+    .slice(0, MAX_HEADINGS);
 
-    const text = toText(body.replace(/^#\s+.+$/m, ''));
-    docs.push({
-      u: urlFor(locale, file),
-      l: locale,
-      t: name,
-      h: headings,
-      b: text.slice(0, BODY_CHARS).toLowerCase(),
-    });
-  }
+  const text = toText(body.replace(/^#\s+.+$/m, ''));
+  docs.push({
+    u: urlFor(file),
+    t: name,
+    h: headings,
+    b: text.slice(0, BODY_CHARS).toLowerCase(),
+  });
 }
 
 const payload = {v: 1, built: new Date().toISOString().slice(0, 10), docs};

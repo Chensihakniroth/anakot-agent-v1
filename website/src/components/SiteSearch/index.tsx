@@ -5,7 +5,6 @@ import styles from './styles.module.css';
 
 interface Doc {
   u: string;
-  l: string;
   t: string;
   h: string[];
   b: string;
@@ -105,14 +104,12 @@ function search(docs: Doc[], rawQuery: string): Hit[] {
 }
 
 export default function SiteSearch(): React.JSX.Element {
-  const {i18n, siteConfig} = useDocusaurusContext();
-  const locale = i18n.currentLocale;
-  // The index is a single locale-agnostic asset and each entry's `u` already
-  // carries its own locale prefix (`/zh-Hans/...`), so both the fetch path and
-  // the result hrefs must be built from the site root, never from the
-  // locale-relative base. useBaseUrl() resolves to `/docs/zh-Hans/` on a
-  // translated page, which 404s the index and double-prefixes every result
-  // link (`/docs/zh-Hans/zh-Hans/...`).
+  const {siteConfig} = useDocusaurusContext();
+  // The index is a single asset built from docs/ and every entry's `u` is
+  // already site-root absolute, so both the fetch path and the result hrefs
+  // must be built from the site root, never from a locale-relative base.
+  // useBaseUrl() is locale-relative, which 404s the index and double-prefixes
+  // every result link.
   const baseUrl = siteConfig.baseUrl;
   const indexPath = siteConfig.baseUrl + 'search-index.json';
 
@@ -124,8 +121,7 @@ export default function SiteSearch(): React.JSX.Element {
   const inputRef = useRef<HTMLInputElement>(null);
   const openerRef = useRef<HTMLButtonElement>(null);
 
-  const scoped = useMemo(() => (docs ?? []).filter((d) => d.l === locale), [docs, locale]);
-  const hits = useMemo(() => search(scoped, query), [scoped, query]);
+  const hits = useMemo(() => search(docs ?? [], query), [docs, query]);
 
   const openSearch = useCallback(() => {
     setOpen(true);
@@ -249,7 +245,7 @@ export default function SiteSearch(): React.JSX.Element {
               {!error && docs === null && <p className={styles.note}>Loading search index...</p>}
 
               {!error && docs !== null && query.trim() === '' && (
-                <p className={styles.note}>Type to search {scoped.length} pages.</p>
+                <p className={styles.note}>Type to search {docs.length} pages.</p>
               )}
 
               {!error && query.trim() !== '' && hits.length === 0 && (

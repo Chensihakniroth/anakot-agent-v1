@@ -226,7 +226,7 @@ jobs:
       - name: Merge retained assets from previous deploys
         run: |
           set -euo pipefail
-          ASSET_DIRS="assets zh-Hans/assets"
+          ASSET_DIRS="assets"
           mkdir -p _asset_retention
           # 1) Add this build's hashed assets to the pool (fresh mtimes, so
           #    assets still shipped by current builds never age out).

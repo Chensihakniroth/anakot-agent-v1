@@ -38,7 +38,13 @@ const BASE = process.env.DOCS_PREVIEW_URL || 'https://anakot-agent-doc.up.railwa
   await page.locator('[role="option"]').first().click();
   await page.waitForLoadState('domcontentloaded');
   console.log('navigated to  :', page.url());
-  assert.ok(!page.url().includes('/zh-Hans/zh-Hans/'), 'no double locale prefix');
+  // The index is built from docs/ only and every entry's `u` is site-root
+  // absolute, so a result must land inside the site's base path. This used to
+  // assert "no double locale prefix" back when the index also carried zh-Hans
+  // entries; with one locale the meaningful invariant is that the href stayed
+  // under the base instead of escaping to a 404 or a raw filesystem path.
+  const basePath = new URL(BASE).pathname.replace(/\/?$/, '/');
+  assert.ok(page.url().startsWith(new URL(BASE).origin + basePath), 'result stayed under the site base path');
   assert.ok((await page.locator('h1').count()) === 1, 'exactly one h1 on the target page');
   console.log('target h1     :', JSON.stringify(await page.locator('h1').first().innerText()));
 

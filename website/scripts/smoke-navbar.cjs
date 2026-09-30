@@ -143,9 +143,12 @@ const {chromium} = require('playwright');
 
           if (width > 996) {
             const current = await page.locator('html').getAttribute('data-theme');
+            // The only navbar dropdown left is the theme switcher - the locale
+            // dropdown went when zh-Hans was removed. Assert it opens and that
+            // it offers the theme options, not a locale count.
             await page.locator('.navbar__inner .dropdown > [role="button"]').click();
             await page.locator('.navbar .dropdown__menu').waitFor({state: 'visible'});
-            assert.ok(await page.locator('.navbar .dropdown__link').count() >= 2, 'locale dropdown lists locales');
+            assert.ok(await page.locator('.navbar .dropdown__link').count() >= 1, 'theme dropdown opens with options');
             await page.locator('h1').click();
             const toggle = page.getByRole('button', {name: /Switch between dark and light mode/});
             for (let i = 0; i < 3 && await page.locator('html').getAttribute('data-theme') === current; i++) await toggle.click();

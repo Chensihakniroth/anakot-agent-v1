@@ -53,7 +53,9 @@ def _pages_on_disk(gen) -> set[str]:
     pages = set()
     for path in (*gen.DOCS.rglob("*.md"), *gen.DOCS.rglob("*.mdx")):
         rel = path.relative_to(gen.DOCS).with_suffix("")
-        slug = str(rel.parent) if rel.name == "index" else str(rel)
+        # as_posix, not str: the slugs under test are forward-slash, so a
+        # native-separator path here makes every page look absent on Windows.
+        slug = rel.parent.as_posix() if rel.name == "index" else rel.as_posix()
         # The docs landing page is the index's subject; per-skill pages are
         # summarized by the two catalog reference pages.
         if slug == "." or slug.startswith(("user-guide/skills/bundled", "user-guide/skills/optional")):

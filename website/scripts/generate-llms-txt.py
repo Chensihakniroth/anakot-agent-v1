@@ -223,11 +223,16 @@ def read_frontmatter(path: Path) -> tuple[dict[str, str], str]:
 
 
 def slug_for(path: Path) -> str:
-    """URL slug for a page: `user-guide/messaging/index.md` → `user-guide/messaging`."""
+    """URL slug for a page: `user-guide/messaging/index.md` → `user-guide/messaging`.
+
+    `.as_posix()` is load-bearing, not cosmetic: the slug is compared against
+    forward-slash prefixes (ABSORB, SKILL_CATALOG) and interpolated into a URL,
+    so a native-separator slug silently misses every match on Windows.
+    """
     rel = path.relative_to(DOCS).with_suffix("")
     if rel.name == "index":
         rel = rel.parent
-    return "" if str(rel) == "." else str(rel)
+    return "" if str(rel) == "." else rel.as_posix()
 
 
 def doc_path(slug: str) -> Path | None:

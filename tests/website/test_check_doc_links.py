@@ -26,7 +26,7 @@ def checker():
 
 def test_hand_authored_docs_have_no_route_style_links(checker):
     """The live tree stays clean: every route-style link 404s on GitHub."""
-    assert checker.main(["--en-only"]) == 0
+    assert checker.main([]) == 0
 
 
 def test_fix_rewrites_route_to_relative_path_keeping_anchor(checker, tmp_path, monkeypatch):
@@ -43,7 +43,6 @@ def test_fix_rewrites_route_to_relative_path_keeping_anchor(checker, tmp_path, m
         encoding="utf-8",
     )
     monkeypatch.setattr(checker, "EN_DOCS", docs)
-    monkeypatch.setattr(checker, "ZH_DOCS", tmp_path / "missing")
 
     assert checker.main([]) == 1
     assert checker.main(["--fix"]) == 0

@@ -1,7 +1,6 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
-import relativeDocLinks from './src/remark/relativeDocLinks';
 
 // Site origin and path prefix are environment-driven so one source tree can be
 // built for any host: Railway sets SITE_URL, GitHub Pages and local `npm start`
@@ -33,20 +32,6 @@ const config: Config = {
     mermaid: true,
     hooks: {
       onBrokenMarkdownLinks: 'warn',
-    },
-  },
-
-  i18n: {
-    defaultLocale: 'en',
-    locales: ['en', 'zh-Hans'],
-    localeConfigs: {
-      en: {
-        label: 'English',
-      },
-      'zh-Hans': {
-        label: '简体中文',
-        htmlLang: 'zh-Hans',
-      },
     },
   },
 
@@ -95,9 +80,6 @@ const config: Config = {
           routeBasePath: '/',  // Docs at the root of /docs/
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/Chensihakniroth/anakot-agent-v1/edit/main/website/',
-          // Relative `.md` links (readable on GitHub, #114428) must also resolve
-          // across the zh-Hans fallback boundary; see src/remark/relativeDocLinks.js.
-          beforeDefaultRemarkPlugins: [[relativeDocLinks, {siteDir: __dirname}]],
         },
         blog: false,
         theme: {
@@ -152,10 +134,6 @@ const config: Config = {
           label: 'Get started',
           position: 'right',
           className: 'navbar-cta',
-        },
-        {
-          type: 'localeDropdown',
-          position: 'right',
         },
         {
           href: repoUrl,

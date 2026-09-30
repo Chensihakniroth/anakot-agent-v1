@@ -18,7 +18,7 @@ Exempt, in both modes:
   `/llms*.txt`, `/api/...` (static assets).
 
 Usage:
-    python3 website/scripts/check_doc_links.py            # lint EN + zh-Hans
+    python3 website/scripts/check_doc_links.py            # lint the docs tree
     python3 website/scripts/check_doc_links.py --fix      # rewrite in place
 """
 
@@ -32,7 +32,6 @@ from pathlib import Path
 
 WEBSITE = Path(__file__).resolve().parents[1]
 EN_DOCS = WEBSITE / "docs"
-ZH_DOCS = WEBSITE / "i18n" / "zh-Hans" / "docusaurus-plugin-content-docs" / "current"
 
 # Written by generate-skill-docs.py; edit the generator, never these outputs.
 GENERATED_PREFIXES = ("user-guide/skills/bundled/", "user-guide/skills/optional/")
@@ -100,9 +99,8 @@ def normalize_route(target: str) -> tuple[str, str]:
 def relative_link(source: Path, source_root: Path, target: Path, target_root: Path) -> str:
     """Path from `source` to `target`, expressed inside the source's own tree.
 
-    zh-Hans pages fall back to the EN file when no translation exists; the
-    relative path is computed as if the target sat in the same tree, which is
-    how both Docusaurus (locale content paths) and GitHub (EN files) resolve it.
+    The relative path is computed as if the target sat in the same tree, which
+    is how both Docusaurus (content paths) and GitHub (repo files) resolve it.
     """
     target_rel = target.relative_to(target_root)
     virtual_target = source_root / target_rel
@@ -177,36 +175,26 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="also process generator outputs (only for a one-off migration; the generator owns them)",
     )
-    parser.add_argument("--en-only", action="store_true", help="skip the zh-Hans mirror")
     args = parser.parse_args(argv)
 
-    en_routes = route_map(EN_DOCS)
-    trees = [EN_DOCS] if args.en_only or not ZH_DOCS.exists() else [EN_DOCS, ZH_DOCS]
-    all_findings: list[str] = []
-    all_unresolved: list[str] = []
-    rewritten = 0
-    for tree in trees:
-        f, u, r = process_tree(tree, en_routes, args.fix, args.include_generated)
-        all_findings += f
-        all_unresolved += u
-        rewritten += r
+    findings, unresolved, rewritten = process_tree(EN_DOCS, route_map(EN_DOCS), args.fix, args.include_generated)
 
-    if all_unresolved:
+    if unresolved:
         print("Route-style links that match no doc file (fix the target first):", file=sys.stderr)
-        for line in all_unresolved:
+        for line in unresolved:
             print(f"  {line}", file=sys.stderr)
         return 1
     if args.fix:
-        print(f"Rewrote {len(all_findings)} route-style links in {rewritten} files.")
+        print(f"Rewrote {len(findings)} route-style links in {rewritten} files.")
         return 0
-    if all_findings:
+    if findings:
         print(
             "Route-style links found in hand-authored docs. They 404 on GitHub; write a relative\n"
             "Markdown path instead (`../user-guide/profiles.md#anchor`) or run\n"
             "`python3 website/scripts/check_doc_links.py --fix`:",
             file=sys.stderr,
         )
-        for line in all_findings:
+        for line in findings:
             print(f"  {line}", file=sys.stderr)
         return 1
     print("OK: no route-style links in hand-authored docs.")
