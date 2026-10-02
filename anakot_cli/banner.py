@@ -59,28 +59,23 @@ def _skin_color(key: str, fallback: str) -> str:
 
 from anakot_cli import __version__ as VERSION, __release_date__ as RELEASE_DATE
 
-ANAKOT_AGENT_LOGO = """[bold #FFD700] █████╗  ███╗   ██╗  █████╗  ██╔══██╗  ██████╗  ████████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
-[bold #FFD700]██╔══██╗ ████╗  ██║ ██╔══██╗ ██║╚██╗██║ ██╔═══██╗ ╚══██╔══╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
-[#FFBF00]███████║ ██╔██╗ ██║ ███████║ ██║ ╚████║ ██║   ██║    ██║          ███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
-[#FFBF00]██╔══██║ ██║╚██╗██║ ██╔══██║ ██╔═══██╗ ██║   ██║    ██║          ██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
-[#CD7F32]██║  ██║ ██║ ╚████║ ██║  ██║ ██╔══██╗ ╚██████╔╝    ██║               ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║[/]
-[#CD7F32]╚═╝  ╚═╝ ╚═╝  ╚═══╝ ╚═╝  ╚═╝ ╚═════╝   ╚═════╝     ╚═╝           ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]"""
-
-ANAKOT_CADUCEUS = """[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⣀⣀⠀⢀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#CD7F32]⠀⠀⠀⠀⠀⠀⢀⣠⣴⣾⣿⣿⣇⠸⣿⣿⠇⣸⣿⣿⣷⣦⣄⡀⠀⠀⠀⠀⠀⠀[/]
-[#FFBF00]⠀⢀⣠⣴⣶⠿⠋⣩⡿⣿⡿⠻⣿⡇⢠⡄⢸⣿⠟⢿⣿⢿⣍⠙⠿⣶⣦⣄⡀⠀[/]
-[#FFBF00]⠀⠀⠉⠉⠁⠶⠟⠋⠀⠉⠀⢀⣈⣁⡈⢁⣈⣁⡀⠀⠉⠀⠙⠻⠶⠈⠉⠉⠀⠀[/]
-[#FFD700]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣴⣿⡿⠛⢁⡈⠛⢿⣿⣦⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFD700]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠿⣿⣦⣤⣈⠁⢠⣴⣿⠿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFBF00]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠻⢿⣿⣦⡉⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#FFBF00]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠘⢷⣦⣈⠛⠃⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢠⣴⠦⠈⠙⠿⣦⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#CD7F32]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠸⣿⣤⡈⠁⢤⣿⠇⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠉⠛⠷⠄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⠑⢶⣄⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣿⠁⢰⡆⠈⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠳⠈⣡⠞⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#B8860B]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]"""
+# ── Banner art ────────────────────────────────────────────────────
+#
+# There is no built-in wordmark. The ASCII art that shipped here was
+# 113 columns of mixed-weight glyphs (U+2588 full blocks interleaved with
+# U+2554/2557/255A/255D box-drawing) whose rows were 106/109/110/113
+# columns wide from ragged trailing whitespace. FiraCode Nerd Font draws
+# those two glyph families at different visual weights, so the outlined
+# letters smeared over the solid ones, the ragged rows sheared the
+# letters out of alignment, and the result was unreadable. A skin that
+# genuinely wants art can still set `banner_logo`; nothing is drawn when
+# it doesn't.
+#
+# The braille caduceus was 15x30 of scattered dots that read as noise;
+# `ANAKOT_CADUCEUS` is kept as an empty string so the old name still
+# imports without a deprecation shim.
+ANAKOT_AGENT_LOGO = ""
+ANAKOT_CADUCEUS = ""
 
 # === Skills scanning ===
 
@@ -152,8 +147,8 @@ UPDATE_AVAILABLE_NO_COUNT = -1
 #     and whether the release link is shown. Left inert on purpose: no install's origin matches
 #     it, so no link is rendered. Pointing it at the fork would surface `_RELEASE_URL_BASE` (a
 #     releases page with nothing in it) — a separate decision, not a rename.
-_UPDATE_SOURCE_SLUG = "nousresearch/hermes-agent"
-_UPDATE_SOURCE_REPO_URL = "https://github.com/NousResearch/hermes-agent.git"
+_UPDATE_SOURCE_SLUG = "Chensihakniroth/anakot-agent-v1"
+_UPDATE_SOURCE_REPO_URL = "https://github.com/Chensihakniroth/anakot-agent-v1.git"
 _UPSTREAM_REPO_URL = _UPDATE_SOURCE_REPO_URL
 _OFFICIAL_REPO_CANONICAL = "github.com/nousresearch/anakot-agent"
 
@@ -246,7 +241,7 @@ def _github_compare(current_rev: str, target_rev: str) -> Optional[dict]:
     key = (current_rev, target_rev)
     if key in _compare_payload_cache:
         return _compare_payload_cache[key]
-    url = f"https://api.github.com/repos/nousresearch/hermes-agent/compare/{current_rev}...{target_rev}"
+    url = f"https://api.github.com/repos/{_UPDATE_SOURCE_SLUG}/compare/{current_rev}...{target_rev}"
 
     def _fetch():
         import urllib.request
@@ -988,7 +983,9 @@ def build_welcome_banner(
     text = _skin_color("banner_text", "#FFF8DC")
     # Use skin's custom caduceus art if provided
     _bskin = _quiet(_active_skin)
-    left_lines = ["", getattr(_bskin, "banner_hero", None) or ANAKOT_CADUCEUS, ""]
+    # A skin may still opt into hero art; none of the built-in skins do, so
+    # the panel starts flush instead of padding around an empty glyph.
+    left_lines = [getattr(_bskin, "banner_hero", None) or ""]
     left_lines += _banner_left_lines(model, cwd, session_id, context_length, provider, accent=accent, dim=dim)
     right_lines = _banner_tool_lines(
         tools, availability.get("unavailable_toolsets", []), get_toolset_for_tool,
@@ -1048,7 +1045,10 @@ def build_welcome_banner(
         layout_table, title=f"[bold {_skin_color('banner_title', '#FFD700')}]{version_label}[/]",
         border_style=_skin_color("banner_border", "#CD7F32"), padding=(0, 2))
     console.print()
-    if shutil.get_terminal_size().columns >= 95:
-        console.print(getattr(_bskin, "banner_logo", None) or ANAKOT_AGENT_LOGO)
+    # Opt-in skin art. Nothing is drawn when the skin ships no `banner_logo`,
+    # which is the case for every built-in skin.
+    _art = getattr(_bskin, "banner_logo", None) or ""
+    if _art and shutil.get_terminal_size().columns >= 95:
+        console.print(_art)
         console.print()
     console.print(outer_panel)

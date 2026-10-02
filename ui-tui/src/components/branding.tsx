@@ -3,7 +3,7 @@ import { mix } from '@anakot/shared/color'
 import { useEffect, useState } from 'react'
 import unicodeSpinners from 'unicode-animations'
 
-import { artWidth, caduceus, CADUCEUS_WIDTH, logo, LOGO_WIDTH } from '../banner.js'
+import { artWidth, logo } from '../banner.js'
 import { flat } from '../lib/text.js'
 import type { Theme } from '../theme.js'
 import type { PanelSection, SessionInfo } from '../types.js'
@@ -49,26 +49,16 @@ export function ArtLines({ lines }: { lines: [string, string][] }) {
   )
 }
 
-// Responsive Banner: full art → compact rule → text → hidden.
+// Banner: skin art (if any) → typographic header → hidden.
 //
-// Terminals can't scale glyphs, so "responsive" means picking a layout that
-// fits the available columns. Thresholds are picked so each tier reads
-// comfortably without forcing wrap or truncation drift on box-drawing edges.
-const TAG_FULL = 'Nous Research · Messenger of the Digital Gods'
-const TAG_MID = 'Messenger of the Digital Gods'
-const TAG_TINY = 'Nous Research'
-const HIDE_BELOW = 34
-const COMPACT_FROM = 58
+// No built-in wordmark ships any more. A skin that sets `banner_logo` still
+// gets its art rendered; everyone else gets a clean typographic header that
+// degrades by dropping the tagline, then the rule, then the whole header.
+const HIDE_BELOW = 24
+const RULE_FROM = 40
+const TEXT_FROM = 24
 
-const clip = (s: string, w: number) => (w <= 0 ? '' : s.length > w ? `${s.slice(0, Math.max(0, w - 1))}…` : s)
-
-const centerIn = (s: string, w: number) => {
-  const f = clip(s, w)
-  const slack = Math.max(0, w - f.length)
-  const left = slack >> 1
-
-  return `${' '.repeat(left)}${f}${' '.repeat(slack - left)}`
-}
+const clip = (s: string, w: number) => (w <= 0 ? '' : s.length > w ? `${s.slice(0, Math.max(0, w - 1))}...` : s)
 
 const ruleIn = (label: string, w: number) => {
   const f = clip(label, Math.max(1, w - 4))
@@ -76,28 +66,6 @@ const ruleIn = (label: string, w: number) => {
   const left = slack >> 1
 
   return `${'─'.repeat(left)} ${f} ${'─'.repeat(slack - left)}`
-}
-
-function CompactBanner({ cols, t }: { cols: number; t: Theme }) {
-  // -4 keeps a margin so exact-edge rows don't trip terminal pending-wrap.
-  const w = Math.max(28, cols - 4)
-
-  // No `opaque` (see ArtLines): the dashed rules are glyphs and the tagline's
-  // centering spaces carry the text's own fg style, so every cell paints with
-  // a real see-through background. The opaque fill was writing default-bg
-  // spaces that a transparent terminal renders as black bars.
-  // NOT bold: on Cursor's transparent-background terminal, a full-width run
-  // of BOLD box-drawing dashes renders with an opaque black cell background
-  // (the plain-dash rule right below renders clean — pixel-diffed live; the
-  // only stylistic delta was bold). Bold on short label runs is fine; bold on
-  // full-width box-drawing rows is what triggers the slab.
-  return (
-    <Box flexDirection="column" height={3} marginBottom={1} width={w}>
-      <Text color={t.color.primary}>{ruleIn(t.brand.name, w)}</Text>
-      <Text color={t.color.muted}>{centerIn(TAG_FULL, w)}</Text>
-      <Text color={t.color.primary}>{'─'.repeat(w)}</Text>
-    </Box>
-  )
 }
 
 export function Banner({ maxWidth, t }: { maxWidth?: number; t: Theme }) {
@@ -108,84 +76,38 @@ export function Banner({ maxWidth, t }: { maxWidth?: number; t: Theme }) {
     return null
   }
 
-  const logoLines = logo(t.color, t.bannerLogo || undefined)
-  const logoW = t.bannerLogo ? artWidth(logoLines) : LOGO_WIDTH
+  // Opt-in skin art. Nothing renders when the skin ships none, which is
+  // the default for every built-in skin.
+  const artLines = logo(t.bannerLogo || undefined)
+  const artW = artWidth(artLines)
 
-  // Each tier renders its rows through a single-column WidgetGrid sized to
-  // the available columns — same visual output as the old plain flex column
-  // (cells clip where truncate-end used to), but the banner is now a
-  // layout-engine surface.
-  if (cols >= logoW + 2) {
+  if (artLines.length && cols >= artW + 2) {
     return (
       <Box flexDirection="column" marginBottom={1}>
-        <WidgetGrid
-          cols={cols}
-          columns={1}
-          gap={0}
-          paddingX={0}
-          paddingY={0}
-          rowGap={0}
-          widgets={[
-            { children: <ArtLines lines={logoLines} />, id: 'banner-art' },
-            {
-              children: (
-                <Text color={t.color.muted} wrap="truncate-end">
-                  {t.brand.icon} {TAG_FULL}
-                </Text>
-              ),
-              id: 'banner-tagline'
-            }
-          ]}
-        />
+        <ArtLines lines={artLines} />
       </Box>
     )
   }
 
-  if (cols >= COMPACT_FROM) {
+  // The agent name on a rule. No tagline: "Nous Research - Messenger of
+  // the Digital Gods" was decorative filler that duplicated the panel
+  // header directly below it, and its separator (U+00B7) rendered as a
+  // random glyph on terminals whose font lacks Latin-1 Supplement.
+  if (cols >= RULE_FROM) {
+    const w = Math.max(28, cols - 4)
+
     return (
-      <WidgetGrid
-        cols={cols}
-        columns={1}
-        gap={0}
-        paddingX={0}
-        paddingY={0}
-        rowGap={0}
-        widgets={[{ children: <CompactBanner cols={cols} t={t} />, id: 'banner-compact' }]}
-      />
+      <Box flexDirection="column" marginBottom={1} width={w}>
+        <Text color={t.color.primary}>{ruleIn(t.brand.name, w)}</Text>
+      </Box>
     )
   }
 
-  const name = cols >= 52 ? t.brand.name : (t.brand.name.split(' ')[0] ?? t.brand.name)
-  const tag = cols >= 64 ? TAG_FULL : cols >= 46 ? TAG_MID : TAG_TINY
-
   return (
     <Box flexDirection="column" marginBottom={1}>
-      <WidgetGrid
-        cols={cols}
-        columns={1}
-        gap={0}
-        paddingX={0}
-        paddingY={0}
-        rowGap={0}
-        widgets={[
-          {
-            children: (
-              <Text bold color={t.color.primary} wrap="truncate-end">
-                {t.brand.icon} {name}
-              </Text>
-            ),
-            id: 'banner-name'
-          },
-          {
-            children: (
-              <Text color={t.color.muted} wrap="truncate-end">
-                {t.brand.icon} {tag}
-              </Text>
-            ),
-            id: 'banner-tag'
-          }
-        ]}
-      />
+      <Text bold color={t.color.primary} wrap="truncate-end">
+        {t.brand.icon} {t.brand.name}
+      </Text>
     </Box>
   )
 }
@@ -212,10 +134,11 @@ const TOOLSETS_MAX = 8
 export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
   const term = useStdout().stdout?.columns ?? 100
   const cols = Math.max(20, Math.min(term, maxWidth ?? term))
-  const heroLines = caduceus(t.color, t.bannerHero || undefined)
-  const leftW = Math.min((artWidth(heroLines) || CADUCEUS_WIDTH) + 4, Math.floor(cols * 0.4))
-  const wide = cols >= 90 && leftW + 40 < cols
-  const w = Math.max(20, wide ? cols - leftW - 14 : cols - 12)
+  // No hero art column: the braille caduceus was 15 rows of scattered
+  // dots that read as noise, and it stole 40% of the panel width. The
+  // panel is now a single full-width column.
+  const wide = cols >= 76
+  const w = Math.max(20, cols - 6)
   const lineBudget = Math.max(12, w - 2)
   const strip = (s: string) => (s.endsWith('_tools') ? s.slice(0, -6) : s)
 
@@ -239,7 +162,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
       const next = line ? `${line}, ${item}` : item
 
       if (pfx.length + next.length > lineBudget) {
-        return line ? `${line}, …+${items.length - shown}` : `${item}, …`
+        return line ? `${line}, ...+${items.length - shown}` : `${item}, ...`
       }
 
       line = next
@@ -271,7 +194,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
             <Text color={listFade}>{truncLine(strip(k) + ': ', vs)}</Text>
           </Text>
         ))}
-        {overflow > 0 && <Text color={t.color.muted}>(and {overflow} more categories…)</Text>}
+        {overflow > 0 && <Text color={t.color.muted}>(and {overflow} more categories...)</Text>}
       </>
     )
   }
@@ -303,7 +226,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
             <Text color={listFade}>{truncLine(strip(k) + ': ', vs)}</Text>
           </Text>
         ))}
-        {overflow > 0 && <Text color={t.color.muted}>(and {overflow} more toolsets…)</Text>}
+        {overflow > 0 && <Text color={t.color.muted}>(and {overflow} more toolsets...)</Text>}
       </>
     )
   }
@@ -350,63 +273,28 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
     return <Text color={t.color.muted}>{info.system_prompt}</Text>
   }
 
-  // The wide layout is a real two-column grid: a fixed-width hero track and a
-  // flexible info track (grid-template-columns: <leftW> 1fr, gap 2) — the
-  // terminal equivalent of the desktop pane shell's fixed-vs-flex tracks.
-  // Narrow drops to a single flexible track. Track math reproduces the old
-  // hand-rolled widths exactly: usable = (leftW + 2 + w) - gap = leftW + w.
-  const heroColumn = wide ? (
-    <Box flexDirection="column" width="100%">
-      <ArtLines lines={heroLines} />
-      <Text />
-
-      <Text color={t.color.accent}>
-        {(info.model ?? '').split('/').pop()}
-        <Text color={t.color.muted}> · Nous Research</Text>
-      </Text>
-
-      <Text color={t.color.muted} wrap="truncate-end">
-        {info.cwd || process.cwd()}
-      </Text>
-
-      {sid && (
-        <Text>
-          <Text color={t.color.sessionLabel}>Session: </Text>
-          <Text color={t.color.sessionBorder}>{sid}</Text>
-        </Text>
-      )}
-    </Box>
-  ) : null
+  // Single full-width info track. The panel used to be a two-column grid
+  // with a fixed-width hero art track beside it; the braille caduceus in
+  // that track read as scattered dots and stole 40% of the width, so the
+  // track is gone and the content gets the whole panel.
 
   const infoColumn = (
     <Box flexDirection="column" width="100%">
-      {wide ? (
-        <Box justifyContent="center" marginBottom={1}>
-          <Text bold color={t.color.primary}>
-            {t.brand.name}
-            {info.version ? ` v${info.version}` : ''}
-            {info.release_date ? ` (${info.release_date})` : ''}
-          </Text>
-        </Box>
-      ) : (
-        // Narrow layout hides the hero column; surface model/cwd/session
-        // here so they aren't lost.
-        <Box flexDirection="column" marginBottom={1}>
-          <Text color={t.color.accent} wrap="truncate-end">
-            {(info.model ?? '').split('/').pop()}
-            <Text color={t.color.muted}> · Nous Research</Text>
-          </Text>
-          <Text color={t.color.muted} wrap="truncate-end">
-            {info.cwd || process.cwd()}
-          </Text>
-          {sid && (
-            <Text wrap="truncate-end">
-              <Text color={t.color.sessionLabel}>Session: </Text>
-              <Text color={t.color.sessionBorder}>{sid}</Text>
-            </Text>
-          )}
-        </Box>
-      )}
+      {/* Header: identity on the left, session facts right-aligned. */}
+      <Box flexDirection="column" marginBottom={1}>
+        <Text bold color={t.color.primary} wrap="truncate-end">
+          {t.brand.name}
+          {info.version ? ` v${info.version}` : ''}
+          {info.release_date ? ` (${info.release_date})` : ''}
+        </Text>
+        <Text color={t.color.muted} wrap="truncate-end">
+          {(info.model ?? '').split('/').pop()}
+          {sid ? `  ${sid}` : ''}
+        </Text>
+        <Text color={t.color.muted} wrap="truncate-end">
+          {info.cwd || process.cwd()}
+        </Text>
+      </Box>
 
       {/* ── Tools (expanded by default) ── */}
       <Box flexDirection="column" marginTop={1}>
@@ -435,7 +323,7 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
           <Accordion
             onToggle={() => setSystemOpen(v => !v)}
             open={systemOpen}
-            suffix={`— ${sysPromptLen.toLocaleString()} chars`}
+            suffix={`${sysPromptLen.toLocaleString()} chars`}
             t={t}
             title="System Prompt"
           >
@@ -464,10 +352,10 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
 
       <Text color={t.color.text}>
         {/* Lazy boot: never print "0 tools · 0 skills" while counts load. */}
-        {info.lazy && !toolsTotal ? '… ' : `${toolsTotal} `}tools{' · '}
-        {info.lazy && !skillsTotal ? '… ' : `${skillsTotal} `}skills
-        {mcpConnected ? ` · ${mcpConnected} MCP` : ''}
-        {' · '}
+        {info.lazy && !toolsTotal ? '... ' : `${toolsTotal} `}tools{'  '}
+        {info.lazy && !skillsTotal ? '... ' : `${skillsTotal} `}skills
+        {mcpConnected ? `  ${mcpConnected} MCP` : ''}
+        {'  '}
         <Text color={t.color.muted}>/help for commands</Text>
       </Text>
 
@@ -499,20 +387,13 @@ export function SessionPanel({ info, maxWidth, sid, t }: SessionPanelProps) {
   return (
     <Box borderColor={t.color.border} borderStyle="round" marginBottom={1} paddingX={2} paddingY={1}>
       <WidgetGrid
-        cols={wide ? leftW + 2 + w : w}
-        columns={wide ? [leftW, { fr: 1 }] : 1}
+        cols={w}
+        columns={1}
         gap={2}
         paddingX={0}
         paddingY={0}
         rowGap={0}
-        widgets={
-          wide
-            ? [
-                { children: heroColumn, id: 'session-hero' },
-                { children: infoColumn, id: 'session-info' }
-              ]
-            : [{ children: infoColumn, id: 'session-info' }]
-        }
+        widgets={[{ children: infoColumn, id: 'session-info' }]}
       />
     </Box>
   )
