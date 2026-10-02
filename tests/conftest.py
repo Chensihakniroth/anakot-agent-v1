@@ -22,6 +22,9 @@ test runner at ``scripts/run_tests.sh``.
 import asyncio
 import atexit
 import importlib
+import importlib.abc
+import importlib.machinery
+import importlib.util
 import os
 import shutil
 import sqlite3
@@ -592,6 +595,120 @@ def _hermetic_environment(tmp_path, monkeypatch):
 def _isolate_anakot_home(_hermetic_environment):
     """Alias preserved for any test that yields this name explicitly."""
     return None
+
+
+# ``dotenv.main``/``dotenv.variables`` are imported LAZILY inside
+# anakot_cli/env_loader._load_dotenv_with_fallback, precisely so that gateway
+# tests can stub ``sys.modules["dotenv"]`` with a bare module before
+# ``gateway.run`` loads it at import time. That stub has no ``__path__``, so
+# once anything reaches the lazy import the submodule lookup fails:
+#   ModuleNotFoundError: No module named 'dotenv.main'; 'dotenv' is not a package
+#
+# It only bites when the lazy path actually runs, which needs an env file to
+# parse. gateway/run.py passes project_env=<repo>/.env, so a developer with a
+# local (gitignored) repo .env hits it and CI does not — the classic
+# works-locally-fails-in-CI shape. 14 gateway tests were affected.
+#
+# A fixture cannot fix this: the stubs are installed INSIDE test bodies, after
+# fixtures have run. So resolve it on the import side — hand back the real
+# submodules whenever the top-level ``dotenv`` entry is a stub.
+_REAL_DOTENV_SUBMODULES = ("dotenv.main", "dotenv.variables")
+
+# Captured once, at conftest import, while ``sys.modules['dotenv']`` is still the
+# genuine package: a stub installed later has no __path__, so by then the real
+# location is unreachable through normal import machinery.
+try:
+    import dotenv as _real_dotenv
+
+    _REAL_DOTENV_DIR = Path(_real_dotenv.__file__).resolve().parent
+except Exception:  # pragma: no cover - dotenv missing entirely
+    _REAL_DOTENV_DIR = None
+
+
+def _dotenv_stubbed() -> bool:
+    """True when sys.modules['dotenv'] is a non-package stand-in."""
+    stub = sys.modules.get("dotenv")
+    return stub is not None and not hasattr(stub, "__path__")
+
+
+def _load_real_dotenv_submodule(name):
+    """Import a genuine ``dotenv`` submodule by file path, ignoring the stub.
+
+    ``importlib.import_module(name)`` would recurse into the same broken lookup
+    that got us here, so go straight to the file captured above.
+    """
+    if _REAL_DOTENV_DIR is None:
+        return None
+    target = _REAL_DOTENV_DIR / f"{name.rsplit('.', 1)[-1]}.py"
+    if not target.is_file():
+        return None
+    existing = sys.modules.get(name)
+    if existing is not None and Path(getattr(existing, "__file__", "") or "") == target:
+        return existing  # already the real module
+    spec = importlib.util.spec_from_file_location(name, target)
+    if spec is None or spec.loader is None:
+        return None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[name] = module
+    try:
+        spec.loader.exec_module(module)
+    except Exception:
+        sys.modules.pop(name, None)
+        raise
+    return module
+
+
+class _PreloadedLoader(importlib.abc.Loader):
+    """Yields an already-executed module instead of re-running its source."""
+
+    def __init__(self, module):
+        self._module = module
+
+    def create_module(self, spec):
+        return self._module
+
+    def exec_module(self, module):
+        pass
+
+
+class _DotenvStubSubmoduleFinder(importlib.abc.MetaPathFinder):
+    """Serve genuine ``dotenv`` submodules while ``sys.modules['dotenv']`` is a stub.
+
+    A bare stub has no ``__path__``, so the default machinery refuses
+    ``dotenv.main`` -- but ``env_loader`` imports it lazily on the parsing path,
+    which a developer with a repo ``.env`` reaches and CI does not. Subclasses
+    MetaPathFinder (rather than being a plain function on ``sys.meta_path``) so
+    the full finder protocol stays intact for every other import in the suite.
+    """
+
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname not in _REAL_DOTENV_SUBMODULES or not _dotenv_stubbed():
+            return None
+        real = _load_real_dotenv_submodule(fullname)
+        if real is None:
+            return None  # dotenv genuinely absent — let the real error surface
+        spec = importlib.machinery.ModuleSpec(
+            fullname, _PreloadedLoader(real), origin=getattr(real, "__file__", None)
+        )
+        return spec
+
+
+@pytest.fixture(autouse=True)
+def _dotenv_submodules_survive_stub():
+    """Keep ``from dotenv.main import ...`` working under a stubbed ``dotenv``.
+
+    Resolution is lazy (import-time), so this holds for stubs installed during
+    the test body, not just at fixture time.
+    """
+    finder = _DotenvStubSubmoduleFinder()
+    sys.meta_path.insert(0, finder)
+    try:
+        yield
+    finally:
+        try:
+            sys.meta_path.remove(finder)
+        except ValueError:  # already removed by a test that mucked with meta_path
+            pass
 
 
 @pytest.fixture(autouse=True)
