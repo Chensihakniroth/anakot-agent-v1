@@ -1315,6 +1315,11 @@ def list_picker_providers(
                 live_ids = [mid for mid, _ in fetch_openrouter_models()]
             except Exception:
                 live_ids = list(p.get("models", []))
+            # The base picker deliberately injects the active model, but replacing this row with
+            # the curated OpenRouter catalog would otherwise discard that injection. Preserve it
+            # here too: an explicitly configured uncurated model must remain visible as current.
+            if p.get("is_current") and current_model and current_model not in live_ids:
+                live_ids.insert(0, current_model)
             p = dict(p)
             p["models"] = live_ids[:max_models] if max_models is not None else live_ids
             p["total_models"] = len(live_ids)

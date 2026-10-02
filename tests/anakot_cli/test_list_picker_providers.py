@@ -240,3 +240,27 @@ def test_distinct_kimi_china_credential_still_listed(monkeypatch):
     assert slugs.count("kimi-coding") == 1
     assert "kimi" not in slugs          # alias collapsed into the canonical row
     assert "kimi-coding-cn" in slugs    # distinct China endpoint preserved
+
+
+def test_openrouter_picker_keeps_current_uncurated_model(monkeypatch):
+    """The active OpenRouter model must survive the curated-list replacement."""
+    current = "stealth/space-bunny-alpha"
+    row = _make_provider(
+        "openrouter", is_current=True,
+        models=[current, "openai/gpt-5.5"],
+    )
+    monkeypatch.setattr(model_switch, "list_authenticated_providers", lambda **_kwargs: [row])
+    monkeypatch.setattr(
+        anakot_cli_model_switch_providers, "list_authenticated_providers",
+        lambda **_kwargs: [row],
+    )
+    monkeypatch.setattr(
+        "anakot_cli.models.fetch_openrouter_models",
+        lambda *_a, **_kw: [("openai/gpt-5.5", "")],
+    )
+
+    result = model_switch_providers.list_picker_providers(
+        current_provider="openrouter", current_model=current,
+    )
+
+    assert result[0]["models"] == [current, "openai/gpt-5.5"]
