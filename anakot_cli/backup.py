@@ -348,7 +348,9 @@ def _safe_copy_db(src: Path, dst: Path, *, timeout_seconds: float = 10.0) -> boo
                 os.close(secure_fd)
         # timeout=0.0 disables sqlite3's implicit busy wait so the progress callback owns the
         # full locked-source deadline instead of adding the default timeout before each callback.
-        conn = sqlite3.connect(f"file:{src}?mode=ro", uri=True, timeout=0.0)
+        # as_uri() percent-escapes the path: an f-string URI breaks on a home
+        # directory containing '#', '?' or a space, silently reading the wrong file.
+        conn = sqlite3.connect(f"{src.resolve().as_uri()}?mode=ro", uri=True, timeout=0.0)
         backup_conn = sqlite3.connect(str(dst))
         busy_deadline = time.monotonic() + max(0.0, timeout_seconds)
 

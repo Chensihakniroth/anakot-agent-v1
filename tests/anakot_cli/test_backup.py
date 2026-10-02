@@ -5,6 +5,7 @@ import os
 import socket
 import sqlite3
 import stat
+import sys
 import zipfile
 from argparse import Namespace
 from pathlib import Path
@@ -465,11 +466,19 @@ class TestImport:
         prompting — restored cron jobs and bot tokens must not sit dormant
         (the install-then-import dead-gateway bug)."""
         import anakot_cli.gateway as gateway_mod
+        from anakot_cli import backup as backup_mod
 
         anakot_home = tmp_path / ".anakot"
         anakot_home.mkdir()
         monkeypatch.setenv("ANAKOT_HOME", str(anakot_home))
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # run_import only revives the gateway when it restored into the native
+        # default home (or no other install exists). Without this the guard reads
+        # the developer's REAL %LOCALAPPDATA%\anakot -- present on any machine
+        # that has Anakot installed -- and short-circuits, so the test passes in
+        # CI and fails on a real workstation. Restore target IS the native home.
+        monkeypatch.setattr(backup_mod, "_get_platform_default_anakot_home", lambda: anakot_home)
 
         calls = []
         monkeypatch.setattr(
@@ -489,11 +498,17 @@ class TestImport:
     def test_import_skips_service_when_already_running(self, tmp_path, monkeypatch):
         """A live gateway is left alone — no reinstall churn during import."""
         import anakot_cli.gateway as gateway_mod
+        from anakot_cli import backup as backup_mod
 
         anakot_home = tmp_path / ".anakot"
         anakot_home.mkdir()
         monkeypatch.setenv("ANAKOT_HOME", str(anakot_home))
         monkeypatch.setattr(Path, "home", lambda: tmp_path)
+
+        # Without this the assertion below is vacuous: the non-default-home
+        # guard returns before _is_service_running is ever consulted, so the
+        # test would "pass" while proving nothing about an already-running gateway.
+        monkeypatch.setattr(backup_mod, "_get_platform_default_anakot_home", lambda: anakot_home)
 
         calls = []
         monkeypatch.setattr(
@@ -1229,9 +1244,12 @@ class TestProfileRestoration:
         from anakot_cli.backup import run_import
         run_import(args)
 
-        # Only valid profile should get a wrapper
-        assert (wrapper_dir / "valid").exists()
-        assert not (wrapper_dir / "empty").exists()
+        # Only valid profile should get a wrapper. profiles._wrapper_path names the
+        # wrapper "<alias>.bat" on Windows, so assert the platform's own name.
+        valid = "valid.bat" if sys.platform == "win32" else "valid"
+        empty = "empty.bat" if sys.platform == "win32" else "empty"
+        assert (wrapper_dir / valid).exists()
+        assert not (wrapper_dir / empty).exists()
 
 
 # ---------------------------------------------------------------------------
@@ -1690,8 +1708,10 @@ class TestQuickSnapshotProjectsKanban:
 
         monkeypatch.setattr(bk, "_safe_copy_db", _spy)
         snap_id = create_quick_snapshot(anakot_home=anakot_home)
-        # The board db was copied via _safe_copy_db (not raw copy).
-        assert any(s.endswith("boards/work/kanban.db") for s in called["db"]), called["db"]
+        # The board db was copied via _safe_copy_db (not raw copy). Compare
+        # POSIX-style: str(Path) carries the host separator, so a literal
+        # "boards/work/kanban.db" suffix only matches on posix hosts.
+        assert any(Path(s).as_posix().endswith("boards/work/kanban.db") for s in called["db"]), called["db"]
         copy = anakot_home / "state-snapshots" / snap_id / "kanban" / "boards" / "work" / "kanban.db"
         rows = sqlite3.connect(str(copy)).execute("SELECT * FROM tasks").fetchall()
         assert rows == [("w1", "ship")]
@@ -2200,8 +2220,13 @@ class TestMemoryProviderExternalPaths:
         restored = dst_home / ".honcho" / "config.json"
         assert restored.exists()
         assert restored.read_text() == '{"peer":"bob"}'
-        # Credential-shaped file tightened.
-        assert (restored.stat().st_mode & 0o777) == 0o600
+        # Credential-shaped file tightened. A POSIX mode has no meaning on Windows
+        # (st_mode there is synthesized from the read-only flag), so the 0600
+        # invariant is asserted only where the platform actually implements it.
+        # The rest of this test — restore location, contents, no-leak — is
+        # host-independent and stays asserted everywhere.
+        if os.name != "nt":
+            assert stat.S_IMODE(restored.stat().st_mode) == 0o600
         # External state did NOT leak into ANAKOT_HOME.
         assert not (anakot_home / "_external").exists()
 

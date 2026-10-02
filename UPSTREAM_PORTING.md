@@ -139,6 +139,9 @@ for c in json.load(sys.stdin):
 | a3a03d48 | 2026-09-22 | refactor(agent): sampler takes serialized records only | PORTED | Dual-signature wrapper dropped; sampler takes records only |
 | e28157be | 2026-09-22 | fix(agent): keep _serialize_for_summary byte-identical to main | PORTED | _serialize_for_summary stays byte-identical; records carry no rstrip |
 | 04fe735c | 2026-09-22 | fix: preserve structural record framing in lean summary sampling | PORTED | _serialize_records_for_summary keeps turn boundaries structural |
+| e33fd7e0 | 2026-09-27 | fix(desktop): run updater state.db pre-flight through the installation launcher | PORTED (partial) | Ported the WAL-safe snapshot core. The PM-managed `resolveInstallationLauncher` shim was SKIPPED — Anakot has no `pm/` managed-checkout concept (`grep -c resolveInstallationLauncher` = 0), so porting it would be dead code |
+| 4de06d1d | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off in the Desktop updater preflight | PENDING | Needs `resolveHermesBackend(['config','get',...])`, which Anakot does not have. Tracked, not ported |
+| 37fd6440 | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off ... again | PENDING | Follow-up re-fix of 4de06d1d; port together with it |
 
 ---
 

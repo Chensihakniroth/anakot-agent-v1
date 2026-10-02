@@ -476,6 +476,7 @@ import {
   MIN_WIDTH as WINDOW_MIN_WIDTH
 } from './window-state'
 import { hiddenWindowsChildOptions } from './windows-child-options'
+import { preflightStateDb } from './updater/state-db-preflight'
 import {
   buildPathExtCandidates,
   chooseUpdaterArgs,
@@ -4186,9 +4187,14 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     const venvBin = path.join(resolveVenvDir(updateRoot), IS_WINDOWS ? 'Scripts' : 'bin')
 
     // ── Pre-flight state.db integrity guard (#68474) ─────────────────
-    // Emergency backup and header verification before the update touches
-    // anything.  Runs while the backend is still alive.
-    preflightStateDb(ANAKOT_HOME, rememberLog)
+    // WAL-safe emergency snapshot via the backend's own sqlite helper.
+    // Runs while the backend is still alive; refuses the update if it fails.
+    preflightStateDb({
+      python: await findPythonForRoot(updateRoot),
+      script: path.join(updateRoot, 'anakot_cli', 'backup_sqlite.py'),
+      home: ANAKOT_HOME,
+      log: rememberLog
+    })
 
     // Windows-only prerequisite check for the SCRIPT path. The Tauri binary
     // path needs no windows.ps1 — it only needs the venv python (checked
@@ -4574,91 +4580,6 @@ function runningAppBundle() {
   return dir.endsWith('.app') ? dir : null
 }
 
-// ── Pre-flight state.db integrity guard (#68474) ─────────────────────
-// Take an emergency snapshot of state.db and verify the live copy is
-// intact before any update process mutates the install.  Runs in the
-// desktop Electron process itself, before the backend is killed and
-// before the updater is spawned — a separate safety net from the
-// Python-level pre-update snapshot inside `anakot update`.
-function preflightStateDb(anakotHome, rememberLog) {
-  const stateDbPath = path.join(anakotHome, 'state.db')
-
-  if (!fileExists(stateDbPath)) {
-    rememberLog('[updates] state.db pre-flight: not found (fresh install?)')
-
-    return
-  }
-
-  try {
-    const stat = fs.statSync(stateDbPath)
-
-    if (stat.size > 100) {
-      const fd = fs.openSync(stateDbPath, 'r')
-      const header = Buffer.alloc(16)
-
-      fs.readSync(fd, header, 0, 16, 0)
-      fs.closeSync(fd)
-
-      const expectedHeader = Buffer.from('SQLite format 3\0')
-      const headerOk = header.equals(expectedHeader)
-
-      rememberLog(
-        `[updates] state.db pre-flight: size=${stat.size}, ` +
-          `headerOk=${headerOk}, headerHex=${header.toString('hex')}`
-      )
-
-      if (!headerOk) {
-        rememberLog(
-          '[updates] state.db header is INVALID before update — ' +
-            'this indicates pre-existing corruption or a concurrent write issue'
-        )
-      }
-
-      // Emergency timestamped backup, separate from the Python-level snapshot.
-      const ts = new Date().toISOString().replace(/[:.]/g, '-')
-
-      const emergencyPath = path.join(anakotHome, `state.db.pre-update-emergency-${ts}.bak`)
-
-      try {
-        fs.copyFileSync(stateDbPath, emergencyPath)
-        const emergStat = fs.statSync(emergencyPath)
-
-        rememberLog(`[updates] emergency state.db backup: ${emergencyPath} ` + `(${emergStat.size} bytes)`)
-
-        // Prune to the 2 most recent emergency backups.
-        try {
-          const homeDir = fs.readdirSync(anakotHome)
-
-          const backups = homeDir
-            .filter(
-              f =>
-                f.startsWith('state.db.pre-update-emergency-') &&
-                f.endsWith('.bak') &&
-                f !== path.basename(emergencyPath)
-            )
-            .sort()
-            .reverse()
-
-          for (const old of backups.slice(2)) {
-            try {
-              fs.unlinkSync(path.join(anakotHome, old))
-            } catch {
-              void 0
-            }
-          }
-        } catch {
-          void 0
-        }
-      } catch (copyErr) {
-        rememberLog(`[updates] emergency state.db backup failed: ${copyErr.message}`)
-      }
-    } else {
-      rememberLog(`[updates] state.db too small (${stat.size} bytes) for a valid SQLite database`)
-    }
-  } catch (statErr) {
-    rememberLog(`[updates] could not stat state.db before update: ${statErr.message}`)
-  }
-}
 
 // macOS/Linux update hand-off: spawn the repo-owned posix orchestrator
 // (scripts/desktop-update/posix.sh) detached and QUIT. The script waits us
@@ -4688,7 +4609,16 @@ async function applyUpdatesPosixHandoff(opts: any) {
   }
 
   // ── Pre-flight state.db integrity guard (#68474) ──
-  preflightStateDb(ANAKOT_HOME, rememberLog)
+  // WAL-safe emergency snapshot via the backend's own sqlite helper. Runs
+  // while the backend is still alive; refuses the update if it fails.
+  const preflightRoot: string = resolveUpdateRoot()
+
+  preflightStateDb({
+    python: await findPythonForRoot(preflightRoot),
+    script: path.join(preflightRoot, 'anakot_cli', 'backup_sqlite.py'),
+    home: ANAKOT_HOME,
+    log: rememberLog
+  })
 
   // Branch-pin so a non-main checkout doesn't get switched to main (and
   // self-heal to main when the pinned branch no longer exists on origin).
