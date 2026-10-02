@@ -25,8 +25,13 @@ class SkinConfig:
     branding: Dict[str, str] = field(default_factory=dict)
     tool_prefix: str = "┊"
     tool_emojis: Dict[str, str] = field(default_factory=dict)  # per-tool emoji overrides
-    banner_logo: str = ""    # Rich-markup ASCII art logo (replaces ANAKOT_AGENT_LOGO)
-    banner_hero: str = ""    # Rich-markup hero art (replaces ANAKOT_CADUCEUS)
+    # Opt-in per-skin banner art. No built-in skin sets these: the ASCII
+    # wordmarks they carried were 113 columns of mixed-weight glyphs
+    # (U+2588 full blocks interleaved with box-drawing) with ragged row
+    # widths, which FiraCode Nerd Font renders as unreadable mush. A user
+    # skin in ~/.anakot/skins/ may still supply markup here.
+    banner_logo: str = ""    # Rich-markup ASCII art logo
+    banner_hero: str = ""    # Rich-markup hero art
 
     def get_color(self, key: str, fallback: str = "") -> str:
         return self.colors.get(key, fallback)
@@ -61,7 +66,45 @@ _ANAKOT_BRANDING: Dict[str, str] = _branding(
 
 _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
     "default": {
-        "name": "default", "description": "Classic Anakot — gold and kawaii",
+        "name": "default", "description": "Catppuccin Mocha — mauve and blue on base",
+        # Palette: Catppuccin Mocha (catppuccin/mocha), read straight off the
+        # Windows Terminal "Catppuccin Mocha" scheme so the TUI, the CLI and the
+        # terminal chrome are one system:
+        #   base #1E1E2E  mantle #181825  crust #11111B
+        #   surface0 #313244  surface1 #45475A  surface2 #585B70
+        #   overlay0 #6C7086  subtext0 #A6ADC8  subtext1 #BAC2DE
+        #   text #CDD6F4  mauve #CBA6F7  blue #89B4FA  lavender #B4BEFE
+        #   teal #94E2D5  green #A6E3A1  yellow #F9E2AF  peach #FAB387
+        #   red #F38BA8  maroon #EBA0AC
+        "colors": {
+            "banner_border": "#585b70", "banner_title": "#cba6f7", "banner_accent": "#89b4fa",
+            "banner_dim": "#6c7086", "banner_text": "#cdd6f4", "ui_accent": "#89b4fa",
+            "ui_label": "#b4befe", "ui_ok": "#a6e3a1", "ui_error": "#f38ba8", "ui_warn": "#f9e2af",
+            "prompt": "#cdd6f4", "input_rule": "#585b70", "response_border": "#89b4fa",
+            "status_bar_bg": "#181825", "status_bar_text": "#cdd6f4",
+            "status_bar_strong": "#cba6f7", "status_bar_dim": "#6c7086",
+            "status_bar_good": "#a6e3a1", "status_bar_warn": "#f9e2af", "status_bar_bad": "#fab387",
+            "status_bar_critical": "#f38ba8", "session_label": "#89b4fa",
+            "session_border": "#585b70", "completion_menu_bg": "#181825",
+            "completion_menu_current_bg": "#313244", "selection_bg": "#45475a",
+            "shell_dollar": "#94e2d5", "voice_status_bg": "#313244"},
+        # Light overlay (Catppuccin Latte) so a light terminal stays legible.
+        "light_colors": {
+            "banner_title": "#8839ef", "banner_accent": "#1e66f5", "banner_dim": "#8c8fa1",
+            "banner_text": "#4c4f69", "ui_accent": "#1e66f5", "ui_label": "#7287fd",
+            "ui_ok": "#40a02b", "ui_error": "#d20f39", "ui_warn": "#df8e1d", "prompt": "#4c4f69",
+            "response_border": "#8839ef", "session_label": "#7287fd", "status_bar_text": "#6c6f85",
+            "status_bar_strong": "#8839ef", "status_bar_dim": "#8c8fa1",
+            "status_bar_good": "#40a02b", "status_bar_warn": "#df8e1d", "status_bar_bad": "#fe640b",
+            "status_bar_critical": "#d20f39", "shell_dollar": "#179299",
+            "completion_menu_bg": "#eff1f5", "completion_menu_current_bg": "#ccd0da",
+            "selection_bg": "#bcc0cc", "status_bar_bg": "#eff1f5", "voice_status_bg": "#eff1f5"},
+        "spinner": {},  # empty = hardcoded defaults in display.py
+        "branding": _ANAKOT_BRANDING,
+        "tool_prefix": "\u250a"},
+
+    "hermes": {
+        "name": "hermes", "description": "Hermes classic — gold and kawaii (the former default)",
         # Dark-authored; values match the TUI's DARK_THEME so both render the same gold.
         "colors": {
             "banner_border": "#CD7F32", "banner_title": "#FFD700", "banner_accent": "#FFBF00",
@@ -75,11 +118,6 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "session_border": "#8B8682", "completion_menu_bg": "#1a1a2e",
             "completion_menu_current_bg": "#333355", "selection_bg": "#3a3a55",
             "shell_dollar": "#4dabf7", "voice_status_bg": "#1a1a2e"},
-        # Light overlay (merged onto `colors`). Goldenrod ladder: on white the vivid
-        # #FFD700/#FFBF00 read as glare and WCAG-darkened mustard (#867000) as mud; the
-        # statusbar's goldenrod family (#B8860B/#DAA520) keeps the hue, tames saturation.
-        # Hierarchy on white: ink body 8.9:1 > fade 5.2 > label 3.7 > muted 3.3 > title 2.7 >
-        # headers 2.4. Fills (*_bg) flip the dark navy surfaces to light polarity.
         "light_colors": {
             "banner_title": "#C8961E", "banner_accent": "#D89B04", "banner_dim": "#B8860B",
             "banner_text": "#5C4718", "ui_accent": "#D89B04", "ui_label": "#A97E10",
@@ -90,9 +128,10 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "status_bar_critical": "#B91C1C", "shell_dollar": "#1E6FC0",
             "completion_menu_bg": "#F5F5F5", "completion_menu_current_bg": "#E0D1BF",
             "selection_bg": "#D4E4F7", "status_bar_bg": "#F5F5F5", "voice_status_bg": "#F5F5F5"},
-        "spinner": {},  # empty = hardcoded defaults in display.py
+        "spinner": {},
         "branding": _ANAKOT_BRANDING,
-        "tool_prefix": "┊"},
+        "tool_prefix": "\u250a"},
+
     "ares": {
         "name": "ares", "description": "War-god theme — crimson and bronze",
         "colors": {
@@ -116,26 +155,6 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "wings": _wings("⚔", "▲", ("╸", "╺"), "⛨")},
         "branding": _branding("Ares", "⚔", "Farewell, warrior! ⚔"),
         "tool_prefix": "╎",
-        "banner_logo": """[bold #A3261F] █████╗ ██████╗ ███████╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
-[bold #B73122]██╔══██╗██╔══██╗██╔════╝██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
-[#C93C24]███████║██████╔╝█████╗  ███████╗█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
-[#D84A28]██╔══██║██╔══██╗██╔══╝  ╚════██║╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
-[#E15A2D]██║  ██║██║  ██║███████╗███████║      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║[/]
-[#EB6C32]╚═╝  ╚═╝╚═╝  ╚═╝╚══════╝╚══════╝      ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]""",
-        "banner_hero": """[#9F1C1C]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣤⣤⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#9F1C1C]⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣴⣿⠟⠻⣿⣦⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#C7A96B]⠀⠀⠀⠀⠀⠀⠀⣠⣾⡿⠋⠀⠀⠀⠙⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀[/]
-[#C7A96B]⠀⠀⠀⠀⠀⢀⣾⡿⠋⠀⠀⢠⡄⠀⠀⠙⢿⣷⡀⠀⠀⠀⠀⠀[/]
-[#DD4A3A]⠀⠀⠀⠀⣰⣿⠟⠀⠀⠀⣰⣿⣿⣆⠀⠀⠀⠻⣿⣆⠀⠀⠀⠀[/]
-[#DD4A3A]⠀⠀⠀⢰⣿⠏⠀⠀⢀⣾⡿⠉⢿⣷⡀⠀⠀⠹⣿⡆⠀⠀⠀[/]
-[#9F1C1C]⠀⠀⠀⣿⡟⠀⠀⣠⣿⠟⠀⠀⠀⠻⣿⣄⠀⠀⢻⣿⠀⠀⠀[/]
-[#9F1C1C]⠀⠀⠀⣿⡇⠀⠀⠙⠋⠀⠀⚔⠀⠀⠙⠋⠀⠀⢸⣿⠀⠀⠀[/]
-[#6B1717]⠀⠀⠀⢿⣧⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⣼⡿⠀⠀⠀[/]
-[#6B1717]⠀⠀⠀⠘⢿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⡿⠃⠀⠀⠀[/]
-[#C7A96B]⠀⠀⠀⠀⠈⠻⣿⣷⣦⣤⣀⣀⣤⣤⣶⣿⠿⠋⠀⠀⠀⠀[/]
-[#C7A96B]⠀⠀⠀⠀⠀⠀⠀⠉⠛⠿⠿⠿⠿⠛⠉⠀⠀⠀⠀⠀⠀⠀[/]
-[#DD4A3A]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⚔⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[dim #6B1717]⠀⠀⠀⠀⠀⠀⠀⠀war god online⠀⠀⠀⠀⠀⠀⠀⠀[/]""",
     },
     "mono": {
         "name": "mono", "description": "Monochrome — clean grayscale",
@@ -229,25 +248,6 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "wings": _wings("≈", "Ψ", "∿", "◌")},
         "branding": _branding("Poseidon", "Ψ", "Fair winds! Ψ"),
         "tool_prefix": "│",
-        "banner_logo": """[bold #B8E8FF]██████╗  ██████╗ ███████╗███████╗██╗██████╗  ██████╗ ███╗   ██╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
-[bold #97D6FF]██╔══██╗██╔═══██╗██╔════╝██╔════╝██║██╔══██╗██╔═══██╗████╗  ██║      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
-[#75C1F6]██████╔╝██║   ██║███████╗█████╗  ██║██║  ██║██║   ██║██╔██╗ ██║█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
-[#4FA2E0]██╔═══╝ ██║   ██║╚════██║██╔══╝  ██║██║  ██║██║   ██║██║╚██╗██║╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
-[#2E7CC7]██║     ╚██████╔╝███████║███████╗██║██████╔╝╚██████╔╝██║ ╚████║      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║[/]
-[#1B4F95]╚═╝      ╚═════╝ ╚══════╝╚══════╝╚═╝╚═════╝  ╚═════╝ ╚═╝  ╚═══╝      ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]""",
-        "banner_hero": """[#2A6FB9]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#5DB8F5]⠀⠀⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#5DB8F5]⠀⠀⠀⠀⠀⠀⠀⢠⣿⠏⠀Ψ⠀⠹⣿⡄⠀⠀⠀⠀⠀⠀⠀[/]
-[#A9DFFF]⠀⠀⠀⠀⠀⠀⠀⣿⡟⠀⠀⠀⠀⠀⢻⣿⠀⠀⠀⠀⠀⠀⠀[/]
-[#A9DFFF]⠀⠀⠀≈≈≈≈≈⣿⡇⠀⠀⠀⠀⠀⢸⣿≈≈≈≈≈⠀⠀⠀[/]
-[#5DB8F5]⠀⠀⠀⠀⠀⠀⠀⣿⡇⠀⠀⠀⠀⠀⢸⣿⠀⠀⠀⠀⠀⠀⠀[/]
-[#2A6FB9]⠀⠀⠀⠀⠀⠀⠀⢿⣧⠀⠀⠀⠀⠀⣼⡿⠀⠀⠀⠀⠀⠀⠀[/]
-[#2A6FB9]⠀⠀⠀⠀⠀⠀⠀⠘⢿⣷⣄⣀⣠⣾⡿⠃⠀⠀⠀⠀⠀⠀⠀[/]
-[#153C73]⠀⠀⠀⠀⠀⠀⠀⠀⠈⠻⣿⣿⡿⠟⠁⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#153C73]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠈⠁⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#5DB8F5]⠀⠀⠀⠀⠀≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈⠀⠀⠀⠀⠀[/]
-[#A9DFFF]⠀⠀⠀⠀⠀⠀≈≈≈≈≈≈≈≈≈≈≈≈≈⠀⠀⠀⠀⠀⠀[/]
-[dim #153C73]⠀⠀⠀⠀⠀⠀⠀deep waters hold⠀⠀⠀⠀⠀⠀⠀[/]""",
     },
     "sisyphus": {
         "name": "sisyphus", "description": "Sisyphean theme — austere grayscale with persistence",
@@ -273,26 +273,6 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "wings": _wings("◉", "◬", "◌", "⬤")},
         "branding": _branding("Sisyphus", "◉", "The boulder waits. ◉"),
         "tool_prefix": "│",
-        "banner_logo": """[bold #F5F5F5]███████╗██╗███████╗██╗   ██╗██████╗ ██╗  ██╗██╗   ██╗███████╗       █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
-[bold #E7E7E7]██╔════╝██║██╔════╝╚██╗ ██╔╝██╔══██╗██║  ██║██║   ██║██╔════╝      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
-[#D7D7D7]███████╗██║███████╗ ╚████╔╝ ██████╔╝███████║██║   ██║███████╗█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
-[#BFBFBF]╚════██║██║╚════██║  ╚██╔╝  ██╔═══╝ ██╔══██║██║   ██║╚════██║╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
-[#8F8F8F]███████║██║███████║   ██║   ██║     ██║  ██║╚██████╔╝███████║      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║[/]
-[#626262]╚══════╝╚═╝╚══════╝   ╚═╝   ╚═╝     ╚═╝  ╚═╝ ╚═════╝ ╚══════╝      ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]""",
-        "banner_hero": """[#B7B7B7]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⣀⣀⣀⡀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#D3D3D3]⠀⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⣿⣷⣄⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#E7E7E7]⠀⠀⠀⠀⠀⠀⣾⣿⣿⣿⣿⣿⣿⣿⣷⠀⠀⠀⠀⠀⠀⠀[/]
-[#F5F5F5]⠀⠀⠀⠀⠀⢸⣿⣿⣿⣿⣿⣿⣿⣿⣿⡇⠀⠀⠀⠀⠀⠀[/]
-[#E7E7E7]⠀⠀⠀⠀⠀⠀⣿⣿⣿⣿⣿⣿⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀[/]
-[#D3D3D3]⠀⠀⠀⠀⠀⠀⠘⢿⣿⣿⣿⣿⣿⡿⠃⠀⠀⠀⠀⠀⠀⠀[/]
-[#B7B7B7]⠀⠀⠀⠀⠀⠀⠀⠀⠙⠿⣿⠿⠋⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#919191]⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#656565]⠀⠀⠀⠀⠀⠀⠀⠀⠀⣰⡄⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#656565]⠀⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#4A4A4A]⠀⠀⠀⠀⠀⠀⠀⣰⣿⣿⣿⣿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#4A4A4A]⠀⠀⠀⠀⠀⣀⣴⣿⣿⣿⣿⣿⣿⣦⣀⠀⠀⠀⠀⠀⠀[/]
-[#656565]⠀⠀⠀━━━━━━━━━━━━━━━━━━━━━━━⠀⠀⠀[/]
-[dim #4A4A4A]⠀⠀⠀⠀⠀⠀⠀⠀⠀the boulder⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]""",
     },
     "charizard": {
         "name": "charizard", "description": "Volcanic theme — burnt orange and ember",
@@ -319,25 +299,6 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
             "wings": _wings("✦", "▲", "◌", "◇")},
         "branding": _branding("Charizard", "✦", "Flame out! ✦"),
         "tool_prefix": "│",
-        "banner_logo": """[bold #FFF0D4] ██████╗██╗  ██╗ █████╗ ██████╗ ██╗███████╗ █████╗ ██████╗ ██████╗        █████╗  ██████╗ ███████╗███╗   ██╗████████╗[/]
-[bold #FFD39A]██╔════╝██║  ██║██╔══██╗██╔══██╗██║╚══███╔╝██╔══██╗██╔══██╗██╔══██╗      ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝[/]
-[#F29C38]██║     ███████║███████║██████╔╝██║  ███╔╝ ███████║██████╔╝██║  ██║█████╗███████║██║  ███╗█████╗  ██╔██╗ ██║   ██║[/]
-[#E2832B]██║     ██╔══██║██╔══██║██╔══██╗██║ ███╔╝  ██╔══██║██╔══██╗██║  ██║╚════╝██╔══██║██║   ██║██╔══╝  ██║╚██╗██║   ██║[/]
-[#C75B1D]╚██████╗██║  ██║██║  ██║██║  ██║██║███████╗██║  ██║██║  ██║██████╔╝      ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║[/]
-[#7A3511] ╚═════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝  ╚═╝╚═╝╚══════╝╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝       ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝[/]""",
-        "banner_hero": """[#FFD39A]⠀⠀⠀⠀⠀⠀⠀⠀⣀⣤⠶⠶⠶⣤⣀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#F29C38]⠀⠀⠀⠀⠀⠀⣴⠟⠁⠀⠀⠀⠀⠈⠻⣦⠀⠀⠀⠀⠀⠀[/]
-[#F29C38]⠀⠀⠀⠀⠀⣼⠏⠀⠀⠀✦⠀⠀⠀⠀⠹⣧⠀⠀⠀⠀⠀[/]
-[#E2832B]⠀⠀⠀⠀⢰⡟⠀⠀⣀⣤⣤⣤⣀⠀⠀⠀⢻⡆⠀⠀⠀⠀[/]
-[#E2832B]⠀⠀⣠⡾⠛⠁⣠⣾⠟⠉⠀⠉⠻⣷⣄⠀⠈⠛⢷⣄⠀⠀[/]
-[#C75B1D]⠀⣼⠟⠀⢀⣾⠟⠁⠀⠀⠀⠀⠀⠈⠻⣷⡀⠀⠻⣧⠀[/]
-[#C75B1D]⢸⡟⠀⠀⣿⡟⠀⠀⠀🔥⠀⠀⠀⠀⢻⣿⠀⠀⢻⡇[/]
-[#7A3511]⠀⠻⣦⡀⠘⢿⣧⡀⠀⠀⠀⠀⠀⢀⣼⡿⠃⢀⣴⠟⠀[/]
-[#7A3511]⠀⠀⠈⠻⣦⣀⠙⢿⣷⣤⣤⣤⣾⡿⠋⣀⣴⠟⠁⠀⠀[/]
-[#C75B1D]⠀⠀⠀⠀⠈⠙⠛⠶⠤⠭⠭⠤⠶⠛⠋⠁⠀⠀⠀⠀[/]
-[#F29C38]⠀⠀⠀⠀⠀⠀⠀⠀⣰⡿⢿⣆⠀⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[#F29C38]⠀⠀⠀⠀⠀⠀⠀⣼⡟⠀⠀⢻⣧⠀⠀⠀⠀⠀⠀⠀⠀[/]
-[dim #7A3511]⠀⠀⠀⠀⠀⠀⠀tail flame lit⠀⠀⠀⠀⠀⠀⠀⠀[/]""",
     }}
 
 _active_skin: Optional[SkinConfig] = None
@@ -419,12 +380,27 @@ def list_skins() -> List[Dict[str, str]]:
     return result
 
 
+# Alternate names for built-in skins, resolved in load_skin(). Keeps
+# `/skin catppuccin` working without duplicating a palette entry.
+_SKIN_ALIASES: Dict[str, str] = {
+    "catppuccin": "default",
+    "mocha": "default",
+    "gold": "hermes",
+}
+
+
 def load_skin(name: str) -> SkinConfig:
     """Load a skin by name: user skins first, then built-in, then default."""
     user_file = _skins_dir() / f"{name}.yaml"
     data = _load_skin_from_yaml(user_file) if user_file.is_file() else None
     if not data and name not in _BUILTIN_SKINS:
-        logger.warning("Skin '%s' not found, using default", name)
+        # Aliases are only consulted once user skins have had their chance,
+        # so a user file named `catppuccin.yaml` is never shadowed.
+        alias = _SKIN_ALIASES.get(name)
+        if alias:
+            name = alias
+        else:
+            logger.warning("Skin '%s' not found, using default", name)
     return _build_skin_config(data or _BUILTIN_SKINS.get(name) or _BUILTIN_SKINS["default"])
 
 
