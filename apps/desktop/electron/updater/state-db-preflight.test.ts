@@ -6,7 +6,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { test } from 'vitest'
+import { test, vi } from 'vitest'
 
 import { preflightStateDb } from './state-db-preflight'
 
@@ -126,6 +126,162 @@ test('repeated preflights retain the two most recent snapshots', (): void => {
     fs.rmSync(home, { recursive: true, force: true })
   }
 })
+
+test.each([
+  { value: 'off', enabled: false },
+  { value: false, enabled: false },
+  { value: null, enabled: false },
+  { value: 'false', enabled: false },
+  { value: 'none', enabled: false },
+  { value: ' DISABLED ', enabled: false },
+  { value: 'quick', enabled: true },
+  { value: 'full', enabled: true },
+  { value: true, enabled: true },
+  { value: 0, enabled: true },
+  { value: 'unexpected', enabled: true },
+  { value: undefined, enabled: true },
+  { value: true, managed: false, enabled: false },
+  { value: false, managed: true, enabled: true },
+  { value: '${DESKTOP_TEST_BACKUP_MODE}', enabled: false }
+])(
+  'preflight obeys effective config $value (managed: $managed) in the target home',
+  ({ value, managed, enabled }): void => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup config '))
+    const homes = [path.join(root, 'a'), path.join(root, 'a', 'profiles', 'b')]
+    const managedDir = path.join(root, 'managed')
+
+    try {
+      fs.mkdirSync(managedDir)
+
+      if (managed !== undefined) {
+        fs.writeFileSync(
+          path.join(managedDir, 'config.yaml'),
+          JSON.stringify({ updates: { pre_update_backup: managed } })
+        )
+      }
+
+      vi.stubEnv('ANAKOT_MANAGED_DIR', managedDir)
+      vi.stubEnv('DESKTOP_TEST_BACKUP_MODE', 'off')
+      // The ambient launch home must not replace the explicit snapshot owner.
+      vi.stubEnv('ANAKOT_HOME', homes[1]!)
+
+      for (const [index, home] of homes.entries()) {
+        fs.mkdirSync(home, { recursive: true })
+        fs.writeFileSync(
+          path.join(home, 'config.yaml'),
+          JSON.stringify({ updates: { pre_update_backup: index === 0 ? value : !enabled } })
+        )
+
+        const created = spawnSync(
+          PYTHON,
+          [
+            '-I',
+            '-S',
+            '-c',
+            "import sqlite3, sys; c = sqlite3.connect(sys.argv[1]); c.execute('CREATE TABLE t (x)'); c.commit(); c.close()",
+            path.join(home, 'state.db')
+          ],
+          { encoding: 'utf8' }
+        )
+
+        assert.equal(created.status, 0, created.stderr)
+      }
+
+      // A root-home probe must not follow the CLI's sticky named profile.
+      fs.writeFileSync(path.join(homes[0]!, 'active_profile'), 'b')
+      const counts = [0, 0]
+
+      for (const index of [0, 1, 0]) {
+        const home = homes[index]!
+        const logs: string[] = []
+        preflightStateDb({
+          python: PYTHON,
+          script: SCRIPT,
+          home,
+          log: message => {
+            logs.push(message)
+          }
+        })
+        const shouldBackUp = managed !== undefined ? managed : index === 0 ? enabled : !enabled
+
+        if (shouldBackUp) {
+          counts[index]!++
+        }
+
+        assert.equal(fs.readdirSync(home).filter(name => name.endsWith('.bak')).length, counts[index], logs.join('\n'))
+        assert.equal(
+          logs.some(message => message.includes('disabled by updates.pre_update_backup')),
+          !shouldBackUp
+        )
+      }
+    } finally {
+      vi.unstubAllEnvs()
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  },
+  30_000
+)
+
+test.each([
+  { label: 'missing config CLI', cli: null },
+  { label: 'malformed response', cli: "print('not-json')" },
+  { label: 'failed probe with misleading stdout', cli: "print('false'); raise SystemExit(1)" },
+  { label: 'timeout with misleading stdout', cli: "import time; print('false', flush=True); time.sleep(60)" }
+])(
+  'preflight retains the SQLite safety net after $label',
+  ({ cli }): void => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'broken checkout '))
+    const home = path.join(root, 'home')
+    const packageDir = path.join(root, 'anakot_cli')
+    const script = path.join(packageDir, 'backup_sqlite.py')
+
+    try {
+      fs.mkdirSync(home)
+      fs.mkdirSync(packageDir)
+      fs.writeFileSync(path.join(packageDir, '__init__.py'), '')
+
+      if (cli !== null) {
+        fs.writeFileSync(path.join(packageDir, 'main.py'), cli)
+      }
+
+      fs.copyFileSync(SCRIPT, script)
+      // Off must not be inferred from an unreadable runtime or raw config file.
+      fs.writeFileSync(path.join(home, 'config.yaml'), 'updates:\n  pre_update_backup: off\n')
+
+      const created = spawnSync(
+        PYTHON,
+        [
+          '-I',
+          '-S',
+          '-c',
+          "import sqlite3, sys; c = sqlite3.connect(sys.argv[1]); c.execute('CREATE TABLE t (x)'); c.commit(); c.close()",
+          path.join(home, 'state.db')
+        ],
+        { encoding: 'utf8' }
+      )
+
+      assert.equal(created.status, 0, created.stderr)
+
+      const logs: string[] = []
+      preflightStateDb({
+        python: PYTHON,
+        script,
+        home,
+        log: message => {
+          logs.push(message)
+        }
+      })
+      assert.equal(fs.readdirSync(home).filter(name => name.endsWith('.bak')).length, 1, logs.join('\n'))
+      assert.equal(
+        logs.some(message => message.includes('disabled by')),
+        false
+      )
+    } finally {
+      fs.rmSync(root, { recursive: true, force: true })
+    }
+  },
+  30_000
+)
 
 test('an older selected checkout without the snapshot helper refuses before backend stop', (): void => {
   const oldRoot: string = fs.mkdtempSync(path.join(os.tmpdir(), 'old-preflight-'))

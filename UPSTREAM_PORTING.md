@@ -140,8 +140,8 @@ for c in json.load(sys.stdin):
 | e28157be | 2026-09-22 | fix(agent): keep _serialize_for_summary byte-identical to main | PORTED | _serialize_for_summary stays byte-identical; records carry no rstrip |
 | 04fe735c | 2026-09-22 | fix: preserve structural record framing in lean summary sampling | PORTED | _serialize_records_for_summary keeps turn boundaries structural |
 | e33fd7e0 | 2026-09-27 | fix(desktop): run updater state.db pre-flight through the installation launcher | PORTED (partial) | Ported the WAL-safe snapshot core. The PM-managed `resolveInstallationLauncher` shim was SKIPPED — Anakot has no `pm/` managed-checkout concept (`grep -c resolveInstallationLauncher` = 0), so porting it would be dead code |
-| 4de06d1d | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off in the Desktop updater preflight | PENDING | Needs `resolveHermesBackend(['config','get',...])`, which Anakot does not have. Tracked, not ported |
-| 37fd6440 | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off ... again | PENDING | Follow-up re-fix of 4de06d1d; port together with it |
+| 4de06d1d | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off in the Desktop updater preflight | PORTED | Adapted into the existing shared `preflightStateDb` seam (no `resolveAnakotBackend` port): the probe runs the SELECTED checkout's own CLI with an explicit profile, so managed scope, defaults and `${ENV}` expansion stay backend-owned instead of re-parsing YAML in Electron. Any probe failure (missing CLI, malformed output, nonzero exit, 15s timeout) keeps the unchanged WAL-safe snapshot |
+| 37fd6440 | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off ... again | PORTED | Upstream re-gated in the composition root because the checkout strategy called `preflightStateDb` unconditionally. Anakot has one shared preflight called from BOTH `applyUpdates` and `applyUpdatesPosixHandoff`, so the gate belongs inside it — one edit covers both lanes and no caller can drift |
 
 ---
 
@@ -161,6 +161,35 @@ for c in json.load(sys.stdin):
 ---
 
 ## Porting Log
+
+### 2026-10-02 — Refresh + port: desktop pre-update backup opt-out
+- Refreshed refs: `origin/main` = `4b0fbf06cd`, `upstream/main` = `4097709b0c` (2026-10-02), latest
+  Hermes release `v2026.9.24`. Divergence 53 ahead / 69 behind — architectural, not missing features.
+- Cleared the last two `PENDING` rows (4de06d1d, 37fd6440). Tracker is now at 0 `PENDING`.
+- Adaptation, not a cherry-pick: upstream's fix hangs off `resolveHermesBackend(['config','get',…])`
+  in a `main.ts` whose preflight is inlined per update lane. Anakot's preflight is already a shared
+  `electron/updater/state-db-preflight.ts` called from both `applyUpdates` (Windows/Tauri) and
+  `applyUpdatesPosixHandoff`, so the gate went inside that one seam instead of being duplicated.
+- **Divergence that mattered (would have shipped a cross-profile read):** upstream's probe is
+  `python -m anakot_cli.main --profile X config get …`. Under `-m`, `anakot_cli/main.py` executes
+  TWICE — once as `anakot_cli.main` during the package import, then again as `__main__` via runpy —
+  and the first pass strips `--profile` from `sys.argv`. The second pass then falls through to the
+  root's sticky `active_profile`, so a root-home probe read a NAMED profile's `config.yaml`.
+  Proven with an import-hook probe printing argv at each execution. Fixed by importing and calling
+  `main()` once (`-c "import sys;from anakot_cli.main import main;sys.exit(main())"`), which is also
+  how the repo's own `ANAKOT_PYTHON` guidance invokes it. Covered by a test that writes
+  `active_profile: b` in the root home and asserts the root's own value wins in an A → B → A sweep.
+- Safety posture preserved: a probe that cannot answer (no CLI, bad JSON, nonzero exit, 15s timeout)
+  still takes the snapshot, so the failure mode is "extra backup", never "no recovery file".
+- Tests: 22 in `electron/updater/state-db-preflight.test.ts` — effective-value matrix (off/false/null/
+  aliases/quick/full/true/0/unknown/unset), managed-scope override both directions, `${ENV}` expansion,
+  two homes A → B → A under one process, and 4 fail-open fixtures. All green; 58 passed / 1 skipped
+  across the neighbouring update suites. `tsc -p tsconfig.electron.json`, eslint, prettier, and the
+  Electron bundle all clean.
+- CI: `js-tests.yml` had no Python runtime, so the new integration cases could not have run there.
+  Added a pinned `setup-uv` + `uv sync --locked --python 3.11 --no-dev` step and pointed the suite at
+  that interpreter via the existing `ANAKOT_PYTHON` hook.
+
 
 ### 2026-09-23 — Refresh: pull latest 100 Hermes commits
 - Added 30 new commits (1c953851 → 04fe735c) from 2026-09-22
