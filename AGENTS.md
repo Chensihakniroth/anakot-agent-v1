@@ -202,19 +202,20 @@ anakot-agent/
 ├── tools/                # Tool implementations, auto-discovered via tools/registry.py
 │   └── environments/     # Terminal backends (local, docker, ssh, modal, daytona, singularity)
 ├── gateway/              # run.py facade + run_*.py phases + session*.py + platforms/
-│   ├── platforms/        # One adapter per platform; see platforms/ADDING_A_PLATFORM.md
+│   ├── platforms/        # Core adapters + shared plumbing; most adapters now live in plugins/platforms/
 │   └── builtin_hooks/    # Always-registered gateway hooks (extension point; none shipped)
 ├── plugins/              # memory/, context_engine/, model-providers/, kanban/, image_gen/, ...
+│   └── platforms/        # 22 bundled adapters (telegram, discord, slack, matrix, …); see platforms/ADDING_A_PLATFORM.md
 ├── skills/               # Built-in skills (by category)   optional-skills/: shipped, not active
 ├── ui-tui/               # Ink (React) terminal UI — `anakot --tui`
 ├── tui_gateway/          # Python JSON-RPC backend for TUI + Desktop — server.py + methods_*.py
-├── apps/desktop/         # Electron desktop app (+ apps/shared JSON-RPC client)   web/: dashboard SPA
+├── apps/desktop/         # Electron desktop app (+ apps/shared JSON-RPC client)   web/: dashboard SPA source (Python serves the prebuilt anakot_cli/web_dist/, not web/ directly)
 ├── acp_adapter/          # ACP server (VS Code / Zed / JetBrains)
 ├── cron/                 # jobs.py + scheduler.py (+ scheduler_*.py)
 ├── evals/                # Offline benchmarks (codebase_navigability/, compaction/, ...)
 ├── scripts/              # run_tests.sh, release.py, check_compat_pointers.py, ci/
 ├── website/              # Docusaurus docs (developer-guide/ holds the long-form area docs)
-└── tests/                # Pytest suite (~39k tests / ~3.7k files, Sep 2026)
+└── tests/                # Pytest suite (~4.6k test files, Sep 2026)
 ```
 
 **User state:** `~/.anakot/config.yaml` (settings), `~/.anakot/.env` (secrets only),
@@ -228,9 +229,9 @@ profile-aware via `get_anakot_home()`. Browse logs with `anakot logs [--follow] 
 
 Every former god file is a **facade** (public entry points + the names other packages import)
 plus **siblings** `<stem>_<topic>.py` in the same directory, each owning one topic. Largest
-families: `anakot_state.py` (21), `gateway/run.py` (15), `tools/mcp_tool.py` (15),
-`anakot_cli/kanban.py` (14), `anakot_cli/web_server.py` (13 + 24 routers), `anakot_cli/auth.py`
-(12), `tools/browser_tool.py` (11), `cli.py` (12 `anakot_cli/cli_*_mixin.py`), `run_agent.py`
+families: `anakot_state.py` (28), `gateway/run.py` (25), `tools/mcp_tool.py` (17),
+`anakot_cli/kanban.py` (18), `anakot_cli/web_server.py` (13 + 24 routers), `anakot_cli/auth.py`
+(16), `tools/browser_tool.py` (12), `cli.py` (14 `anakot_cli/cli_*_mixin.py`), `run_agent.py`
 (`agent/turn_*.py`, `agent_init.py`, `conversation_loop.py`).
 
 - **Find code by topic, not by facade:** `grep -rn "def name" <dir>/<stem>_*.py`. Reading the
