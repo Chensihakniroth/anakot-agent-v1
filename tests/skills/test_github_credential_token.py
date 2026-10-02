@@ -13,8 +13,6 @@ LEGACY_SED = r"sed 's|https://[^:]*:\([^@]*\)@.*|\1|'"
 SHIPPED_TREES = (
     REPO_ROOT / "skills/software-development/github",
     REPO_ROOT / "website/docs/user-guide/skills/bundled/software-development",
-    REPO_ROOT
-    / "website/i18n/zh-Hans/docusaurus-plugin-content-docs/current/user-guide/skills/bundled/software-development",
 )
 
 

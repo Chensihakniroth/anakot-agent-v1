@@ -13,13 +13,13 @@ This website is built using [Docusaurus](https://docusaurus.io/), a modern stati
   `[Profiles](../user-guide/profiles.md)`, `[Bundles](../user-guide/features/skills.md#skill-bundles)`.
   Docusaurus turns the file path into the page route; GitHub follows the same path. Site routes
   (`/user-guide/profiles`, `/docs/user-guide/profiles`) only work on the rendered site — GitHub
-  resolves them as repository paths and 404s, and the `/docs/` form also emits
-  `/docs/zh-Hans/docs/...` 404s in the zh-Hans build because `baseUrl` is already `/docs/`.
-- `python3 website/scripts/check_doc_links.py` fails on any route-style link in hand-authored pages
-  (EN and the zh-Hans mirror); `--fix` rewrites them. It runs in the `Docs Site Checks` workflow.
+  resolves them as repository paths and 404s, and the `/docs/` form emits
+  `/docs/docs/...` 404s because `baseUrl` is already `/docs/`.
+- `python3 website/scripts/check_doc_links.py` fails on any route-style link in hand-authored pages;
+  `--fix` rewrites them. It runs in the `Docs Site Checks` workflow.
   Generated pages (`user-guide/skills/{bundled,optional}`, `reference/*skills-catalog.md`) are
   produced by `scripts/generate-skill-docs.py`, which emits the same relative form.
-- Pin `{#anchor}` on cross-linked headings so the zh-Hans mirror keeps the same id.
+- Pin `{#anchor}` on cross-linked headings so the rendered ids stay stable.
 
 ## Installation
 

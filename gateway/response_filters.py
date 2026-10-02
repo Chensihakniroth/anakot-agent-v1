@@ -14,8 +14,8 @@ from typing import Any
 # error/empty-response path, not silence. A lane that does not think in English
 # translates the sentinel rather than dropping it, and the whole control token
 # then reaches the user as content, so the translated forms are carried here
-# too. zh-Hans is the only non-English locale this project ships documentation
-# for, which is where the list stops.
+# too. Chinese is the case we have actually hit in the field; the list is not
+# derived from which locales the docs ship in.
 LIVE_GATEWAY_SILENT_MARKERS = frozenset({
     "[SILENT]", "SILENT", "NO_REPLY", "NO REPLY",
     "[静默]", "静默", "[沉默]", "沉默",
