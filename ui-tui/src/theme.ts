@@ -253,10 +253,15 @@ export function themeToneHex(tone: string): string {
 
 const BRAND: ThemeBrand = {
   name: 'Anakot Agent',
-  icon: '☤',
+  // ASCII. This used to be U+2624 NEUTER, a Miscellaneous Symbols codepoint
+  // that FiraCode Nerd Font does not carry — it fell through to a fallback
+  // face and rendered as a random glyph. Prompt/icon glyphs sit on the most
+  // visible line of the banner, so they must not depend on font coverage
+  // beyond what the terminal guarantees.
+  icon: '>',
   prompt: '❯',
   welcome: 'Type your message or /help for commands.',
-  goodbye: 'Goodbye! ☤',
+  goodbye: 'Goodbye!',
   tool: '┊',
   helpHeader: '(^_^)? Commands'
 }
