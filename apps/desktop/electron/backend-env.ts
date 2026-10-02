@@ -162,11 +162,11 @@ function buildDesktopBackendEnv({
 }
 
 export {
+  anakotManagedNodePathEntries,
   appendUniquePathEntries,
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
   delimiterForPlatform,
-  anakotManagedNodePathEntries,
   normalizeAnakotHomeRoot,
   pathEnvKey,
   POSIX_SANE_PATH_ENTRIES

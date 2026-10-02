@@ -2,10 +2,10 @@ import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useMemo, useRef } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
+import { getAnakotConfigDefaults, getAnakotConfigRecord, saveAnakotConfig } from '@/anakot'
 import { codiconIcon } from '@/components/ui/codicon'
 import { KbdCombo } from '@/components/ui/kbd'
 import { Tip } from '@/components/ui/tooltip'
-import { getAnakotConfigDefaults, getAnakotConfigRecord, saveAnakotConfig } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { triggerHaptic } from '@/lib/haptics'
 import {

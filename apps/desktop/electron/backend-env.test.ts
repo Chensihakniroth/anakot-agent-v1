@@ -4,10 +4,10 @@ import path from 'node:path'
 import { test } from 'vitest'
 
 import {
+  anakotManagedNodePathEntries,
   appendUniquePathEntries,
   buildDesktopBackendEnv,
   buildDesktopBackendPath,
-  anakotManagedNodePathEntries,
   normalizeAnakotHomeRoot,
   pathEnvKey,
   POSIX_SANE_PATH_ENTRIES

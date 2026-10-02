@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react'
 
+import { deleteLearningNode, editLearningNode, getLearningNode } from '@/anakot'
 import { ArchiveSkillConfirmDialog, fireOptimistic } from '@/app/learning/archive-skill-confirm-dialog'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,6 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import { deleteLearningNode, editLearningNode, getLearningNode } from '@/anakot'
 import { notifyError } from '@/store/notifications'
 import { evictStarmapNode, loadStarmapGraph } from '@/store/starmap'
 
