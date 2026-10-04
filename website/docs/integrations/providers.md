@@ -434,6 +434,22 @@ Both speak the same OpenAI-compatible API. Cloud is a first-class provider (`--p
 
 DeepInfra (`--provider deepinfra`, `DEEPINFRA_API_KEY`) is discovered live from its catalog. Reasoning is controlled through DeepInfra's top-level `reasoning_effort` field, so `agent.reasoning_effort`, `/reasoning <level>`, `--reasoning` and per-model `agent.reasoning_overrides` work in **both directions**: an effort turns thinking on for models that default off (DeepSeek-V4.x), `/reasoning none` turns it off for models that default on (GLM-4.6, Qwen3-Thinking). Leaving reasoning unset keeps DeepInfra's per-model default; `xhigh` is native and `ultra` is sent as `max`.
 
+### OmniRouters
+
+OmniRouters (`--provider omnirouters`, aliases `omni` / `omni-router`, `OMNIROUTERS_API_KEY`) fronts ~160 upstream models — chat, image, video, audio and embeddings — behind one OpenAI-compatible gateway at `https://omnirouters.com/v1`.
+
+```bash
+export OMNIROUTERS_API_KEY="sk-..."
+anakot chat --provider omnirouters --model gpt-4o
+```
+
+The model list is **account-scoped**: a model is only callable if it is enabled on your account, so the `/model` picker reads the live `/v1/models` catalog rather than a shipped list. Two consequences worth knowing:
+
+- There is no curated default or auxiliary model. Auxiliary tasks (compression, titles, vision) fall back to your active model, which is correct but not free — set `model.aux_model` explicitly if you want a cheap tier for side tasks.
+- Reasoning fields are not sent. OmniRouters exposes `extra_body` as a generic provider-extension container rather than a declared reasoning schema, so `/reasoning` has no effect here; the model reasons on its own defaults.
+
+OmniRouters also serves Anthropic Messages, OpenAI Responses and Gemini-native routes under the same key. Use the [Custom Endpoint flow](../user-guide/configuration.md) if you need those specific wires — the `omnirouters` provider deliberately stays on the OpenAI chat surface, which is the safest default across model families.
+
 ### AWS Bedrock
 
 Anthropic Claude, Amazon Nova, DeepSeek v3.2, Meta Llama 4, and other models via AWS Bedrock. Uses the AWS SDK (`boto3`) credential chain — no API key, just standard AWS auth.

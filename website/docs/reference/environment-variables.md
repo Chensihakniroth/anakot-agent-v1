@@ -97,6 +97,8 @@ Anakot reads environment variables from the process environment and, for user-ma
 | `DEEPINFRA_BASE_URL` | DeepInfra base URL override |
 | `NOVITA_API_KEY` | NovitaAI API key — AI-native cloud for Model API, Agent Sandbox, and GPU Cloud ([novita.ai/settings/key-management](https://novita.ai/settings/key-management)) |
 | `NOVITA_BASE_URL` | Override NovitaAI base URL (default: `https://api.novita.ai/openai/v1`) |
+| `OMNIROUTERS_API_KEY` | OmniRouters API key ([omnirouters.com/keys](https://omnirouters.com/keys)) — one key for ~160 chat, image, video and audio models |
+| `OMNIROUTERS_BASE_URL` | Override OmniRouters base URL (default: `https://omnirouters.com/v1`) |
 | `RAMP_ROUTER_API_KEY` | Ramp Router API key ([app.router.com/keys](https://app.router.com/keys)); alias `ROUTER_API_KEY` also accepted |
 | `RAMP_ROUTER_BASE_URL` | Override Ramp Router base URL (default: `https://api.router.com/v1`) |
 | `NEBIUS_API_KEY` | Nebius Token Factory API key ([tokenfactory.nebius.com](https://tokenfactory.nebius.com/)); `NEBIUS_TOKEN_FACTORY_API_KEY` also accepted |

@@ -1,0 +1,5 @@
+name: omnirouters-provider
+kind: model-provider
+version: 1.0.0
+description: OmniRouters — multi-model gateway at omnirouters.com
+author: Nous Research

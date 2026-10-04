@@ -61,6 +61,9 @@ ANAKOT_OVERLAYS: Dict[str, AnakotOverlay] = {
     "kilo": AnakotOverlay(is_aggregator=True, base_url_env_var="KILOCODE_BASE_URL"),
     "huggingface": AnakotOverlay(is_aggregator=True, base_url_env_var="HF_BASE_URL"),
     "novita": AnakotOverlay(is_aggregator=True, base_url_env_var="NOVITA_BASE_URL"),
+    "omnirouters": AnakotOverlay(extra_env_vars=("OMNIROUTERS_API_KEY",),
+                                 base_url_override="https://omnirouters.com/v1",
+                                 base_url_env_var="OMNIROUTERS_BASE_URL", is_aggregator=True),
     "xai": AnakotOverlay(transport="codex_responses", base_url_override="https://api.x.ai/v1", base_url_env_var="XAI_BASE_URL"),
     "nvidia": AnakotOverlay(base_url_override="https://integrate.api.nvidia.com/v1", base_url_env_var="NVIDIA_BASE_URL"),
     "xiaomi": AnakotOverlay(base_url_env_var="XIAOMI_BASE_URL"),
@@ -125,6 +128,7 @@ _ALIAS_GROUPS: Dict[str, Tuple[str, ...]] = {
     "deepseek": ("deep-seek",), "alibaba": ("dashscope", "aliyun", "qwen", "alibaba-cloud"),
     "alibaba-coding-plan": ("alibaba_coding", "alibaba-coding", "alibaba_coding_plan"),
     "huggingface": ("hf", "hugging-face", "huggingface-hub"), "novita": ("novita-ai", "novitaai"),
+    "omnirouters": ("omni-router", "omnirouter", "omni"),
     "xiaomi": ("mimo", "xiaomi-mimo"), "tencent-tokenhub": ("tencent", "tokenhub", "tencent-cloud", "tencentmaas"),
     "tencent-tokenplan": ("tokenplan", "tencent-lkeap"),
     "bedrock": ("aws", "aws-bedrock", "amazon-bedrock", "amazon"), "arcee": ("arcee-ai", "arceeai"),
@@ -145,7 +149,7 @@ _LABEL_OVERRIDES: Dict[str, str] = {
     "upstage": "Upstage Solar", "actual": "Actual Computer", "tencent-tokenhub": "Tencent TokenHub",
     "nebius-token-factory": "Nebius Token Factory", "tencent-tokenplan": "Tencent TokenPlan", "lmstudio": "LM Studio",
     "local": "Local endpoint", "bedrock": "AWS Bedrock", "vertex": "Google Vertex AI", "ollama-cloud": "Ollama Cloud",
-    "xai-oauth": "xAI Grok OAuth (SuperGrok / Premium+)",
+    "xai-oauth": "xAI Grok OAuth (SuperGrok / Premium+)", "omnirouters": "OmniRouters",
 }
 
 
