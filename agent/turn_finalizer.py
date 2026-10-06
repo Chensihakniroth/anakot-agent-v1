@@ -141,6 +141,8 @@ def _resolve_budget_fallback(
             final_response = _pending_verification_response
             if _pending_verification_response_previewed:
                 agent._response_was_previewed = True
+                # Reuses the candidate the user already saw sealed as an interim (#130396).
+                agent._reused_response_text = final_response
             preserved_verification_fallback = True
         else:
             # _handle_max_iterations makes one extra toolless request for a summary.
