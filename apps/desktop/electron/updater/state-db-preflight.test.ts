@@ -49,7 +49,12 @@ c.close()
 
   try {
     await once(child.stdout!, 'data')
-    preflightStateDb({
+    let eventLoopResponsive = false
+    setImmediate((): void => {
+      eventLoopResponsive = true
+    })
+
+    await preflightStateDb({
       python: PYTHON,
       script: SCRIPT,
       home,
@@ -57,6 +62,7 @@ c.close()
         logs.push(message)
       }
     })
+    assert.equal(eventLoopResponsive, true, 'pre-flight must not block Electron while it snapshots')
     assert.equal(child.exitCode, null)
     const backups: string[] = fs.readdirSync(home).filter((name: string): boolean => name.endsWith('.bak'))
     assert.equal(backups.length, 1, logs.join('\n'))
@@ -93,7 +99,7 @@ with sqlite3.connect(sys.argv[1]) as c:
 
 // The helper keeps the newest two snapshots so a botched update is always
 // recoverable; a third publication must not accumulate without bound.
-test('repeated preflights retain the two most recent snapshots', (): void => {
+test('repeated preflights retain the two most recent snapshots', async (): Promise<void> => {
   const home: string = fs.mkdtempSync(path.join(os.tmpdir(), 'preflight-retention-'))
 
   try {
@@ -112,7 +118,7 @@ test('repeated preflights retain the two most recent snapshots', (): void => {
     assert.equal(created.status, 0, created.stderr)
 
     for (let i = 0; i < 4; i++) {
-      preflightStateDb({ python: PYTHON, script: SCRIPT, home, log: (): void => {} })
+      await preflightStateDb({ python: PYTHON, script: SCRIPT, home, log: (): void => {} })
     }
 
     const backups: string[] = fs.readdirSync(home).filter((name: string): boolean => name.endsWith('.bak'))
@@ -145,7 +151,7 @@ test.each([
   { value: '${DESKTOP_TEST_BACKUP_MODE}', enabled: false }
 ])(
   'preflight obeys effective config $value (managed: $managed) in the target home',
-  ({ value, managed, enabled }): void => {
+  async ({ value, managed, enabled }): Promise<void> => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'backup config '))
     const homes = [path.join(root, 'a'), path.join(root, 'a', 'profiles', 'b')]
     const managedDir = path.join(root, 'managed')
@@ -194,7 +200,7 @@ test.each([
       for (const index of [0, 1, 0]) {
         const home = homes[index]!
         const logs: string[] = []
-        preflightStateDb({
+        await preflightStateDb({
           python: PYTHON,
           script: SCRIPT,
           home,
@@ -229,7 +235,7 @@ test.each([
   { label: 'timeout with misleading stdout', cli: "import time; print('false', flush=True); time.sleep(60)" }
 ])(
   'preflight retains the SQLite safety net after $label',
-  ({ cli }): void => {
+  async ({ cli }): Promise<void> => {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'broken checkout '))
     const home = path.join(root, 'home')
     const packageDir = path.join(root, 'anakot_cli')
@@ -263,7 +269,7 @@ test.each([
       assert.equal(created.status, 0, created.stderr)
 
       const logs: string[] = []
-      preflightStateDb({
+      await preflightStateDb({
         python: PYTHON,
         script,
         home,
@@ -283,13 +289,13 @@ test.each([
   30_000
 )
 
-test('an older selected checkout without the snapshot helper refuses before backend stop', (): void => {
+test('an older selected checkout without the snapshot helper refuses before backend stop', async (): Promise<void> => {
   const oldRoot: string = fs.mkdtempSync(path.join(os.tmpdir(), 'old-preflight-'))
   let stopped = false
 
   try {
-    assert.throws((): void => {
-      preflightStateDb({
+    await assert.rejects(async (): Promise<void> => {
+      await preflightStateDb({
         python: PYTHON,
         script: path.join(oldRoot, 'anakot_cli', 'backup_sqlite.py'),
         home: oldRoot,

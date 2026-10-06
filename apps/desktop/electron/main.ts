@@ -4166,12 +4166,6 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
       return { ok: false, error: 'update-already-running', message: handoffConflict.message }
     }
 
-    emitUpdateProgress({
-      stage: 'restart',
-      message:
-        'Updating Anakot — this window will close and the updater will open. Don’t reopen Anakot yourself; it restarts automatically when the update finishes.',
-      percent: 100
-    })
     repairMacUpdaterHelper(updater)
 
     const updateRoot = resolveUpdateRoot()
@@ -4189,7 +4183,7 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
     // ── Pre-flight state.db integrity guard (#68474) ─────────────────
     // WAL-safe emergency snapshot via the backend's own sqlite helper.
     // Runs while the backend is still alive; refuses the update if it fails.
-    preflightStateDb({
+    await preflightStateDb({
       python: await findPythonForRoot(updateRoot),
       script: path.join(updateRoot, 'anakot_cli', 'backup_sqlite.py'),
       home: ANAKOT_HOME,
@@ -4208,6 +4202,13 @@ async function applyUpdates(opts: { stopSafeBlockers?: boolean } = {}) {
         return { ok: false, error: message }
       }
     }
+
+    emitUpdateProgress({
+      stage: 'restart',
+      message:
+        'Updating Anakot — this window will close and the updater will open. Don’t reopen Anakot yourself; it restarts automatically when the update finishes.',
+      percent: 100
+    })
 
     // Stop our own backend(s) and wait for the venv shim to unlock BEFORE we
     // spawn the updater. Without this the updater races a still-locked
@@ -4613,7 +4614,7 @@ async function applyUpdatesPosixHandoff(opts: any) {
   // while the backend is still alive; refuses the update if it fails.
   const preflightRoot: string = resolveUpdateRoot()
 
-  preflightStateDb({
+  await preflightStateDb({
     python: await findPythonForRoot(preflightRoot),
     script: path.join(preflightRoot, 'anakot_cli', 'backup_sqlite.py'),
     home: ANAKOT_HOME,

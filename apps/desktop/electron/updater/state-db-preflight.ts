@@ -1,9 +1,19 @@
-import { execFileSync } from 'node:child_process'
+import { execFile } from 'node:child_process'
 import path from 'node:path'
+import { promisify } from 'node:util'
 
 import { hiddenWindowsChildOptions } from '../windows-child-options'
 
-function readPreUpdateBackupEnabled(python: string, script: string, home: string): boolean {
+const execFileAsync = promisify(execFile)
+const CONFIG_PROBE_TIMEOUT_MS = 15_000
+const STATE_DB_PREFLIGHT_TIMEOUT_MS = 5 * 60_000
+
+async function readPreUpdateBackupEnabled(
+  python: string,
+  script: string,
+  home: string,
+  log: (message: string) => void
+): Promise<boolean> {
   try {
     // Query the selected checkout, not a potentially different CLI on PATH.
     // The backend owns defaults, managed policy and environment expansion.
@@ -16,7 +26,7 @@ function readPreUpdateBackupEnabled(python: string, script: string, home: string
     // active profile. Import-and-call runs it exactly once.
     const profile = path.basename(path.dirname(targetHome)) === 'profiles' ? path.basename(targetHome) : 'default'
 
-    const result = execFileSync(
+    const { stdout } = await execFileAsync(
       python,
       [
         '-c',
@@ -36,20 +46,25 @@ function readPreUpdateBackupEnabled(python: string, script: string, home: string
           PYTHONPATH: [root, process.env.PYTHONPATH].filter(Boolean).join(path.delimiter)
         },
         encoding: 'utf8',
-        timeout: 15_000,
+        timeout: CONFIG_PROBE_TIMEOUT_MS,
         stdio: ['ignore', 'pipe', 'pipe']
       })
     )
 
-    const value: unknown = JSON.parse(result.trim())
+    const value: unknown = JSON.parse(stdout.trim())
 
     return (
       value !== false &&
       value !== null &&
       !(typeof value === 'string' && ['off', 'false', 'none', 'disabled'].includes(value.trim().toLowerCase()))
     )
-  } catch {
+  } catch (error: unknown) {
     // Old/broken runtimes and malformed output must not disable recovery.
+    log(
+      `[updates] could not read updates.pre_update_backup; keeping the safety snapshot enabled: ${
+        error instanceof Error ? error.message : String(error)
+      }`
+    )
     return true
   }
 }
@@ -61,14 +76,15 @@ interface StateDbPreflight {
   log: (message: string) => void
 }
 
-// Synchronous by design: the caller must not stop the backend before the snapshot.
-export function preflightStateDb({ python, script, home, log }: StateDbPreflight): void {
+// The backend stays alive until this resolves; async execution keeps Electron responsive
+// while large databases are copied and allows substantially longer than a fixed 30s window.
+export async function preflightStateDb({ python, script, home, log }: StateDbPreflight): Promise<void> {
   try {
     if (!python) {
       throw new Error('Python not found')
     }
 
-    if (!readPreUpdateBackupEnabled(python, script, home)) {
+    if (!(await readPreUpdateBackupEnabled(python, script, home, log))) {
       log('[updates] emergency state.db backup disabled by updates.pre_update_backup')
 
       return
@@ -76,17 +92,17 @@ export function preflightStateDb({ python, script, home, log }: StateDbPreflight
 
     // -I -S runs the helper without site-packages, so it works before the
     // backend dies and while application imports still cannot load.
-    const result: string = execFileSync(
+    const { stdout } = await execFileAsync(
       python,
       ['-I', '-S', script, home],
       hiddenWindowsChildOptions({
         encoding: 'utf8',
-        timeout: 30_000,
+        timeout: STATE_DB_PREFLIGHT_TIMEOUT_MS,
         stdio: ['ignore', 'pipe', 'pipe']
       })
     )
 
-    log(`[updates] state.db pre-flight: ${result.trim()}`)
+    log(`[updates] state.db pre-flight: ${stdout.trim()}`)
   } catch (error: unknown) {
     const message =
       `state.db pre-flight failed: ${error instanceof Error ? error.message : String(error)}. ` +
