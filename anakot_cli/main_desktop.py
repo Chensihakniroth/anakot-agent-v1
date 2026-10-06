@@ -214,6 +214,28 @@ def _desktop_unpacked_root(exe: Path, release_dir: Path) -> Path:
     return unpacked
 
 
+def _desktop_process_holds_release(info: dict, release_dir: Path, *, parent_alive: Optional[bool] = None) -> bool:
+    """Match a desktop process or an orphaned Windows console host rooted in the release tree."""
+    exe = info.get("exe")
+    if exe:
+        try:
+            if release_dir in Path(exe).resolve().parents:
+                return True
+        except (OSError, RuntimeError, ValueError):
+            pass
+
+    if (info.get("name") or "").lower() != "conhost.exe" or parent_alive is not False:
+        return False
+
+    cwd = info.get("cwd")
+    if not cwd:
+        return False
+    try:
+        return release_dir in Path(cwd).resolve().parents
+    except (OSError, RuntimeError, ValueError):
+        return False
+
+
 def _swap_staged_desktop_app(desktop_dir: Path, staging_dir: Path) -> Optional[Path]:
     """Promote a VERIFIED staged pack over ``release/`` by two renames (live → ``.previous``, staged →
     live); a failure between them rolls back. Returns the live exe or None (live app kept). Never raises."""
@@ -670,20 +692,24 @@ def _stop_desktop_processes_locking_build(desktop_dir: Path) -> list[int]:
     me = os.getpid()
     victims = []
     try:
-        proc_iter = psutil.process_iter(["pid", "exe"])
+        proc_iter = psutil.process_iter(["pid", "name", "exe", "cwd", "ppid"])
     except Exception:
         return []
     for proc in proc_iter:
         try:
             info = proc.info
             pid = info.get("pid")
-            exe = info.get("exe")
-            if not exe or pid is None or pid == me:
+            if pid is None or pid == me:
                 continue
-            exe_path = Path(exe).resolve()
+            parent_alive = None
+            if (info.get("name") or "").lower() == "conhost.exe" and info.get("cwd"):
+                cwd = Path(info["cwd"]).resolve()
+                if release_dir in cwd.parents:
+                    parent_pid = info.get("ppid")
+                    parent_alive = parent_pid is None or psutil.pid_exists(parent_pid)
         except Exception:
             continue
-        if release_dir in exe_path.parents:
+        if _desktop_process_holds_release(info, release_dir, parent_alive=parent_alive):
             victims.append(proc)
 
     stopped: list[int] = []

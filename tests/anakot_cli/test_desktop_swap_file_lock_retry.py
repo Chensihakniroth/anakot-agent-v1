@@ -14,6 +14,22 @@ from pathlib import Path
 from anakot_cli import main_desktop
 
 
+def test_orphaned_console_host_in_release_is_a_swap_blocker(tmp_path):
+    release_dir = (tmp_path / "release").resolve()
+    cwd = release_dir / "win-unpacked"
+
+    assert main_desktop._desktop_process_holds_release(
+        {"name": "conhost.exe", "cwd": str(cwd), "exe": r"C:\Windows\System32\conhost.exe"},
+        release_dir,
+        parent_alive=False,
+    )
+    assert not main_desktop._desktop_process_holds_release(
+        {"name": "conhost.exe", "cwd": str(cwd), "exe": r"C:\Windows\System32\conhost.exe"},
+        release_dir,
+        parent_alive=True,
+    )
+
+
 def _packaged_exe_rel() -> Path:
     if sys.platform == "darwin":
         return Path("mac-arm64") / "Anakot.app" / "Contents" / "MacOS" / "Anakot"
