@@ -1,6 +1,6 @@
 import type { IconComponent } from '@/lib/icons'
 import { normalize } from '@/lib/text'
-import type { ConfigFieldSchema, EnvVarInfo, AnakotConfigRecord } from '@/types/anakot'
+import type { AnakotConfigRecord, ConfigFieldSchema, EnvVarInfo } from '@/types/anakot'
 
 import { FIELD_LABELS, SECTIONS } from './constants'
 import { credentialRowLabel } from './credential-key-ui'

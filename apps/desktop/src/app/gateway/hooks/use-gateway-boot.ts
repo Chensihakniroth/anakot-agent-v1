@@ -9,9 +9,9 @@ import {
 } from '@anakot/shared'
 import { useEffect, useRef } from 'react'
 
-import { shouldApplyPostBootProgressError } from '@/components/boot-failure-reauth'
-import type { DesktopBootProgress, AnakotConnection, AnakotWindowState } from '@/global'
 import { AnakotGateway } from '@/anakot'
+import { shouldApplyPostBootProgressError } from '@/components/boot-failure-reauth'
+import type { AnakotConnection, AnakotWindowState, DesktopBootProgress } from '@/global'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd } from '@/lib/desktop-fs'
 import {
@@ -620,6 +620,7 @@ export function useGatewayBoot({
     async function getWindowBackend(startup = false): Promise<AnakotConnection> {
       const profile = windowProfileOverride()
       const peer = isPeerInstanceWindow()
+
       const route = profile
         ? { profile, connectionId: peer ? new URLSearchParams(window.location.search).get('connectionId') : null }
         : startup && !peer

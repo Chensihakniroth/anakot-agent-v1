@@ -12,11 +12,11 @@ import type {
 
 import {
   ambientOwnerConnectionId,
+  anakotApi,
   capabilityScoped,
   connectionScoped,
   getApiRequestConnection,
   getApiRequestProfile,
-  anakotApi,
   type ProfileScope,
   profileScoped
 } from './client'

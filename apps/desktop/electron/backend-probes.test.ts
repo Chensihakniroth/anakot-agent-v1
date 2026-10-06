@@ -14,10 +14,10 @@ import path from 'node:path'
 import { test } from 'vitest'
 
 import {
+  anakotRuntimeImportProbe,
   canImportAnakotCli,
   DEFAULT_PROBE_TIMEOUT_MS,
   execProbe,
-  anakotRuntimeImportProbe,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,
   shouldTrustAnakotOverride,

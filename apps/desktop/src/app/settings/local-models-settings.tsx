@@ -2,9 +2,6 @@ import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
-import { NEW_CHAT_ROUTE } from '@/app/routes'
-import { Button } from '@/components/ui/button'
-import { Tip } from '@/components/ui/tooltip'
 import {
   activateLocalModel,
   deleteLocalModel,
@@ -22,6 +19,9 @@ import {
   setLocalServer,
   sideloadLocalModel
 } from '@/anakot'
+import { NEW_CHAT_ROUTE } from '@/app/routes'
+import { Button } from '@/components/ui/button'
+import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import {
   Check,

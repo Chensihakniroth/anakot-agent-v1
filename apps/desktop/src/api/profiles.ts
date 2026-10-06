@@ -6,7 +6,7 @@ import type {
   ProfilesResponse
 } from '@/types/anakot'
 
-import { capabilityScoped, anakotApi, type ProfileScope, STARTUP_REQUEST_TIMEOUT_MS } from './client'
+import { anakotApi, capabilityScoped, type ProfileScope, STARTUP_REQUEST_TIMEOUT_MS } from './client'
 
 export function getProfiles(scope?: ProfileScope): Promise<ProfilesResponse> {
   return anakotApi<ProfilesResponse>({

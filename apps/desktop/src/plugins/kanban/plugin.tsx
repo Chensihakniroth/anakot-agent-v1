@@ -12,9 +12,9 @@
 import './kanban.css'
 
 import {
+  type AnakotPlugin,
   cn,
   Codicon,
-  type AnakotPlugin,
   host,
   type KeybindContribution,
   KEYBINDS_AREA,

@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo } from 'react'
 
+import { previewSkillHub, type ProfileScope, profileScopeKey } from '@/anakot'
 import { Button } from '@/components/ui/button'
 import { CountSkeleton } from '@/components/ui/skeleton'
-import { previewSkillHub, type ProfileScope, profileScopeKey } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { Loader2 } from '@/lib/icons'
 import type { OfficialSkillInfo } from '@/types/anakot'

@@ -1,5 +1,5 @@
-import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import type { ConnectionTargetState } from '@anakot/shared'
+import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useState } from 'react'
 
