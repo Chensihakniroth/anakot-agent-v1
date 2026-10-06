@@ -142,6 +142,23 @@ for c in json.load(sys.stdin):
 | e33fd7e0 | 2026-09-27 | fix(desktop): run updater state.db pre-flight through the installation launcher | PORTED (partial) | Ported the WAL-safe snapshot core. The PM-managed `resolveInstallationLauncher` shim was SKIPPED — Anakot has no `pm/` managed-checkout concept (`grep -c resolveInstallationLauncher` = 0), so porting it would be dead code |
 | 4de06d1d | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off in the Desktop updater preflight | PORTED | Adapted into the existing shared `preflightStateDb` seam (no `resolveAnakotBackend` port): the probe runs the SELECTED checkout's own CLI with an explicit profile, so managed scope, defaults and `${ENV}` expansion stay backend-owned instead of re-parsing YAML in Electron. Any probe failure (missing CLI, malformed output, nonzero exit, 15s timeout) keeps the unchanged WAL-safe snapshot |
 | 37fd6440 | 2026-09-20 | fix(desktop): honour updates.pre_update_backup=off ... again | PORTED | Upstream re-gated in the composition root because the checkout strategy called `preflightStateDb` unconditionally. Anakot has one shared preflight called from BOTH `applyUpdates` and `applyUpdatesPosixHandoff`, so the gate belongs inside it — one edit covers both lanes and no caller can drift |
+| 0b088a78a | 2026-10-05 | fix(agent): don't promote Anthropic summarized thinking to the final answer | PORTED | Guard in `turn_final_response.py` checks `reasoning_details` for signed thinking blocks or `*.native_assistant` carriers |
+| 762f419fe | 2026-10-05 | fix(approval): MCP/vault consent declines at once when no user can answer | PORTED | Early-return in `approval_prompt.py` for single-query/cron/unattended-platform contexts |
+| f33d81740 | 2026-10-05 | fix(agent): name a final that reuses an already-delivered response | PORTED | `_reused_response_text` identity in turn_context/empty_response/finalizer; `response_reused` on TUI wire contract |
+| fdcae6deb | 2026-10-05 | fix(cli): stop _apply_featured() shortlisting user-defined providers | PORTED | Uses `is_routing_aggregator()` + `is_user_defined` guard instead of model-id spelling heuristic |
+| 35f878697 | 2026-10-05 | feat(agent): truncated context files name the sections that were dropped | PORTED | `_omitted_headings()` helper + marker update in `prompt_builder.py` |
+| d63cdd32a | 2026-10-05 | fix(discord): an auto-threaded mention reads the new thread's topic | PORTED | `effective_channel` instead of `message.channel` in Discord adapter |
+| eaecc99c7 | 2026-10-05 | fix(discord): upsert recreated slash commands without delete-first step | PORTED | Removed `delete_global_command` before upsert; rate-limit resilient |
+| 675bad762 | 2026-10-05 | fix(discord): resolve allowlisted usernames by username only, not display name | PORTED | Security fix: display names are user-controlled; match only `member.name` |
+| 0df1837e8 | 2026-10-05 | fix(approval): fire observer hooks for the two hookless classic-CLI prompts | PORTED | `pre/post_approval_request/response` hooks in elicitation + protected-write paths |
+| 7ef5aca07 | 2026-10-05 | fix(gateway): hand Telegram held inbound to the rebuilt adapter | PORTED | `adopt_held_inbound` + `carry_inbound_dedup(predecessor)` + `hand_over_held_inbound` |
+| 0104b9810 | 2026-10-05 | fix(auxiliary): preserve Codex completion status and phase | PORTED | Shared normalizer via `auxiliary_codex_response.py`; `recover_leaked_tool_call=False` for aux |
+| c8c44312d | 2026-10-05 | fix(auxiliary): preserve route-aware Responses normalization | PORTED | `issuer_kind`/`issuer_model` propagation through `resp_kwargs["_issuer_kind"]` |
+| 7fb344f92 | 2026-10-05 | fix(gateway): give in-flight api_server runs the cron drain floor | PORTED | `_still_draining()` groups `(cron or api)` under `cron_deadline` |
+| fb5bba80d | 2026-10-05 | fix(security): ignore spoofed XFF for dashboard login limits | PORTED | `client_ip()` returns ASGI peer only; no `X-Forwarded-For` parsing |
+| 9023a4af8 | 2026-10-05 | fix(memory): stage headless single-query writes | PORTED | `_interactive_approval_available()` gates inline prompt on single-query context |
+| ed4c35076 | 2026-10-05 | fix(dashboard-auth): cap request bodies on the public auth routes | PORTED | `AuthBodyLimitMiddleware` (64KB) registered innermost in web_server |
+| 5af47ddcd | 2026-10-05 | fix(compaction): retain oversized typed user text at checkpoint boundary | PORTED | `_input_text_parts_cost` + `_truncate_input_text_parts` in native_compaction.py |
 
 ---
 
@@ -161,6 +178,28 @@ for c in json.load(sys.stdin):
 ---
 
 ## Porting Log
+
+### 2026-10-06 — Refresh + port: 19 high-value Hermes fixes (Oct 2-5 batch)
+- Refreshed refs: `origin/main` = `9b6fc23ba` (2026-10-05), latest Hermes release.
+  Divergence ~50 ahead / ~120 behind — architectural, not missing features.
+- Pulled 1,728 new commits since Oct 2. After filtering noise (plugin-catalog 472,
+  test-only 212, code-health 51, chore/fmt ~200), identified ~164 portworthy candidates.
+- **19 fixes ported** across agent, gateway, discord, CLI, auxiliary, dashboard-auth,
+  compaction, approval, and security. All committed in 6 batches with focused tests.
+- Key adaptations (not cherry-picks):
+  - `response_reused` wire contract: Anakot's TUI gateway has its own payload model,
+    so the field was added to `MessageCompletePayload` + `prompt_turn.py` rather than
+    Hermes' `contracts/events.py`.
+  - Auxiliary/Codex: extracted `agent/auxiliary_codex_response.py` as a sibling module
+    (Anakot has no `hermes_cli` package); `recover_leaked_tool_call=False` for aux.
+  - Discord allowlist: security fix — match only `member.name`, not display_name/global_name.
+  - Dashboard auth body cap: new `AuthBodyLimitMiddleware` (64KB) registered innermost.
+  - Native compaction: `_input_text_parts_cost` + `_truncate_input_text_parts` for
+    typed `input_text` parts (bisect head-truncation preserving metadata).
+- Tests: 6 focused test files added/extended, all green. `scripts/run_tests.sh` used
+  throughout (CI parity: temp ANAKOT_HOME, TZ=UTC, LANG=C.UTF-8).
+- Skipped: plugin-catalog (472), code-health (51), test-only (212), chore/fmt (~200),
+  Hermes-specific infrastructure (pm/, resolveInstallationLauncher, bot-mode, relay).
 
 ### 2026-10-02 — Refresh + port: desktop pre-update backup opt-out
 - Refreshed refs: `origin/main` = `4b0fbf06cd`, `upstream/main` = `4097709b0c` (2026-10-02), latest
