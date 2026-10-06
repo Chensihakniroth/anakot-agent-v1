@@ -2861,7 +2861,15 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
                 summary["unchanged"] += 1
                 continue
             if self._patchable_app_command_payload(current_existing_payload) == self._patchable_app_command_payload(desired):
-                await mutate(http.delete_global_command, app_id, current.id)
+                # Upsert alone recreates the command: Discord's create endpoint
+                # overwrites the existing same-name command ("Returns 201 if a
+                # command with the same name does not already exist, or a 200
+                # if it does"). Delete-first strands the command deleted when
+                # the small command-management bucket 429s the upsert mid-sync;
+                # upsert-first keeps the command available even then. The
+                # obsolete-path delete-first below is different: an upsert
+                # pushing the live total over 100 fails with 30032 (breaks ALL
+                # slash commands), so an app at the cap must shrink first.
                 await mutate(http.upsert_global_command, app_id, desired)
                 summary["recreated"] += 1
                 continue
@@ -4236,7 +4244,11 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             return {"name": str(chat_id), "type": "dm", "error": str(e)}
 
     async def _resolve_allowed_usernames(self) -> None:
-        """Resolve username/display-name entries in DISCORD_ALLOWED_USERS to numeric IDs."""
+        """Resolve username entries in DISCORD_ALLOWED_USERS to numeric IDs.
+
+        Only the account username is matched: it is unique, while a display name or server nickname is
+        chosen by the member and can copy an allowlisted name.
+        """
         if not self._allowed_user_ids or not self._client:
             return
         numeric_ids = set()
@@ -4253,6 +4265,7 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             return
         print(f"[{self.name}] Resolving {len(to_resolve)} username(s): {', '.join(to_resolve)}")
         resolved_count = 0
+        display_only = set()
         for guild in self._client.guilds:
             # Fetch full member list (requires members intent)
             try:
@@ -4264,22 +4277,26 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
                 continue
             for member in members:
                 name_lower = member.name.lower()
-                display_lower = member.display_name.lower()
-                global_lower = (member.global_name or "").lower()
-                matched = name_lower in to_resolve or display_lower in to_resolve or global_lower in to_resolve
-                if matched:
+                if name_lower in to_resolve:
                     uid = str(member.id)
                     numeric_ids.add(uid)
                     resolved_count += 1
-                    matched_name = name_lower if name_lower in to_resolve else (
-                        display_lower if display_lower in to_resolve else global_lower
-                    )
-                    to_resolve.discard(matched_name)
-                    print(f"[{self.name}] Resolved '{matched_name}' -> {uid} ({member.name}#{member.discriminator})")
+                    to_resolve.discard(name_lower)
+                    print(f"[{self.name}] Resolved '{name_lower}' -> {uid} ({member.name}#{member.discriminator})")
+                else:
+                    # Note display-name-only matches that won't resolve: the allowlist entry
+                    # may be a typo of the actual username.
+                    display_lower = member.display_name.lower()
+                    global_lower = (member.global_name or "").lower()
+                    if display_lower in to_resolve or global_lower in to_resolve:
+                        display_only.add(display_lower if display_lower in to_resolve else global_lower)
             if not to_resolve:
                 break
         if to_resolve:
             print(f"[{self.name}] Could not resolve usernames: {', '.join(to_resolve)}")
+        # Warn about display-name-only matches so the user knows to use the account username.
+        for dn in display_only & to_resolve:
+            print(f"[{self.name}] ⚠ '{dn}' matches a display name but not a username — use the account username instead")
         # Adapter-local: under multiplex_profiles os.environ writes would clobber other profiles.
         # Update the internal set. Keep the resolved IDs adapter-local first: under multiplex_profiles,
         # writing os.environ here would clobber every OTHER profile's DISCORD_ALLOWED_USERS after this
