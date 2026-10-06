@@ -306,6 +306,11 @@ def _get_pty_active_session_files(app: "FastAPI") -> dict[str, Path]:
 
 app = FastAPI(title="Anakot Agent", version=__version__, lifespan=_lifespan)
 
+from anakot_cli.dashboard_auth.body_limit import AuthBodyLimitMiddleware  # noqa: E402
+
+# Register first (innermost): auth gates run before this, JSON parsing after it.
+app.add_middleware(AuthBodyLimitMiddleware)
+
 
 # Memory-provider OAuth connect routes live in the memory layer, not here.
 from anakot_cli.memory_oauth import router as _memory_oauth_router  # noqa: E402
