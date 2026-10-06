@@ -21,6 +21,7 @@ from contextvars import Context
 from datetime import datetime, timedelta, timezone
 from gateway.config import SHARED_LISTENER_MIRROR_PLATFORMS, Platform, platform_binds_port as _platform_binds_port
 from gateway.platforms.base import BasePlatformAdapter
+from gateway.platforms.helpers import carry_inbound_dedup, hand_over_held_inbound
 from gateway.restart import is_global_startup_conflict
 from gateway.run_shutdown import _log_suppressed
 from gateway.session import SessionSource
@@ -204,6 +205,8 @@ class GatewayAdapterLifecycleMixin:
             **({"queued_at": now} if queued else {}),
             "credential_claim": self._adapter_credential_claim(platform, adapter),
             "listener_claim": self._adapter_listener_claim(platform, adapter),
+            # The replaced instance: its dedup caches seed each candidate, its held inbound moves on publish.
+            "predecessor": adapter,
         }
 
     def _queue_retryable_fatal_platform(self, adapter: BasePlatformAdapter) -> bool:
@@ -720,6 +723,7 @@ class GatewayAdapterLifecycleMixin:
             if not adapter:
                 self._drop_from_reconnect_queue(platform, "adapter creation returned None")
                 return
+            carry_inbound_dedup(info.get("predecessor"), adapter)
             self._wire_adapter_handlers(adapter)
             # is_reconnect keeps the server-side update queue so offline-period messages are delivered.
             success = await self._connect_adapter_with_timeout(adapter, platform, is_reconnect=True)
@@ -773,7 +777,7 @@ class GatewayAdapterLifecycleMixin:
         """Publish a freshly reconnected primary adapter and replay what it missed while down."""
         self._publish_primary_adapter(platform, adapter)
         self.delivery_router.adapters = self.adapters
-        del self._failed_platforms[platform]
+        hand_over_held_inbound(self._failed_platforms.pop(platform).get("predecessor"), adapter)
         # connect() returning True does not mean the receive path is confirmed -- Telegram's degraded
         # reconnect returns True so the gateway stays up while its own ladder retries. Stamping "connected"
         # here would undo the adapter's accurate status.
@@ -1148,7 +1152,9 @@ class GatewayAdapterLifecycleMixin:
                 and _platform_binds_port(platform.value, getattr(getattr(adapter, "config", None), "extra", None)):
             adapter._shared_listener_profile = profile_name
 
-    async def _secondary_reconnect_attempt(self, profile_name: str, platform: Platform):
+    async def _secondary_reconnect_attempt(
+        self, profile_name: str, platform: Platform, predecessor=None
+    ):
         """One scoped attempt to rebuild+connect a secondary adapter → ``(adapter, success)``;
         ``(None, None)`` = give up for good (disabled, credential removed, adapter unavailable). Caller
         tears down a RETURNED adapter; one whose configure/connect raised is torn down here."""
@@ -1180,6 +1186,7 @@ class GatewayAdapterLifecycleMixin:
                     platform.value, profile_name,
                 )
                 return None, None
+            carry_inbound_dedup(predecessor, adapter)
             try:
                 self._configure_profile_adapter(adapter, profile_name, platform)
                 success = await self._connect_adapter_with_timeout(adapter, platform, is_reconnect=True)
@@ -1189,7 +1196,9 @@ class GatewayAdapterLifecycleMixin:
                 raise
             return adapter, success
 
-    async def _run_secondary_profile_reconnect(self, profile_name: str, platform: Platform) -> None:
+    async def _run_secondary_profile_reconnect(
+        self, profile_name: str, platform: Platform, predecessor=None
+    ) -> None:
         """Reconnect a retryable secondary adapter under its own profile scope."""
         from gateway.run import _reconnect_backoff
         attempts = 0
@@ -1198,13 +1207,16 @@ class GatewayAdapterLifecycleMixin:
             while self._running:
                 adapter = None
                 try:
-                    adapter, success = await self._secondary_reconnect_attempt(profile_name, platform)
+                    adapter, success = await self._secondary_reconnect_attempt(
+                        profile_name, platform, predecessor
+                    )
                     if adapter is None:
                         return
                     if success and self._running:
                         profile_map = self._profile_adapters.setdefault(profile_name, {})
                         if platform not in profile_map:
                             profile_map[platform] = adapter
+                            hand_over_held_inbound(predecessor, adapter)
                             self._sync_voice_mode_state_to_adapter(adapter)
                             logger.info("✓ %s reconnected (profile: %s)", platform.value, profile_name)
                             await self._redeliver_failed_obligations_for_platform(
@@ -1304,7 +1316,7 @@ class GatewayAdapterLifecycleMixin:
         if platform in profile_pending:
             return
         profile_pending[platform] = self._retain_background_task(asyncio.create_task(
-            self._run_secondary_profile_reconnect(profile_name, platform),
+            self._run_secondary_profile_reconnect(profile_name, platform, adapter),
             name=f"secondary-reconnect:{profile_name}:{platform.value}",
         ))
 

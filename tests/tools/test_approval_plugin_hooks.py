@@ -15,6 +15,8 @@ from tools import approval_context
 from tools import approval_smart
 from tools.approval import check_all_command_guards, check_execute_code_guard, clear_session
 from tools.approval_context import set_current_session_key
+from tools.approval_prompt import request_elicitation_consent
+from tools.file_tools_write_guards import _request_protected_instruction_approval
 
 
 @pytest.fixture
@@ -340,5 +342,53 @@ class TestSmartModeFiresHooks:
             "smart_approve",
             "smart_deny",
         ]
+
+
+class TestAdditionalCliApprovalPaths:
+    def test_protected_write_fires_observer_pair(self, monkeypatch):
+        monkeypatch.delenv("ANAKOT_GATEWAY_SESSION", raising=False)
+        token = set_current_session_key("test:session:protected_write")
+        captured = []
+        monkeypatch.setattr("tools.terminal_tool._get_approval_callback", lambda: lambda *args, **kwargs: "once")
+        try:
+            with patch(
+                "anakot_cli.plugins.invoke_hook",
+                side_effect=lambda name, **kwargs: captured.append((name, kwargs)) or [],
+            ):
+                result = _request_protected_instruction_approval(["AGENTS.md"])
+        finally:
+            approval_context._approval_session_key.reset(token)
+
+        assert result is None
+        assert [name for name, _ in captured] == ["pre_approval_request", "post_approval_response"]
+        assert captured[0][1]["pattern_key"] == "protected_instruction_file"
+        assert captured[1][1]["choice"] == "once"
+
+    def test_elicitation_prompt_failure_settles_observers(self, monkeypatch):
+        monkeypatch.delenv("ANAKOT_GATEWAY_SESSION", raising=False)
+        monkeypatch.delenv("ANAKOT_EXEC_ASK", raising=False)
+        token = set_current_session_key("test:session:elicitation")
+        captured = []
+        try:
+            with (
+                patch(
+                    "tools.approval_prompt.prompt_dangerous_approval",
+                    side_effect=RuntimeError("panel blew up"),
+                ),
+                patch(
+                    "anakot_cli.plugins.invoke_hook",
+                    side_effect=lambda name, **kwargs: captured.append((name, kwargs)) or [],
+                ),
+            ):
+                verdict = request_elicitation_consent(
+                    "Confirm payment?", "the vault asks", surface="vault-payment"
+                )
+        finally:
+            approval_context._approval_session_key.reset(token)
+
+        assert verdict == "decline"
+        assert [name for name, _ in captured] == ["pre_approval_request", "post_approval_response"]
+        assert captured[1][1]["choice"] == "cancelled"
+        assert captured[1][1]["surface"] == "vault-payment"
 
 

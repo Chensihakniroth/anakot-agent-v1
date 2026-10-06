@@ -64,6 +64,35 @@ class MessageDeduplicator:
     def clear(self):
         self._seen.clear()
 
+    def absorb(self, other: "MessageDeduplicator") -> None:
+        """Adopt *other*'s still-live IDs (at their original seen times) into this cache."""
+        cutoff = time.time() - self._ttl
+        self._seen.update({k: v for k, v in other._seen.items() if v > cutoff and k not in self._seen})
+
+
+def carry_inbound_dedup(predecessor: Any, adapter: Any) -> None:
+    """Seed a rebuilt adapter's dedup caches from the instance it replaces (call before connect).
+
+    The runner's reconnect path builds a NEW adapter; without this a platform replaying a recent
+    inbound ID after the reconnect (websocket resume, webhook retry, unacked poll batch) is
+    admitted and answered a second time."""
+    if predecessor is None:
+        return
+    for name, previous in vars(predecessor).items():
+        current = getattr(adapter, name, None)
+        if isinstance(previous, MessageDeduplicator) and isinstance(current, MessageDeduplicator) and current is not previous:
+            current.absorb(previous)
+
+
+def hand_over_held_inbound(predecessor: Any, adapter: Any) -> None:
+    """Move inbound the retired instance is holding to its now-published replacement (#132829).
+
+    Runs at publish time, not before connect: a candidate that fails to connect never owns the
+    queue, and the predecessor keeps holding until a replacement is registered."""
+    adopt = getattr(adapter, "adopt_held_inbound", None)
+    if predecessor is not None and callable(adopt):
+        adopt(predecessor)
+
 
 async def cancel_task(task: Optional[asyncio.Task]) -> None:
     """Cancel *task* and wait for it to unwind. ``None``/finished tasks are no-ops; awaiting the

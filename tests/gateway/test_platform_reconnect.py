@@ -8,6 +8,7 @@ import pytest
 
 from gateway.config import GatewayConfig, Platform, PlatformConfig
 from gateway.platforms.base import BasePlatformAdapter, SendResult
+from gateway.platforms.helpers import MessageDeduplicator
 from gateway.run import GatewayRunner
 
 
@@ -410,6 +411,74 @@ class TestRuntimeDisconnectQueuing:
         runner.stop.assert_not_called()
         assert runner._exit_with_failure is False
         assert Platform.TELEGRAM in runner._failed_platforms
+
+
+class TestReconnectKeepsInboundDedup:
+    @pytest.mark.asyncio
+    async def test_replayed_inbound_id_after_runner_reconnect_is_dropped(self):
+        """A rebuilt adapter inherits live inbound IDs, so reconnect replay is not answered twice."""
+        runner = _make_runner()
+        runner.stop = AsyncMock()
+        runner._sync_voice_mode_state_to_adapter = MagicMock()
+        old, new = StubAdapter(), StubAdapter()
+        for adapter in (old, new):
+            adapter._dedup = MessageDeduplicator()
+        runner.adapters[Platform.TELEGRAM] = old
+        assert old._dedup.is_duplicate("m1") is False
+
+        old._set_fatal_error("network_error", "socket closed", retryable=True)
+        await runner._handle_adapter_fatal_error(old)
+        with patch.object(runner, "_create_adapter", return_value=new):
+            await runner._reconnect_failed_platform(Platform.TELEGRAM, time.monotonic() + 1)
+
+        assert runner.adapters[Platform.TELEGRAM] is new
+        assert new._dedup.is_duplicate("m1") is True
+        assert new._dedup.is_duplicate("m2") is False
+
+    @pytest.mark.asyncio
+    async def test_held_telegram_inbound_reaches_published_replacement_once(self):
+        """A PTB-acked held update moves only to the replacement that successfully publishes."""
+        from gateway.platforms.event import MessageEvent
+        from gateway.session import SessionSource
+        from plugins.platforms.telegram.adapter import TelegramAdapter
+
+        class _Telegram(TelegramAdapter):
+            def __init__(self, succeed):
+                super().__init__(PlatformConfig(enabled=True, token="123:abc"))
+                self.succeed, self.handle_message = succeed, AsyncMock()
+
+            async def connect(self, *, is_reconnect=False):
+                if self.succeed:
+                    self._mark_connected()
+                return self.succeed
+
+            async def disconnect(self):
+                return None
+
+        runner = _make_runner()
+        runner.stop = AsyncMock()
+        runner._sync_voice_mode_state_to_adapter = MagicMock()
+        old, failed, new = _Telegram(True), _Telegram(False), _Telegram(True)
+        runner.adapters[Platform.TELEGRAM] = old
+        old._set_fatal_error("telegram_network_error", "stall", retryable=True)
+        event = MessageEvent(
+            text="held",
+            source=SessionSource(platform=Platform.TELEGRAM, chat_id="1", chat_type="dm"),
+        )
+        old._hold_inbound_event(event, where="text-enqueue")
+        await runner._handle_adapter_fatal_error(old)
+        for candidate in (failed, new):
+            runner._failed_platforms[Platform.TELEGRAM]["next_retry"] = 0
+            with patch.object(runner, "_create_adapter", return_value=candidate):
+                await runner._reconnect_failed_platform(Platform.TELEGRAM, time.monotonic() + 1)
+        await asyncio.sleep(0)
+        await new._held_inbound_redispatch_task
+
+        assert runner.adapters[Platform.TELEGRAM] is new
+        failed.handle_message.assert_not_called()
+        new.handle_message.assert_awaited_once_with(event)
+        assert event.source._transport_adapter_ref() is new
+        assert old._held_inbound_events == [] and new._held_inbound_events == []
 
 
 # --- Pause / resume circuit breaker ---
