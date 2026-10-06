@@ -770,6 +770,9 @@ def _complete_turn_payload(session: dict, st: _TurnRun, status_note: str | None,
         payload["warning"] = status_note
     if result.get("response_previewed"):
         payload["response_previewed"] = True
+    # Only the agent's reuse site sets this; never infer from equal text (a model may repeat itself).
+    if raw and result.get("response_reused"):
+        payload["response_reused"] = True
     # Structured billing-wall descriptor: the client renders recovery without re-parsing text.
     if _billing_block := result.get("billing_block"):
         payload["billing"] = _billing_block

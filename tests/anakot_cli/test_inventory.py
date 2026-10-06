@@ -683,5 +683,35 @@ def _apply_featured_with_dates(rows, dates: dict[str, str]):
         inventory._apply_featured(rows)
 
 
+def test_featured_shortlist_is_only_for_builtin_routing_aggregators():
+    rows = [
+        {
+            "slug": "modelscope",
+            "is_user_defined": True,
+            "models": ["Qwen/model-a", "deepseek-ai/model-b"],
+        },
+        {
+            "slug": "anthropic",
+            "is_user_defined": False,
+            "models": ["claude-a", "claude-b"],
+        },
+        {
+            "slug": "openrouter",
+            "is_user_defined": False,
+            "models": ["openai/model-a", "anthropic/model-b"],
+        },
+    ]
+
+    _apply_featured_with_dates(
+        rows,
+        {"Qwen/model-a": "2026-01-01", "deepseek-ai/model-b": "2026-02-01",
+         "openai/model-a": "2026-01-01", "anthropic/model-b": "2026-02-01"},
+    )
+
+    assert rows[0]["featured_models"] == []
+    assert rows[1]["featured_models"] == []
+    assert rows[2]["featured_models"] == ["openai/model-a", "anthropic/model-b"]
+
+
 
 

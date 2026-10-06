@@ -190,3 +190,30 @@ def test_genuine_reasoning_only_answer_with_tools_still_promotes_on_first_call(l
         ])
         assert result["api_calls"] == 1
         assert result["final_response"] == answer
+
+
+def test_native_claude_summary_carrier_continues_instead_of_becoming_answer(loop_agent):
+    """A native Claude thinking summary is metadata, not the user-facing final answer."""
+    from tests.agent.test_run_agent import _mock_response
+
+    summary = "The user asks for 391's factors; checking divisibility by 17 gives 23."
+    carrier = [{
+        "type": "claude-subscription-directsdk-experimental.native_assistant",
+        "version": 1,
+        "messages": [{
+            "role": "assistant",
+            "content": [{"type": "thinking", "thinking": summary, "signature": "sig-abc"}],
+        }],
+    }]
+    result = _run(loop_agent, [
+        _mock_response(
+            content=None,
+            finish_reason="stop",
+            reasoning_content=summary,
+            reasoning_details=carrier,
+        ),
+        _mock_response(content="391 = 17 × 23.", finish_reason="stop"),
+    ])
+
+    assert result["api_calls"] == 2
+    assert result["final_response"] == "391 = 17 × 23."

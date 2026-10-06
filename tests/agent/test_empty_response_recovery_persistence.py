@@ -1,5 +1,7 @@
 """Regression tests for empty-response recovery transcript persistence."""
 
+from types import SimpleNamespace
+
 from run_agent import AIAgent
 
 
@@ -164,3 +166,39 @@ def test_flush_skips_thinking_prefill_scaffolding():
     agent._flush_messages_to_session_db(messages, conversation_history=[])
 
     assert [r["content"] for r in agent._session_db.rows] == ["hi", "Hello!"]
+
+
+def test_housekeeping_fallback_records_reused_response_identity():
+    from agent.turn_empty_response import recover_empty_response
+
+    agent = SimpleNamespace(
+        _current_streamed_assistant_text="",
+        _has_content_after_think_block=lambda _text: False,
+        _last_content_with_tools="Here is the answer.",
+        _last_content_tools_all_housekeeping=True,
+        _empty_content_retries=1,
+        _strip_think_blocks=lambda text: text,
+        _emit_diagnostic_status=lambda _text: None,
+        _response_was_previewed=False,
+        _reused_response_text=None,
+    )
+
+    verdict = recover_empty_response(
+        agent,
+        SimpleNamespace(),
+        SimpleNamespace(),
+        "stop",
+        final_response="",
+        messages=[],
+        api_messages=[],
+        conversation_history=[],
+        active_system_prompt="system",
+        api_call_count=2,
+        turn_exit_reason=None,
+        preflight_compression_blocked=False,
+    )
+
+    assert verdict.action == "break"
+    assert verdict.final_response == "Here is the answer."
+    assert agent._response_was_previewed is True
+    assert agent._reused_response_text == verdict.final_response
