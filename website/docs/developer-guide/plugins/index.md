@@ -1804,6 +1804,23 @@ services.anakot-agent.extraPlugins = [
 
 See the [Nix Setup guide](../../getting-started/nix-setup.md#plugins) for complete documentation including overlay usage and collision checking.
 
+## Advanced plugin capabilities
+
+### Send raw CDP commands to the agent's browser
+
+If your plugin automates or inspects pages below the agent's toolset (e.g. injecting credentials, auditing security state), use the public supervisor capture seam rather than writing the supervisor's private call table:
+
+```python
+from tools.browser_supervisor import SUPERVISOR_REGISTRY
+from tools.browser_supervisor_capture import CapturedCDPInvalid
+
+cdp = SUPERVISOR_REGISTRY.capture(task_id)
+reply = cdp.call("Runtime.evaluate", {"expression": "document.title", "returnByValue": True},
+                 session_id=cdp.page_session_id, timeout=5)
+```
+
+See [Browser Supervisor](../browser-supervisor.md#trusted-plugin-cdp-access) for the full contract.
+
 ## Common mistakes
 
 **Handler doesn't return JSON string:**

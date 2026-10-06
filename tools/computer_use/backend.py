@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
+from agent.provider_base import ProviderBase
+
 _JPEG_SOF_MARKERS = frozenset({0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB, 0xCD, 0xCE, 0xCF})
 
 def image_dimensions_from_bytes(raw: bytes) -> Optional[Tuple[int, int]]:
@@ -169,3 +171,29 @@ class ComputerUseBackend(ABC):
     def wait(self, seconds: float) -> ActionResult:  # default implementation
         time.sleep(max(0.0, min(seconds, 30.0)))
         return ActionResult(ok=True, action="wait", message=f"waited {seconds:.2f}s")
+
+
+class ComputerUseProvider(ProviderBase):
+    """Factory for one computer_use driver, registered via ``ctx.register_computer_use_provider`` from a provider
+    plugin whose directory name is the ``computer_use.backend`` value (built-in: ``plugins/computer_use/cua``). Only
+    the selected provider is imported and instantiated. The model-facing tool schema is identical for every backend:
+    an action the driver cannot perform returns ``ActionResult(ok=False, code="unsupported_action", message=...)``
+    rather than changing the schema."""
+
+    @abstractmethod
+    def create_backend(self, *, permission_mode: str) -> ComputerUseBackend:
+        """A fresh, unstarted backend for one Anakot session (the tool calls ``start()``/``stop()``).
+        ``permission_mode`` is ``standard`` | ``bounded`` | ``unrestricted`` (approval bypass active)."""
+
+    def is_available(self) -> bool:
+        """Usable on this host right now (the tool's ``check_fn``). Cheap: no network, no spawning."""
+        return True
+
+    def doctor(self) -> List[Tuple[str, str, str]]:
+        """Optional provider-specific diagnostics for ``anakot computer-use doctor``.
+
+        Returns ``[(category, check_name, status), ...]`` where ``status`` is
+        ``ok`` | ``warn`` | ``fail`` | ``skip``. The CLI pairs these with the
+        general OS/display checks.
+        """
+        return []

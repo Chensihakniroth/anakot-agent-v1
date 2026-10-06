@@ -917,6 +917,12 @@ class VoiceReceiver:
                 self._last_packet_time.pop(ssrc, None)
         return completed
 
+    def discard_pending(self) -> None:
+        """Drop buffered PCM that no poll or flush has emitted yet."""
+        with self._lock:
+            self._buffers.clear()
+            self._last_packet_time.clear()
+
     # --- PCM -> WAV conversion (for Whisper STT) ---
 
     @staticmethod
@@ -3513,6 +3519,28 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         mixers = getattr(self, "_voice_mixers", None)
         return bool(mixers) and mixers.get(guild_id) is not None
 
+    def _bind_voice_text_channel(self, guild_id: int, text_channel_id: Optional[int],
+                                 source: Optional[Dict[str, Any]]) -> None:
+        if text_channel_id is None:
+            return
+        old_ch = self._voice_text_channels.get(guild_id)
+        if old_ch is not None and old_ch != text_channel_id:
+            receiver = self._voice_receivers.get(guild_id)
+            if receiver is not None:
+                receiver.discard_pending()
+            if source is None:
+                self._voice_sources.pop(guild_id, None)
+        self._voice_text_channels[guild_id] = text_channel_id
+        if source is not None:
+            self._voice_sources[guild_id] = source
+
+    def discard_pending_voice_input(self, guild_id: int) -> None:
+        """Drop speech the receiver holds but has not emitted, before the text binding moves: audio
+        captured for the old conversation must never be stamped with the new one (#130311)."""
+        receiver = self._voice_receivers.get(guild_id)
+        if receiver is not None:
+            receiver.discard_pending()
+
     async def join_voice_channel(self, channel, *, text_channel_id: int = None, source: dict = None) -> bool:
         """Join a voice channel; returns True on success. ``text_channel_id`` stores the
         transcription-routing binding so programmatic joins work without ``/voice join``."""
@@ -3522,6 +3550,7 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         async with self._voice_locks.setdefault(guild_id, asyncio.Lock()):
             existing = self._voice_clients.get(guild_id)
             if existing and existing.is_connected():
+                self._bind_voice_text_channel(guild_id, text_channel_id, source)
                 if existing.channel.id == channel.id:
                     self._reset_voice_timeout(guild_id)
                     return True
@@ -3531,10 +3560,7 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             vc = await channel.connect()
             self._voice_clients[guild_id] = vc
             self._reset_voice_timeout(guild_id)
-            if text_channel_id is not None:
-                self._voice_text_channels[guild_id] = text_channel_id
-            if source is not None:
-                self._voice_sources[guild_id] = source
+            self._bind_voice_text_channel(guild_id, text_channel_id, source)
             try:
                 receiver = VoiceReceiver(vc, allowed_user_ids=self._allowed_user_ids)
                 receiver.start()
@@ -3564,9 +3590,10 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             if listen_task:
                 listen_task.cancel()
             guild = self._client.get_guild(guild_id) if self._client is not None else None
+            captured_for = self._voice_text_channels.get(guild_id)
             for user_id, pcm_data in pending_inputs:
                 if self._is_allowed_user(str(user_id), guild=guild, is_dm=False):
-                    await self._process_voice_input(guild_id, user_id, pcm_data)
+                    await self._process_voice_input(guild_id, user_id, pcm_data, captured_for)
             # Tear down the mixer (stops the continuous outgoing stream).
             if getattr(self, "_voice_mixers", None) is not None:
                 self._voice_mixers.pop(guild_id, None)
@@ -3792,18 +3819,20 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
                 completed = receiver.check_silence()
                 # Pass guild so role checks stay guild-scoped.
                 _vc_guild = self._client.get_guild(guild_id) if self._client is not None else None
+                captured_for = self._voice_text_channels.get(guild_id)
                 for user_id, pcm_data in completed:
                     if not self._is_allowed_user(str(user_id), guild=_vc_guild, is_dm=False):
                         continue
                     # User speech is activity too; keeps active listeners connected.
                     self._reset_voice_timeout(guild_id)
-                    await self._process_voice_input(guild_id, user_id, pcm_data)
+                    await self._process_voice_input(guild_id, user_id, pcm_data, captured_for)
         except asyncio.CancelledError:
             pass
         except Exception as e:
             logger.error("Voice listen loop error: %s", e, exc_info=True)
 
-    async def _process_voice_input(self, guild_id: int, user_id: int, pcm_data: bytes):
+    async def _process_voice_input(self, guild_id: int, user_id: int, pcm_data: bytes,
+                                   captured_for: Optional[int] = None):
         """Convert PCM -> WAV -> STT -> callback."""
         from tools.voice_mode import is_whisper_hallucination
         tmp_f = tempfile.NamedTemporaryFile(suffix=".wav", prefix="vc_listen_", delete=False)
@@ -3819,6 +3848,10 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             if not transcript or is_whisper_hallucination(transcript):
                 return
             logger.info("Voice input from user %d: %s", user_id, transcript[:100])
+            if getattr(self, "_voice_text_channels", {}).get(guild_id) != captured_for:
+                logger.info("Dropping voice input from user %d: the voice binding moved during transcription",
+                            user_id)
+                return
             if self._voice_input_callback:
                 await self._voice_input_callback(
                     guild_id=guild_id, user_id=user_id, transcript=transcript,
@@ -4872,6 +4905,15 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
             if str(entry).strip().isdigit()
         }
 
+    def _component_live_auth(self, interaction) -> Optional[bool]:
+        """The gateway's live allowlist verdict for a component click (None when no check is wired):
+        an out-of-process revoke never reaches the connect-time ``_allowed_user_ids`` snapshot."""
+        user_id = str(getattr(getattr(interaction, "user", None), "id", "") or "")
+        channel_id = getattr(interaction, "channel_id", None)
+        chat_type = "dm" if getattr(interaction, "guild", None) is None else "group"
+        return self._is_sender_authorized(
+            user_id, chat_type, str(channel_id) if channel_id is not None else None)
+
     def resolved_allowlist_user_ids(self) -> set:
         """Numeric IDs from connect-time username resolution.
         The env mirror of ``_allowed_user_ids`` doesn't survive the per-turn .env hot-reload, so the
@@ -5466,6 +5508,8 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
         try:
             channel = await self._resolve_channel(_prompt_target_id(chat_id, metadata))
             send_kwargs, view = build(channel)
+            if view is not None:
+                view.live_auth = self._component_live_auth
             msg = await channel.send(**send_kwargs)
             if view is not None:
                 view._message = msg
@@ -6138,65 +6182,6 @@ class DiscordAdapter(DiscordMediaMixin, BasePlatformAdapter):
 # ---------------------------------------------------------------------------
 
 
-def _component_check_auth(
-    interaction, allowed_user_ids: Optional[set], allowed_role_ids: Optional[set],
-) -> bool:
-    """Shared user-or-role OR authorization for component button clicks.
-    Allow on: DISCORD/GATEWAY_ALLOW_ALL_USERS, user in DISCORD/GATEWAY_ALLOWED_USERS, a role in the
-    role allowlist, or pairing-store approval. Role allowlist with no ``roles`` (DM) rejects (fail closed).
-    """
-    user = getattr(interaction, "user", None)
-    if user is None or getattr(user, "id", None) is None:
-        return False
-    # Scope-aware reads: interaction tasks inherit the owning profile's secret-scope contextvar;
-    # under multiplex a raw os.getenv could return ANOTHER profile's allow-all flag.
-    # Scope-aware reads (issue #72348): component interactions are dispatched from discord.py tasks
-    # descended from the task created inside the owning profile's runtime scope, so the profile's
-    # secret-scope contextvar is inherited here.
-    if _scoped_gate_env("DISCORD_ALLOW_ALL_USERS").strip().lower() in {"true", "1", "yes"}:
-        return True
-    if _scoped_gate_env("GATEWAY_ALLOW_ALL_USERS").strip().lower() in {"true", "1", "yes"}:
-        return True
-    user_set = {str(uid).strip() for uid in (allowed_user_ids or set()) if str(uid).strip()}
-    global_allowed = {
-        uid.strip()
-        for uid in _scoped_gate_env("GATEWAY_ALLOWED_USERS").split(",")
-        if uid.strip()
-    }
-    user_set.update(global_allowed)
-    role_set = set(allowed_role_ids or set())
-    has_users = bool(user_set)
-    has_roles = bool(role_set)
-    try:
-        uid = str(user.id)
-    except AttributeError:
-        uid = ""
-    if has_users:
-        if "*" in user_set or (uid and uid in user_set):
-            return True
-    if has_roles:
-        roles_attr = getattr(user, "roles", None)
-        if roles_attr is None:
-            # Role policy configured but no role data (DM Member, raw User): fail closed.
-            return False
-        try:
-            user_role_ids = {getattr(r, "id", None) for r in roles_attr}
-        except TypeError:
-            return False
-        if user_role_ids & role_set:
-            return True
-    # Pairing store (mirrors ``authz_mixin._check_authorization``): paired users click without allowlist.
-    if uid:
-        try:
-            from gateway.pairing import PairingStore
-            store = PairingStore()
-            if store.is_approved("discord", uid):
-                return True
-        except Exception:
-            pass
-    return False
-
-
 def _resolve_exec_approval_admin_gate(config_extra: Optional[dict]) -> Tuple[bool, set]:
     """Resolve the exec-approval admin gate from ``extra``; returns ``(require_admin, admin_user_ids)``.
     Default OFF (user-scope buttons). When ``require_admin_for_exec_approval`` is true only
@@ -6228,11 +6213,14 @@ def _define_discord_view_classes() -> None:
             super().__init__(timeout=timeout)
             self.allowed_user_ids = allowed_user_ids
             self.allowed_role_ids = allowed_role_ids or set()
+            self.live_auth = None
             self.resolved = False
             self._message = None
 
         def _check_auth(self, interaction: discord.Interaction) -> bool:
-            return _component_check_auth(interaction, self.allowed_user_ids, self.allowed_role_ids)
+            from plugins.platforms.discord.adapter_component_auth import _component_check_auth
+            return _component_check_auth(
+                interaction, self.allowed_user_ids, self.allowed_role_ids, live_auth=self.live_auth)
 
         async def _gate(self, interaction: discord.Interaction, *, resolved_msg: Optional[str], unauth_msg: str) -> bool:
             """Reject (ephemerally) an already-resolved or unauthorized click; True when it may proceed."""
@@ -6600,6 +6588,8 @@ def _define_discord_view_classes() -> None:
             )
 
         async def _on_cancel(self, interaction: discord.Interaction):
+            if not await self._gate(interaction, resolved_msg=None, unauth_msg=_UNAUTHORIZED):
+                return
             self.resolved = True
             self.clear_items()
             await self._edit(interaction, "Model selection cancelled.", color=discord.Color.greyple())

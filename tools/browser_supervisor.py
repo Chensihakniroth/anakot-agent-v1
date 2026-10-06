@@ -30,6 +30,8 @@ from tools.browser_supervisor_frames import FrameInfo, FrameTrackingMixin
 if TYPE_CHECKING:
     from websockets.asyncio.client import ClientConnection
 
+    from tools.browser_supervisor_capture import CapturedCDP
+
 logger = logging.getLogger(__name__)
 
 # Browserbase can transiently drop a CDP socket while a short-lived client
@@ -422,6 +424,12 @@ class CDPSupervisor(DialogSupervisionMixin, FrameTrackingMixin):
                     handle.cancel()
                 self._dialog_watchdogs.clear()
                 await self._close_ws()
+                # Replies to calls still in flight died with the socket: fail them now
+                # instead of letting each caller sit out its full timeout.
+                for fut in self._pending_calls.values():
+                    if not fut.done():
+                        fut.set_exception(ConnectionError("CDP connection closed before reply"))
+                self._pending_calls.clear()
 
             if self._stop_requested:
                 return
@@ -536,6 +544,13 @@ class _SupervisorRegistry:
         supervisor = self._pop(task_id)
         if supervisor is not None:
             supervisor.stop()
+
+    def capture(self, task_id: str, *, timeout: float = 10.0) -> CapturedCDP:
+        """Capture the current supervisor connection for ``task_id``; raises
+        ``CapturedCDPInvalid`` when none is running or attached to a page."""
+        from tools.browser_supervisor_capture import capture
+
+        return capture(self, task_id, timeout=timeout)
 
     def stop_all(self) -> None:
         """Stop every running supervisor. For shutdown / test teardown."""

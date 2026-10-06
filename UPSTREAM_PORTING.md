@@ -39,6 +39,15 @@ for c in json.load(sys.stdin):
 
 | SHA | Date | Description | Status | Notes |
 |-----|------|-------------|--------|-------|
+| a036b137 | 2026-10-06 | fix(discord): a programmatic voice join binds the requested text channel on every path | PORTED | Unified _bind_voice_text_channel, discard_pending on move, build_source metadata preservation |
+| c3f3589e | 2026-10-06 | refactor(discord): move _component_check_auth into adapter_component_auth to keep adapter.py under its size cap | PORTED | Component authorization helper extracted to adapter_component_auth.py sibling |
+| 23135fe5 | 2026-10-06 | test(discord): trim component live-auth tests to two invariants | PORTED | Parametrized helper and async revoke denial tests |
+| d29d0d07 | 2026-10-06 | fix(discord): confirm a snapshot wildcard with the live check too | PORTED | Wildcard admissions validated via _component_live_auth |
+| 502df01d | 2026-10-06 | fix(discord): buttons stop accepting a user revoked after connect | PORTED | Interactive views pass _component_live_auth to _component_check_auth for live per-click verification |
+| 932210ec | 2026-10-05 | fix(discord): a /voice join to another text channel drops speech the receiver still holds for the old one | PORTED | VoiceReceiver.discard_pending() invoked before rebind |
+| fb49ef18 | 2026-10-04 | fix(discord): capture the voice binding when a poll batch is collected | PORTED | captured_for passed to _process_voice_input to drop stale turns across rebinds |
+| 88c60858 | 2026-10-06 | fix(process): a kill's result stands on every backend, and a failed scope stop never counts as stopped (#133648) | PORTED | Multi-backend exit settlement under session lock, systemd scope stop retry tracking, log_delta_command in sibling module |
+| 6bf7de73 | 2026-10-05 | feat(browser): public captured CDP call seam for trusted plugins | PORTED | SUPERVISOR_REGISTRY.capture(task_id) returning socket-pinned CapturedCDP handle with rapid invalidation on disconnect |
 | 1c953851 | 2026-09-22 | test: write fake CA bundles to absolute path | N/A | Test-path cleanup only; Anakot uses absolute `tmp_path` fixtures directly |
 | c33be87a | 2026-09-22 | fix(urllib): log default-certificates fallback once | PORTED | Per-candidate failures say they are trying the next bundle; aggregate fallback logs once |
 | 7a0c8287 | 2026-09-22 | perf(urllib): key CA-context memo on preferred bundle | PORTED | Only the preferred candidate is statted and used as the memo key |

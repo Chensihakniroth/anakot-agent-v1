@@ -795,7 +795,7 @@ class TestDiscordVoiceChannelMethods:
         adapter._voice_listen_tasks[111] = MagicMock()
         adapter._is_allowed_user = MagicMock(return_value=True)
 
-        async def process(guild_id, user_id, pcm_data):
+        async def process(guild_id, user_id, pcm_data, captured_for=None):
             events.append("process")
 
         adapter._process_voice_input = process

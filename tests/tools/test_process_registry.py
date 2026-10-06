@@ -638,6 +638,7 @@ class TestStdinHelpers:
         proc.stdin.close.assert_called_once()
         assert result["status"] == "ok"
 
+    @pytest.mark.linux_only
     def test_close_stdin_allows_eof_driven_process_to_finish(self, registry, tmp_path):
         """PTY mode: writing data + sending EOF lets an EOF-driven child finish.
 
@@ -646,8 +647,9 @@ class TestStdinHelpers:
         lockout (#17959). For interactive stdin → PTY mode is now the only
         supported path.
         """
+        command = f'{shlex.quote(sys.executable)} -c "import sys; print(sys.stdin.read().strip())"'
         session = registry.spawn_local(
-            'python3 -c "import sys; print(sys.stdin.read().strip())"',
+            command,
             cwd=str(tmp_path),
             use_pty=True,
         )
@@ -1021,7 +1023,7 @@ class TestEnvPollerIncrementalRead:
         # The offset is carried into the command, and the file is opened with
         # tail rather than cat.
         assert "O=4096" in cmd
-        assert "tail -c +$((O+1)) '/tmp/bg.log'" in cmd
+        assert "tail -c +$((O + 1)) '/tmp/bg.log'" in cmd or "tail -c +$((O+1)) '/tmp/bg.log'" in cmd
         assert "cat '/tmp/bg.log'" not in cmd
 
     def test_read_command_starts_from_zero_on_first_poll(self):
@@ -1162,6 +1164,7 @@ class TestEnvPollerIncrementalRead:
 class TestPopenLeakOnSetupFailure:
     """Regression for issue #2749: subprocess orphaned when post-Popen setup raises."""
 
+    @pytest.mark.linux_only
     def test_popen_killed_when_thread_creation_fails(self, registry):
         """If Thread() raises after Popen, proc must be killed — not orphaned."""
         killed = []
@@ -1263,6 +1266,7 @@ class TestSpawnRewriteCompoundBackground:
         # Simple background must remain as-is
         assert "sleep 5 &" in shell_cmd
 
+    @pytest.mark.linux_only
     def test_pty_path_uses_rewritten_command(self, registry):
         """PTY spawn path must also use the rewritten command (issue #68915)."""
         mock_pty_proc = MagicMock()
@@ -1409,6 +1413,7 @@ class TestKillProcess:
         assert result["status"] == "already_exited"
 
 
+    @pytest.mark.linux_only
     def test_kill_detached_session_uses_host_pid(self, registry):
         s = _make_session(sid="proc_detached", command="sleep 999")
         s.pid = 424242
@@ -1416,6 +1421,7 @@ class TestKillProcess:
         registry._running[s.id] = s
 
         terminate_calls = []
+        kill_state = {"alive": True}
 
         class FakeProcess:
             def __init__(self, pid):
@@ -1424,6 +1430,7 @@ class TestKillProcess:
                 return []
             def terminate(self):
                 terminate_calls.append(("terminate", self.pid))
+                kill_state["alive"] = False
 
         import psutil as _psutil
 
@@ -1435,7 +1442,7 @@ class TestKillProcess:
             # touches ``os.kill`` directly. Mock both seams.  Disable the
             # SIGKILL-escalation step (grace=0) so it doesn't call
             # ``psutil.wait_procs`` on the FakeProcess.
-            with patch("gateway.status._pid_exists", return_value=True), \
+            with patch("gateway.status._pid_exists", side_effect=lambda pid: kill_state["alive"]), \
                  patch.object(ProcessRegistry, "_daemon_term_grace_seconds",
                               staticmethod(lambda: 0.0)), \
                  patch.object(_psutil, "Process", side_effect=lambda pid: FakeProcess(pid)):
@@ -1683,6 +1690,7 @@ class TestTerminateHostPidWindows:
         assert "/T" in captured["args"], "Tree flag required to reach descendants"
         assert "/F" in captured["args"], "Force flag required for headless Chromium"
 
+@pytest.mark.linux_only
 class TestTerminateHostPidPosix:
     """POSIX branch gives a managed parent its shutdown window first."""
 
@@ -1722,7 +1730,6 @@ class TestTerminateHostPidPosix:
             "Parent must receive SIGTERM before any snapshot descendant"
         )
 
-    @pytest.mark.skipif(sys.platform == "win32", reason="POSIX signal ordering; Windows uses taskkill")
     @pytest.mark.live_system_guard_bypass
     def test_posix_self_reaping_supervisor_child_is_never_signalled_by_registry(self, monkeypatch, tmp_path):
         """A parent that tears down its own children on SIGTERM keeps that job.

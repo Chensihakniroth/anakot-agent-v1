@@ -339,5 +339,5 @@ dist-win-build.log
 npm-ci.log
 note.md
 UPSTREAM_PORTING.md
-.anakot-last-merged
+.anakot-last-merged*
 .kilo/
