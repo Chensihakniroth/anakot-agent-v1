@@ -178,7 +178,7 @@ _DESKTOP_PREVIOUS_SUFFIX = ".previous"
 # release/win-unpacked tree; the promotion rename then fails with a sharing violation
 # (WinError 32 / 5 -> PermissionError) and succeeds a moment later on identical input (#112544).
 # Only PermissionError is retried: EXDEV/ENOENT-class failures are permanent.
-_DESKTOP_SWAP_RENAME_RETRY_DELAYS_S = (0.5, 1.0, 1.0, 1.0)
+_DESKTOP_SWAP_RENAME_RETRY_DELAYS_S = (0.5, 1.0, 2.0, 4.0, 8.0, 8.0)
 
 
 def _rename_riding_out_file_lock(src: Path, dst: Path) -> None:
@@ -245,6 +245,7 @@ def _swap_staged_desktop_app(desktop_dir: Path, staging_dir: Path) -> Optional[P
             shutil.rmtree(previous, ignore_errors=True)
     except (OSError, ValueError) as exc:
         logger.warning("desktop stage-and-swap failed, live app kept: %s", exc)
+        print(f"  ⚠ Desktop app promotion failed; previous app kept: {exc}")
         return None
     finally:
         shutil.rmtree(staging_dir, ignore_errors=True)

@@ -2,7 +2,7 @@
 
 A real-time scanner (AV/EDR) briefly holds ``release/win-unpacked`` right after the pack; the
 promotion rename then raises PermissionError and the updater used to report "Could not install the
-rebuilt desktop app" even though a retry a second later would have succeeded.
+rebuilt desktop app" even though a bounded retry after the scanner released it would have succeeded.
 """
 
 from __future__ import annotations
@@ -59,7 +59,26 @@ def test_swap_retries_transient_permission_error_then_promotes(tmp_path, monkeyp
     assert not staging.exists()
 
 
-def test_swap_gives_up_after_bounded_retries_and_keeps_live_app(tmp_path, monkeypatch, caplog):
+def test_swap_waits_out_a_longer_transient_scanner_lock(tmp_path, monkeypatch):
+    desktop_dir, staging, live_exe, slept = _staged_over_live(tmp_path, monkeypatch)
+    real_rename = os.rename
+    locked = {"n": 0}
+
+    def scanner_holds_lock(src, dst):
+        if Path(dst) == live_exe.parent and locked["n"] < 5:
+            locked["n"] += 1
+            raise PermissionError(32, "being used by another process")
+        return real_rename(src, dst)
+
+    monkeypatch.setattr(main_desktop.os, "rename", scanner_holds_lock)
+    promoted = main_desktop._swap_staged_desktop_app(desktop_dir, staging)
+
+    assert promoted == live_exe
+    assert live_exe.read_text(encoding="utf-8") == "new"
+    assert slept == list(main_desktop._DESKTOP_SWAP_RENAME_RETRY_DELAYS_S[:5])
+
+
+def test_swap_gives_up_after_bounded_retries_and_keeps_live_app(tmp_path, monkeypatch, caplog, capsys):
     """A lock that never clears: bounded attempts, real OSError surfaced in the log, live app untouched."""
     desktop_dir, staging, live_exe, slept = _staged_over_live(tmp_path, monkeypatch)
     real_rename = os.rename
@@ -80,3 +99,4 @@ def test_swap_gives_up_after_bounded_retries_and_keeps_live_app(tmp_path, monkey
     assert live_exe.read_text(encoding="utf-8") == "old"
     assert not (live_exe.parent.parent / (live_exe.parent.name + ".previous")).exists()
     assert any("Access is denied" in r.message and "live app kept" in r.message for r in caplog.records)
+    assert "Desktop app promotion failed; previous app kept: [Errno 5] Access is denied" in capsys.readouterr().out
