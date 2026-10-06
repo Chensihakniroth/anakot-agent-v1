@@ -1444,18 +1444,33 @@ def _live_send_text(
         platform=t.platform, chat_id=str(t.chat_id), thread_id=route_thread_id, is_explicit=True)
     # Thread routing goes via the target, not a bare metadata "thread_id": the router only applies
     # its Telegram DM-topic detection when thread_id/message_thread_id are absent from metadata.
-    future = safe_schedule_threadsafe(
-        router._deliver_to_platform(route_target, text_to_send, route_metadata), t.loop)
+    # cancel() cannot tell "never started" from "in flight": a run_coroutine_threadsafe future stays
+    # PENDING until the coroutine finishes, so cancel() returns True mid-send AND kills it. The send
+    # records its own start under a lock; a timeout abandons it only if it never began.
+    dispatch_lock = threading.Lock()
+    dispatch = {"started": False, "abandoned": False}
+
+    async def _send_once():
+        with dispatch_lock:
+            if dispatch["abandoned"]:
+                return None
+            dispatch["started"] = True
+        return await router._deliver_to_platform(route_target, text_to_send, route_metadata)
+
+    future = safe_schedule_threadsafe(_send_once(), t.loop)
     if future is None:
         target_errors.append("live adapter event loop scheduling failed")
         return False, False, None
     try:
         send_result = future.result(timeout=60)
     except TimeoutError:
-        # Slow confirmation != failure; future.cancel() disambiguates. False -> already in flight,
-        # cannot be un-sent, standalone resend would DUPLICATE: assume delivered. True -> never
-        # started (loop wedged): MUST fall through to standalone or it is silently dropped.
-        if future.cancel():
+        # Slow confirmation != failure. Never started (loop wedged): nothing was sent, so fall through
+        # to standalone or it is silently dropped. Started: in flight (a paced multi-chunk send can
+        # legitimately outlast the wait) — leave it running; a standalone resend would DUPLICATE.
+        with dispatch_lock:
+            dispatch["abandoned"] = not dispatch["started"]
+        if dispatch["abandoned"]:
+            future.cancel()
             msg = f"live adapter send to {t.where} timed out before the coroutine was dispatched"
             logger.warning("Job '%s': %s, falling back to standalone", job["id"], msg)
             target_errors.append(msg)

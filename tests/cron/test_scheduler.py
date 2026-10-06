@@ -2090,22 +2090,23 @@ class TestDeliverResultTimeoutCancelsFuture:
         loop.is_running.return_value = True
 
         # A real concurrent.futures.Future, but we override .result() to raise
-        # TimeoutError exactly like the 60s wait firing in production.  We make
-        # .cancel() return False to simulate the coroutine being ALREADY RUNNING
-        # on the gateway loop (in flight on the wire) — the case where the send
-        # cannot be un-sent and a standalone resend would be a duplicate.
+        # TimeoutError exactly like the 60s wait firing in production.  The
+        # coroutine is driven to its first await (dispatch["started"] = True),
+        # so cancel() must NOT be called — the send is in flight on the wire.
         captured_future = Future()
         cancel_calls = []
 
-        def in_flight_cancel():
-            cancel_calls.append(True)
-            return False  # already running — cannot be cancelled
-
-        captured_future.cancel = in_flight_cancel
+        captured_future.cancel = lambda: cancel_calls.append(True) or False
         captured_future.result = MagicMock(side_effect=TimeoutError("timed out"))
 
         def fake_run_coro(coro, _loop):
-            coro.close()
+            # Simulate the coroutine actually starting on the gateway loop:
+            # advance it to the first await (which sets dispatch["started"] = True),
+            # then return the captured future that will time out.
+            try:
+                coro.send(None)  # runs up to the first await inside _send_once
+            except StopIteration:
+                pass
             return captured_future
 
         job = {
@@ -2127,8 +2128,9 @@ class TestDeliverResultTimeoutCancelsFuture:
                 loop=loop,
             )
 
-        # 1. cancel() was attempted (returned False = in flight).
-        assert cancel_calls == [True], "future.cancel() should be attempted on TimeoutError"
+        # 1. cancel() was NOT attempted — the send is in flight, so it cannot be
+        #    un-sent; cancel() would kill it mid-send and lose the message.
+        assert cancel_calls == [], "future.cancel() must not be called on an in-flight send"
         # 2. Delivery is reported successful (no error string returned).
         assert result is None, f"expected successful delivery, got error: {result!r}"
         # 3. The standalone fallback must NOT run — that is the #38922 fix:
