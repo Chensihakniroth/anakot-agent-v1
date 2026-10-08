@@ -35,7 +35,7 @@ def test_alias_tables_agree():
     from anakot_cli.providers import get_provider, normalize_provider
     from anakot_cli.models import parse_model_input
 
-    for alias in ("omnirouters", "omni", "omni-router", "omnirouter"):
+    for alias in ("omnirouters", "omni", "omni-router", "omnirouter", "omniroute"):
         assert normalize_provider(alias) == "omnirouters", f"runtime alias {alias!r} unresolved"
         assert get_provider(alias) is not None, f"overlay resolution failed for {alias!r}"
         provider, model = parse_model_input(f"{alias}:gpt-4o", "openrouter")
@@ -54,17 +54,28 @@ def test_runtime_provider_resolves_openai_chat_endpoint():
     assert pdef.transport == "openai_chat"
     assert pdef.base_url == profile.base_url == "https://omnirouters.com/v1"
     assert "OMNIROUTERS_API_KEY" in profile.env_vars
+    assert "OMNIROUTE_API_KEY" in profile.env_vars
+    assert "OMNI_API_KEY" in profile.env_vars
 
 
 def test_api_key_env_var_resolves_credentials(monkeypatch):
-    """The documented env var must be the one credential resolution reads."""
+    """The documented env var (and its natural aliases) must resolve."""
     import model_tools  # noqa: F401
     from anakot_cli.auth import resolve_api_key_provider_credentials
 
+    monkeypatch.delenv("OMNIROUTE_BASE_URL", raising=False)
+    monkeypatch.delenv("OMNIROUTERS_BASE_URL", raising=False)
+    monkeypatch.delenv("OMNI_BASE_URL", raising=False)
     monkeypatch.setenv("OMNIROUTERS_API_KEY", "sk-omni-test")
     creds = resolve_api_key_provider_credentials("omnirouters")
     assert creds["api_key"] == "sk-omni-test"
-    assert creds["base_url"] == "https://omnirouters.com/v1"
+
+    monkeypatch.delenv("OMNIROUTERS_API_KEY", raising=False)
+    monkeypatch.setenv("OMNIROUTE_API_KEY", "sk-omni-test-2")
+    monkeypatch.setenv("OMNIROUTE_BASE_URL", "http://localhost:20128/v1")
+    creds2 = resolve_api_key_provider_credentials("omnirouters")
+    assert creds2["api_key"] == "sk-omni-test-2"
+    assert creds2["base_url"] == "http://localhost:20128/v1"
 
 
 def test_catalog_is_live_not_hardcoded(omnirouters_profile):

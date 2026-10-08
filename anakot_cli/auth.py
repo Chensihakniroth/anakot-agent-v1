@@ -1753,14 +1753,29 @@ def get_xai_oauth_auth_status() -> Dict[str, Any]:
 
 
 def _provider_env_base_url(pconfig: ProviderConfig) -> str:
-    if pconfig.id == "actual":
-        from anakot_cli.providers import normalize_provider
+    raw_cfg = read_raw_config()
+    providers_cfg = raw_cfg.get("providers")
+    if isinstance(providers_cfg, dict):
+        p_entry = providers_cfg.get(pconfig.id)
+        if isinstance(p_entry, dict):
+            p_url = str(p_entry.get("base_url") or p_entry.get("url") or "").strip()
+            if p_url:
+                return p_url
 
-        model = read_raw_config().get("model")
-        if isinstance(model, dict) and normalize_provider(str(model.get("provider") or "")) == "actual":
+    model = raw_cfg.get("model")
+    if isinstance(model, dict):
+        from anakot_cli.providers import normalize_provider
+        if normalize_provider(str(model.get("provider") or "")) == pconfig.id:
             configured_url = str(model.get("base_url") or "").strip()
             if configured_url:
                 return configured_url
+
+    if pconfig.id == "omnirouters":
+        for ev in ("OMNIROUTERS_BASE_URL", "OMNIROUTE_BASE_URL", "OMNI_BASE_URL"):
+            val = os.getenv(ev, "").strip()
+            if val:
+                return val
+
     return os.getenv(pconfig.base_url_env_var, "").strip() if pconfig.base_url_env_var else ""
 
 

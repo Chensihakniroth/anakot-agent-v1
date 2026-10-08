@@ -24,11 +24,18 @@ from providers.base import ProviderProfile
 
 omnirouters = ProviderProfile(
     name="omnirouters",
-    aliases=("omni-router", "omnirouter", "omni"),
+    aliases=("omni-router", "omnirouter", "omni", "omniroute"),
     display_name="OmniRouters",
     description="OmniRouters — one key for ~160 chat, image, video and audio models",
     signup_url="https://omnirouters.com/keys",
-    env_vars=("OMNIROUTERS_API_KEY", "OMNIROUTERS_BASE_URL"),
+    env_vars=(
+        "OMNIROUTERS_API_KEY",
+        "OMNIROUTE_API_KEY",
+        "OMNI_API_KEY",
+        "OMNIROUTERS_BASE_URL",
+        "OMNIROUTE_BASE_URL",
+        "OMNI_BASE_URL",
+    ),
     base_url="https://omnirouters.com/v1",
     auth_type="api_key",
     supports_vision=True,
