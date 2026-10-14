@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+from anakot_cli.auth_constants import DEFAULT_NOUS_CLIENT_ID
+
 
 def build_login_parser(subparsers, *, cmd_login: Callable) -> None:
     """Attach the deprecated ``login`` subcommand (handler only prints a deprecation notice).
@@ -30,7 +32,8 @@ def build_login_parser(subparsers, *, cmd_login: Callable) -> None:
     login_parser.add_argument(
         "--inference-url", help="Inference API base URL (default: production inference API)")
     login_parser.add_argument(
-        "--client-id", default=None, help="OAuth client id to use (default: anakot-cli)")
+        "--client-id", default=None,
+        help=f"OAuth client id to use (default: {DEFAULT_NOUS_CLIENT_ID})")
     login_parser.add_argument("--scope", default=None, help="OAuth scope to request")
     login_parser.add_argument(
         "--no-browser", action="store_true",

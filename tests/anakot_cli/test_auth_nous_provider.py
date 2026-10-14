@@ -125,6 +125,13 @@ def _setup_nous_auth(
     (anakot_home / "auth.json").write_text(json.dumps(auth_store, indent=2))
 
 
+def test_nous_device_flow_uses_the_portal_registered_client_id():
+    """The device endpoint accepts the registered client id, not the product name."""
+    import anakot_cli.auth as auth_mod
+
+    assert auth_mod.PROVIDER_REGISTRY["nous"].client_id == "hermes-cli"
+
+
 def _jwt_with_claims(claims: dict) -> str:
     def _part(payload: dict) -> str:
         raw = json.dumps(payload, separators=(",", ":")).encode("utf-8")

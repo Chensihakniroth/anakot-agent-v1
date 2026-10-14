@@ -97,6 +97,24 @@ def test_config_get_unset_subcommands_parse():
 
 
 
+def test_nous_client_id_help_tracks_portal_registered_identifier():
+    """CLI help must derive the protocol client id, not a rebrandable literal."""
+    from anakot_cli.auth import DEFAULT_NOUS_CLIENT_ID
+
+    parser = argparse.ArgumentParser(prog="anakot")
+    sub = parser.add_subparsers(dest="command")
+    build_model_parser(sub, cmd_model=_h("model"))
+    build_login_parser(sub, cmd_login=_h("login"))
+    subparsers_action = next(action for action in parser._actions
+                             if isinstance(action, argparse._SubParsersAction))
+
+    model_help = " ".join(subparsers_action.choices["model"].format_help().split())
+    login_help = " ".join(subparsers_action.choices["login"].format_help().split())
+    assert f"default: {DEFAULT_NOUS_CLIENT_ID}" in model_help
+    assert f"default: {DEFAULT_NOUS_CLIENT_ID}" in login_help
+    assert "default: anakot-cli" not in model_help + login_help
+
+
 # ── deprecated `anakot login` fails gracefully, not with argparse error ────
 #
 # `anakot login` is a removed command; its handler (`login_command` in

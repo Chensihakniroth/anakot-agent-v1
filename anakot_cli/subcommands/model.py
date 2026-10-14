@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Callable
 
+from anakot_cli.auth_constants import DEFAULT_NOUS_CLIENT_ID
+
 
 def build_model_parser(subparsers, *, cmd_model: Callable) -> None:
     """Attach the ``model`` subcommand to ``subparsers``."""
@@ -20,7 +22,7 @@ def build_model_parser(subparsers, *, cmd_model: Callable) -> None:
         help="Inference API base URL for Nous login (default: production inference API)")
     model_parser.add_argument(
         "--client-id", default=None,
-        help="OAuth client id to use for Nous login (default: anakot-cli)")
+        help=f"OAuth client id to use for Nous login (default: {DEFAULT_NOUS_CLIENT_ID})")
     model_parser.add_argument("--scope", default=None, help="OAuth scope to request for Nous login")
     model_parser.add_argument(
         "--no-browser", action="store_true",
