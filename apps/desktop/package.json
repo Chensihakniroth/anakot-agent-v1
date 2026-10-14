@@ -225,7 +225,7 @@
         "to": "icon.ico"
       },
       {
-        "from": "../../bootstrap-installer/src-tauri/target/release/Anakot-Setup.exe",
+        "from": "../bootstrap-installer/src-tauri/target/release/Anakot-Setup.exe",
         "to": "anakot-setup.exe"
       }
     ],
