@@ -11,11 +11,20 @@ import {
   resolveStamp
 } from './write-build-stamp.mjs'
 
-test('fromCI reads GITHUB_SHA / GITHUB_REF_NAME', () => {
-  assert.deepEqual(
-    fromCI({ GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'release' }),
-    { commit: 'a'.repeat(40), branch: 'release', dirty: false, source: 'ci' }
-  )
+test('fromCI uses stable main metadata unless explicitly overridden', () => {
+  const env = { GITHUB_SHA: 'a'.repeat(40), GITHUB_REF_NAME: 'release' }
+  assert.deepEqual(fromCI(env), {
+    commit: 'a'.repeat(40),
+    branch: FALLBACK_BRANCH,
+    dirty: false,
+    source: 'ci'
+  })
+  assert.deepEqual(fromCI(env, 'release'), {
+    commit: 'a'.repeat(40),
+    branch: 'release',
+    dirty: false,
+    source: 'ci'
+  })
   assert.equal(fromCI({}), null)
 })
 

@@ -15,11 +15,18 @@
  *   }
  *
  * Source preference order:
- *   1. CI env vars ($GITHUB_SHA / $GITHUB_REF_NAME) -- avoid edge cases with
- *      shallow clones, detached HEADs, etc. in CI.
- *   2. Local `git rev-parse` against the parent repo (../..).
+ *   1. CI env vars ($GITHUB_SHA) -- avoid edge cases with shallow clones,
+ *      detached HEADs, etc. in CI. The branch metadata defaults to `main`;
+ *      set $ANAKOT_BUILD_PIN_BRANCH only for an intentional dev build.
+ *   2. Local `git rev-parse` against the parent repo (../..), using the same
+ *      stable-branch default.
  *   3. Fallback stamp for local/personal builds from non-git source trees
  *      (ZIP extract, interrupted clone with no HEAD, etc.).
+ *
+ * A production binary must not inherit the checkout's feature branch: merged
+ * branches are commonly deleted, while the commit pin remains valid. Bootstrap
+ * treats a real commit as authoritative and uses the branch only for fallback
+ * or existing-checkout metadata.
  *
  * Dev / out-of-repo builds without git produce an explicit fallback stamp
  * rather than aborting the whole build.  Bootstrap treats the all-zero
@@ -51,22 +58,23 @@ function tryExec(cmd, opts) {
   }
 }
 
-export function fromCI(env = process.env) {
+export function fromCI(env = process.env, branch = FALLBACK_BRANCH) {
   const sha = env.GITHUB_SHA
   if (!sha) return null
-  const branch = env.GITHUB_REF_NAME || env.GITHUB_HEAD_REF || null
   return {
     commit: sha,
-    branch: branch,
+    branch: branch || FALLBACK_BRANCH,
     dirty: false, // CI builds from a checkout-of-ref by definition
     source: "ci"
   }
 }
 
-export function fromLocalGit(repoRoot = REPO_ROOT, execFn = tryExec) {
+export function fromLocalGit(repoRoot = REPO_ROOT, execFn = tryExec, branch = FALLBACK_BRANCH) {
   const sha = execFn("git rev-parse HEAD", { cwd: repoRoot })
   if (!sha) return null
-  const branch = execFn("git rev-parse --abbrev-ref HEAD", { cwd: repoRoot })
+  // The commit is useful for reproducibility; the checkout branch is not a
+  // safe default for a distributable app because feature branches are deleted
+  // after merge. Keep branch metadata stable unless explicitly overridden.
   // `git status --porcelain -uno` is empty iff tracked files match HEAD.
   // We exclude untracked files (-uno) intentionally: a developer who's
   // checked out an installer scratch dir alongside the repo shouldn't
@@ -77,7 +85,7 @@ export function fromLocalGit(repoRoot = REPO_ROOT, execFn = tryExec) {
   const dirty = status !== null && status.length > 0
   return {
     commit: sha,
-    branch: branch === "HEAD" ? null : branch, // detached HEAD -> null
+    branch: branch || FALLBACK_BRANCH,
     dirty: dirty,
     source: "local"
   }
@@ -107,7 +115,11 @@ export function resolveStamp({
   execFn = tryExec,
   fallbackBranch = FALLBACK_BRANCH
 } = {}) {
-  return fromCI(env) || fromLocalGit(repoRoot, execFn) || fromFallback(fallbackBranch)
+  const requestedBranch = typeof env.ANAKOT_BUILD_PIN_BRANCH === "string"
+    ? env.ANAKOT_BUILD_PIN_BRANCH.trim()
+    : ""
+  const branch = requestedBranch || fallbackBranch || FALLBACK_BRANCH
+  return fromCI(env, branch) || fromLocalGit(repoRoot, execFn, branch) || fromFallback(branch)
 }
 
 export function isFallbackCommit(commit) {
