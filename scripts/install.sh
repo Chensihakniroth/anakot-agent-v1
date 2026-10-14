@@ -1561,20 +1561,25 @@ clone_repo() {
                 autostash_ref="stash@{0}"
             fi
 
-            # Fetch only the target branch. A bare `git fetch origin` pulls
-            # every ref, and this repo carries thousands of auto-generated
-            # branches — on a non-single-branch checkout that turns each update
-            # into a multi-minute download that can stall the installer.
-            git remote set-branches origin "$BRANCH" 2>/dev/null || true
-            git fetch origin "$BRANCH"
-            git checkout "$BRANCH"
-            # Managed installs should follow origin/$BRANCH exactly. If the
-            # checkout has diverged (or has local-only commits), ff-only pull
-            # cannot succeed — mirror ``anakot update`` and reset to the
-            # fetched remote so bootstrap/install can recover.
-            if ! git pull --ff-only origin "$BRANCH"; then
-                log_warn "Fast-forward not possible; resetting managed install to origin/$BRANCH..."
-                git reset --hard "origin/$BRANCH"
+            # A commit pin is fetched explicitly below. Seed the checkout from
+            # main rather than requiring the pin's historical feature branch to
+            # still exist on the remote.
+            local fetch_branch="$BRANCH"
+            if [[ -n "$INSTALL_COMMIT" ]]; then
+                fetch_branch="main"
+            fi
+            git remote set-branches origin "$fetch_branch" 2>/dev/null || true
+            git fetch origin "$fetch_branch"
+            if [[ -z "$INSTALL_COMMIT" ]]; then
+                git checkout "$BRANCH"
+                # Managed installs should follow origin/$BRANCH exactly. If the
+                # checkout has diverged (or has local-only commits), ff-only pull
+                # cannot succeed — mirror ``anakot update`` and reset to the
+                # fetched remote so bootstrap/install can recover.
+                if ! git pull --ff-only origin "$BRANCH"; then
+                    log_warn "Fast-forward not possible; resetting managed install to origin/$BRANCH..."
+                    git reset --hard "origin/$BRANCH"
+                fi
             fi
 
             if [ -n "$autostash_ref" ]; then
@@ -1638,12 +1643,20 @@ EOF
             exit 1
         fi
     else
+        # A commit pin is fetched explicitly after the clone. Use main as the
+        # transport seed so a deleted historical feature branch cannot break a
+        # valid pinned install.
+        local clone_branch="$BRANCH"
+        if [[ -n "$INSTALL_COMMIT" ]]; then
+            clone_branch="main"
+        fi
+
         # Try SSH first (for private repo access), fall back to HTTPS
         # GIT_SSH_COMMAND disables interactive prompts and sets a short timeout
         # so SSH fails fast instead of hanging when no key is configured.
         log_info "Trying SSH clone..."
         if GIT_SSH_COMMAND="ssh -o BatchMode=yes -o ConnectTimeout=5" \
-           git clone --depth 1 --branch "$BRANCH" "$REPO_URL_SSH" "$INSTALL_DIR" 2>/dev/null; then
+           git clone --depth 1 --branch "$clone_branch" "$REPO_URL_SSH" "$INSTALL_DIR" 2>/dev/null; then
             log_success "Cloned via SSH"
         else
             rm -rf "$INSTALL_DIR" 2>/dev/null  # Clean up partial SSH clone
@@ -1664,7 +1677,7 @@ EOF
             local max_attempts=4
             for attempt in $(seq 1 "$max_attempts"); do
                 [ "$attempt" -gt 1 ] && log_info "Retrying HTTPS clone (attempt $attempt/$max_attempts)..."
-                if git clone --depth 1 --single-branch --branch "$BRANCH" \
+                if git clone --depth 1 --single-branch --branch "$clone_branch" \
                      "$REPO_URL_HTTPS" "$INSTALL_DIR"; then
                     clone_ok=true
                     break
@@ -1681,7 +1694,7 @@ EOF
                 # failed clone. The blobs are fetched by the reset below — a
                 # separate request the retry can actually wrap.
                 if git clone --depth 1 --single-branch --filter=blob:none \
-                     --no-checkout --branch "$BRANCH" "$REPO_URL_HTTPS" "$INSTALL_DIR"; then
+                     --no-checkout --branch "$clone_branch" "$REPO_URL_HTTPS" "$INSTALL_DIR"; then
                     # Materialize the working tree: on a --no-checkout clone
                     # this reset is the step that fetches the blobs (several
                     # small packs instead of one big one). Fail closed — a

@@ -19,9 +19,10 @@ param(
     [string]$Branch = "main",
     # -Commit and -Tag are higher-precedence variants of -Branch for users
     # who need reproducible installs (desktop installer pinning, CI, release
-    # bundles).  When set, the repository stage clones $Branch (faster than
-    # cloning the full default-branch history) and then `git checkout`s the
-    # exact ref.  Precedence: Commit > Tag > Branch.
+    # bundles).  When set, the repository stage starts from the stable default
+    # branch and then fetches/checks out the exact ref. This intentionally does
+    # not clone $Branch: a commit's historical feature branch may have been
+    # deleted after merge. Precedence: Commit > Tag > Branch.
     [string]$Commit = "",
     # Apply -Commit even when it would roll an existing install BACKWARDS.
     # Without this the repository stage skips a pin that is already an ancestor
@@ -2392,7 +2393,8 @@ function Install-Repository {
                     git -c windows.appendAtomically=false stash push --include-untracked -m "$stashName"
                     if ($LASTEXITCODE -eq 0) { $autostashRef = "stash@{0}" }
                 }
-                git -c windows.appendAtomically=false fetch origin $Branch
+                $fetchBranch = if ($Commit -or $Tag) { "main" } else { $Branch }
+                git -c windows.appendAtomically=false fetch origin $fetchBranch
                 if ($LASTEXITCODE -ne 0) { throw "git fetch failed (exit $LASTEXITCODE)" }
                 # Precedence: Commit > Tag > Branch.  Commit and Tag check
                 # out as detached HEAD intentionally -- they're meant to be
@@ -2565,11 +2567,16 @@ function Install-Repository {
         $env:GIT_CONFIG_VALUE_0 = "false"
         git config --global windows.appendAtomically false 2>$null
 
+        # A commit/tag pin is fetched explicitly below. Clone the stable branch
+        # as the transport seed rather than requiring the pin's historical
+        # branch to still exist on the remote.
+        $cloneBranch = if ($Commit -or $Tag) { "main" } else { $Branch }
+
         # Try SSH first, then HTTPS, with -c flag for atomic write fix
         Write-Info "Trying SSH clone..."
         $env:GIT_SSH_COMMAND = "ssh -o BatchMode=yes -o ConnectTimeout=5"
         try {
-            Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlSsh $InstallDir }
+            Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $cloneBranch $RepoUrlSsh $InstallDir }
             if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
         }
         catch { }
@@ -2579,7 +2586,7 @@ function Install-Repository {
             if (Test-Path $InstallDir) { Remove-Item -Recurse -Force $InstallDir -ErrorAction SilentlyContinue }
             Write-Info "SSH failed, trying HTTPS..."
             try {
-                Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $Branch $RepoUrlHttps $InstallDir }
+                Invoke-NativeWithRelaxedErrorAction { git -c windows.appendAtomically=false clone --depth 1 --branch $cloneBranch $RepoUrlHttps $InstallDir }
                 if ($LASTEXITCODE -eq 0) { $cloneSuccess = $true }
             }
             catch { }

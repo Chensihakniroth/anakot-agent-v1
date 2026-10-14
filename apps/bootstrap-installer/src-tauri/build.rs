@@ -8,24 +8,23 @@ fn main() {
     // `option_env!()` macro to default the install-script reference.
     // Precedence (matches install.ps1's own arg precedence): commit > branch.
     //
-    // The COMMIT pin is opt-in. By default a dev build pins ONLY the branch,
-    // so the produced installer follows that branch's HEAD at install time
-    // (tolerant of fast-forwards/new commits, and never references a SHA the
-    // local checkout hasn't pushed). Set ANAKOT_BUILD_PIN_COMMIT to bake an
-    // immutable commit pin for reproducible/release installers.
+    // The COMMIT pin is opt-in. By default a build tracks the stable `main`
+    // branch at install time. Set ANAKOT_BUILD_PIN_COMMIT to bake an immutable
+    // commit pin for reproducible/release installers.
     //
     // Commit pin resolution:
     //   - ANAKOT_BUILD_PIN_COMMIT, if set and non-empty. Accepts a SHA, tag,
     //     or branch name; resolved to an immutable SHA via `git rev-parse`
     //     when possible, else used verbatim if it already looks like a SHA.
-    //   - Otherwise: NO commit pin (branch-follow is the default).
+    //   - Otherwise: NO commit pin (the stable `main` branch is used).
     //
     // Branch pin resolution:
-    //   1. ANAKOT_BUILD_PIN_BRANCH, if set and non-empty.
-    //   2. `git rev-parse --abbrev-ref HEAD` of the checkout this build.rs
-    //      lives in — the current branch. (None on a detached HEAD.)
-    //   3. Last-resort fallback handled below: if neither commit nor branch
-    //      resolves, warn — the binary needs a runtime arg or dev-repo env.
+    //   1. ANAKOT_BUILD_PIN_BRANCH, if set and non-empty. This is the explicit
+    //      escape hatch for local/dev builds that intentionally follow another
+    //      branch.
+    //   2. The stable `main` branch. Never infer a distributable installer's
+    //      branch from the build checkout: feature branches are often deleted
+    //      after merge, which makes an otherwise valid installer unusable.
     //
     // Build script reruns on git HEAD change so a new commit triggers
     // a rebuild without `cargo clean`.
@@ -44,7 +43,9 @@ fn main() {
     if let Some(b) = &branch {
         println!("cargo:rustc-env=BUILD_PIN_BRANCH={b}");
         match &commit {
-            Some(_) => println!("cargo:warning=anakot-bootstrap: pinning to branch {b}"),
+            Some(_) => println!(
+                "cargo:warning=anakot-bootstrap: commit pin is authoritative; recording branch fallback {b}"
+            ),
             None => println!(
                 "cargo:warning=anakot-bootstrap: following branch {b} HEAD (no commit pin; \
                  set ANAKOT_BUILD_PIN_COMMIT for an immutable pin)"
@@ -149,21 +150,13 @@ fn resolve_branch_pin() -> Option<String> {
             return Some(v.trim().to_string());
         }
     }
-    let out = Command::new("git")
-        .args(["rev-parse", "--abbrev-ref", "HEAD"])
-        .output()
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let s = String::from_utf8(out.stdout).ok()?.trim().to_string();
-    // "HEAD" is what you get on a detached checkout — no meaningful branch
-    // to pin to. The commit pin still applies; just don't emit a branch.
-    if s.is_empty() || s == "HEAD" {
-        None
-    } else {
-        Some(s)
-    }
+
+    // Release binaries must never inherit a feature branch from the checkout
+    // that happened to build them. Merged branches are routinely deleted, and
+    // that leaves the binary unable to bootstrap even when its commit pin is
+    // still valid. Use the stable branch unless a developer opts in explicitly
+    // with ANAKOT_BUILD_PIN_BRANCH.
+    Some("main".to_string())
 }
 
 fn locate_git_dir() -> Option<std::path::PathBuf> {

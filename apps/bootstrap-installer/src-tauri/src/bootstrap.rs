@@ -746,8 +746,13 @@ async fn run_install_script(
 fn build_pin_args(script: &install_script::ResolvedScript) -> Vec<String> {
     let mut out = Vec::new();
     if let Some(c) = &script.commit {
+        // A commit pin is authoritative. Do not also pass the historical branch:
+        // feature branches are commonly deleted after merge, and install.ps1
+        // would try to clone that missing branch before checking out this valid
+        // commit (the `recover-picker-fix` installer failure).
         out.push("-Commit".to_string());
         out.push(c.clone());
+        return out;
     }
     if let Some(b) = &script.branch {
         out.push("-Branch".to_string());
@@ -869,6 +874,23 @@ mod tests {
     // On macOS this MUST resolve to the .app bundle (what `open` relaunches and
     // what the updater ditto's over /Applications/Anakot.app). A regression in
     // this derivation breaks the post-update auto-relaunch, so guard it.
+    #[test]
+    fn commit_pin_is_authoritative_over_historical_branch() {
+        let commit = "a".repeat(40);
+        let script = install_script::ResolvedScript {
+            path: PathBuf::from("install.ps1"),
+            source: install_script::ScriptSource::Downloaded,
+            commit: Some(commit.clone()),
+            branch: Some("recover-picker-fix".to_string()),
+        };
+
+        assert_eq!(
+            build_pin_args(&script),
+            vec!["-Commit".to_string(), commit],
+            "a deleted feature branch must never be passed alongside a valid commit pin"
+        );
+    }
+
     #[test]
     fn resolve_anakot_desktop_app_finds_built_bundle() {
         let root = unique_tmp_dir("app-ok");

@@ -85,14 +85,14 @@ test('existing checkout detection requires git metadata', () => {
 test('fresh bootstrap args include the packaged commit pin', () => {
   const installStamp = { commit: 'a'.repeat(40), branch: 'main' }
 
-  assert.deepEqual(buildPinArgs(installStamp), ['-Commit', installStamp.commit, '-Branch', 'main'])
+  assert.deepEqual(buildPinArgs(installStamp), ['-Commit', installStamp.commit])
   assert.deepEqual(
     buildPosixPinArgs({
       installStamp,
       activeRoot: '/tmp/anakot-agent',
       anakotHome: '/tmp/anakot'
     }),
-    ['--dir', '/tmp/anakot-agent', '--anakot-home', '/tmp/anakot', '--branch', 'main', '--commit', installStamp.commit]
+    ['--dir', '/tmp/anakot-agent', '--anakot-home', '/tmp/anakot', '--commit', installStamp.commit]
   )
 })
 

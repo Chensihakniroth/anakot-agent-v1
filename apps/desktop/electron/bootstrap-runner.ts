@@ -689,11 +689,18 @@ function spawnBash(scriptPath, args, { emit, stageName, abortSignal, anakotHome 
 // a repair/update path and must not let an old packaged app detach the checkout
 // back to the commit baked into that app. All-zero fallback stamps are never
 // passed as -Commit/--commit — only the branch is used (#50823 / #50864 review).
+//
+// A real commit pin is authoritative. Do not pass its historical branch too:
+// feature branches are commonly deleted after merge, and install.ps1 would try
+// to clone that missing branch before checking out the valid commit. This was
+// the failure mode for installers stamped from `recover-picker-fix`.
 function buildPinArgs(installStamp, { pinCommit = true } = {}) {
   const args = []
+  const hasCommitPin = pinCommit && installStamp && isPinnedCommit(installStamp.commit)
 
-  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
+  if (hasCommitPin) {
     args.push('-Commit', installStamp.commit)
+    return args
   }
 
   if (installStamp && installStamp.branch) {
@@ -705,13 +712,15 @@ function buildPinArgs(installStamp, { pinCommit = true } = {}) {
 
 function buildPosixPinArgs({ installStamp, activeRoot, anakotHome, pinCommit = true }) {
   const args = ['--dir', activeRoot, '--anakot-home', anakotHome]
+  const hasCommitPin = pinCommit && installStamp && isPinnedCommit(installStamp.commit)
+
+  if (hasCommitPin) {
+    args.push('--commit', installStamp.commit)
+    return args
+  }
 
   if (installStamp && installStamp.branch) {
     args.push('--branch', installStamp.branch)
-  }
-
-  if (pinCommit && installStamp && isPinnedCommit(installStamp.commit)) {
-    args.push('--commit', installStamp.commit)
   }
 
   return args
