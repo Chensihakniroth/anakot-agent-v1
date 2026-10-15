@@ -39,6 +39,16 @@ for c in json.load(sys.stdin):
 
 | SHA | Date | Description | Status | Notes |
 |-----|------|-------------|--------|-------|
+| 7e85c68a | 2026-10-13 | feat(gemini): Gemini 4 Argon support with long decode | PENDING | 2026-10-15 scan: no Gemini 4/Argon handling, continuation-token decode, or `gemini_long_decode` equivalent in Anakot |
+| e1b18e2b | 2026-10-13 | feat(connectors): connector tools send and save local files | PARTIAL | 2026-10-15 scan: Anakot has connector gateway operations, but no local file staging/save bridge equivalent |
+| 2d6a0e6f | 2026-10-13 | feat(gateway): connector downloads are a trusted media delivery root | PENDING | Depends on the connector file-output path; no matching connector media-root contract found |
+| 5f747344 | 2026-10-13 | feat(connectors): client calls to stage file inputs and fetch file outputs | PENDING | Depends on the connector file bridge; no matching stage/fetch wire methods found |
+| c59d2994 | 2026-10-14 | feat(agent): add nemotron super 3.5 default parameters | PENDING | Current Anakot metadata/catalog has Nemotron variants but no matching Super 3.5 default-parameter policy |
+| e6835fd3 | 2026-10-14 | feat(cli): add curated model list at the top in the model picker list | CUSTOM | Anakot already owns a curated-first picker in `anakot_cli/models.py`; upstream Hermes picker code is not portable |
+| c5fc0958 | 2026-10-14 | refactor(agent): keep the Mistral tool-id rule beside its only consumer | PORTED | Folded into the final Anakot Chat Completions transport adaptation; route detection and stable mapping stay next to wire sanitization |
+| 0c1bfb7d | 2026-10-14 | fix(agent): keep composite tool ids paired on Mistral routes | PORTED | Final-state adaptation maps the coalesced call half on assistant and tool messages, preserving prompt history unchanged |
+| b33ed359 | 2026-10-14 | fix(agent): rewrite split tool ids before Mistral sees them | PORTED | Superseded by the final transport-local implementation above; nine-character ids are only emitted on Mistral-compatible routes |
+| f30020ed | 2026-10-14 | fix(mcp): preserve server deadlines through outer tool execution | PORTED | Adapted to Anakot's existing `mcp_servers.<name>.timeout`: registry entries carry the resolved server budget, extended MCP calls become sequential barriers, and direct/bridged execution uses the longer deadline |
 | a036b137 | 2026-10-06 | fix(discord): a programmatic voice join binds the requested text channel on every path | PORTED | Unified _bind_voice_text_channel, discard_pending on move, build_source metadata preservation |
 | c3f3589e | 2026-10-06 | refactor(discord): move _component_check_auth into adapter_component_auth to keep adapter.py under its size cap | PORTED | Component authorization helper extracted to adapter_component_auth.py sibling |
 | 23135fe5 | 2026-10-06 | test(discord): trim component live-auth tests to two invariants | PORTED | Parametrized helper and async revoke denial tests |
@@ -187,6 +197,21 @@ for c in json.load(sys.stdin):
 ---
 
 ## Porting Log
+
+### 2026-10-15 — Upstream feature scan at `db44c46208f1`
+- Scanned 300 latest Hermes commits and filtered 12 untracked user-facing feature commits after excluding release-only, catalog, docs, test-only, merge, and formatting noise.
+- Confirmed the gateway coding-posture refactor cluster is already represented by Anakot's `agent/coding_context.py` and session policy implementation; the curated-first model picker is an Anakot-owned custom implementation.
+- New parity candidates recorded in the table: Gemini 4 Argon long decode (genuinely absent), connector file staging/output delivery (partial/absent), and Nemotron Super 3.5 defaults (not yet matched). These remain `PENDING` for the next port batch rather than being silently skipped.
+
+### 2026-10-15 — Ported Mistral composite tool-id compatibility
+- Ported the final state of upstream `b33ed35968f0`, `0c1bfb7dfb47`, and `c5fc0958b49f` into `agent/transports/chat_completions.py`.
+- Mistral routes (provider, host, or model-marker detected) map the coalesced call id to a stable nine-character base62 id on the wire, on both assistant calls and tool results. Persisted history stays untouched, including composite `call_id|response_item_id` values.
+- Added `tests/agent/test_mistral_tool_ids.py` and updated the provider wiring invariant. Focused transport/provider tests: 81 passed.
+
+### 2026-10-15 — Ported MCP server deadlines through the outer executor
+- Ported upstream `f30020ed5e1f` as an Anakot-native adaptation. Existing resolved `mcp_servers.<name>.timeout` values now travel through `ToolEntry.execution_timeout`.
+- The batch planner treats a longer MCP budget as a sequential barrier (including `tool_call` bridge calls), while sequential execution extends only that call's generic deadline.
+- Added `tests/agent/test_mcp_execution_deadline.py` with registry, admission, and registration invariants. Focused MCP/registry/dispatch tests passed; the unrelated `tests/tools/test_mcp_tool.py` collection error remains (`CreateMessageResultWithTools` missing from `tools.mcp_tool`).
 
 ### 2026-10-06 — Refresh + port: 19 high-value Hermes fixes (Oct 2-5 batch)
 - Refreshed refs: `origin/main` = `9b6fc23ba` (2026-10-05), latest Hermes release.

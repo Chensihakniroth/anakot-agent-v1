@@ -4,7 +4,10 @@ Messages/tools are already OpenAI-shaped, so convert_* are near-identity; the
 provider-specific work lives in build_kwargs (max_tokens, reasoning, extra_body).
 """
 
+import hashlib
 import json
+import re
+import string
 from typing import Any
 from urllib.parse import urlparse
 
@@ -13,7 +16,7 @@ from agent.reasoning_effort import (
     KIMI_K3_EFFORTS, KIMI_K3_OVERRIDES, OPENAI_COMPAT_WIRE_EFFORTS, TOKENHUB_EFFORTS, clamp_effort,
     clamp_reasoning_config, kimi_supported_efforts, requested_effort,
 )
-from agent.message_sanitization import normalize_finish_reason as _normalize_finish_reason
+from agent.message_sanitization import coalesce_tool_call_id, normalize_finish_reason as _normalize_finish_reason
 from agent.moonshot_schema import is_moonshot_model, sanitize_moonshot_tools
 from agent.prompt_builder import DEVELOPER_ROLE_MODELS
 from agent.transports.base import ProviderTransport
@@ -255,6 +258,37 @@ def _model_consumes_thought_signature(model: Any) -> bool:
     return "gemini" in m or "gemma" in m
 
 
+# Mistral's validator accepts only ``^[A-Za-z0-9]{9}$``. Mapping happens on the wire copy only:
+# persisted history keeps its original identifiers, and the same pairing key always maps identically.
+_MISTRAL_TOOL_ID_RE = re.compile(r"^[A-Za-z0-9]{9}$")
+_MISTRAL_ID_ALPHABET = string.digits + string.ascii_uppercase + string.ascii_lowercase
+_MISTRAL_MODEL_MARKERS = (
+    "mistral", "magistral", "mixtral", "devstral", "codestral", "ministral", "pixtral", "voxtral",
+)
+
+
+def _route_requires_mistral_tool_ids(provider: Any, model: Any, base_url: Any) -> bool:
+    """True when the chat-completions route enforces Mistral's nine-character tool ids."""
+    from utils import base_url_host_matches
+
+    if (provider or "").strip().lower() == "mistral" or base_url_host_matches(str(base_url or ""), "mistral.ai"):
+        return True
+    model_lower = (model or "").lower()
+    return any(marker in model_lower for marker in _MISTRAL_MODEL_MARKERS)
+
+
+def _mistral_tool_id(key: str) -> str:
+    """Return an already-valid id or a stable nine-character base62 digest."""
+    if _MISTRAL_TOOL_ID_RE.fullmatch(key):
+        return key
+    number = int.from_bytes(hashlib.sha256(key.encode("utf-8", "surrogatepass")).digest()[:8], "big")
+    chars = []
+    for _ in range(9):
+        number, remainder = divmod(number, 62)
+        chars.append(_MISTRAL_ID_ALPHABET[remainder])
+    return "".join(chars)
+
+
 def _route_replays_reasoning_details(base_url: Any) -> bool:
     """True when the target route reads replayed ``reasoning_details`` (OpenRouter's unified
     reasoning array, also consumed by the Nous Portal).
@@ -372,7 +406,13 @@ def _finish_kwargs(api_kwargs: dict[str, Any], sanitized: list, params: dict, *,
     return api_kwargs
 
 
-def _sanitize_message(msg: Any, strip_extra_content: bool, strip_reasoning_details: bool = False) -> dict | None:
+def _sanitize_message(
+    msg: Any,
+    strip_extra_content: bool,
+    strip_reasoning_details: bool = False,
+    *,
+    mistral_tool_ids: bool = False,
+) -> dict | None:
     """Sanitized copy of ``msg``, or None when nothing needs stripping.
 
     Drops persistence sidecars, ``_``-prefixed scaffolding markers, tool-call ``call_id`` /
@@ -393,6 +433,12 @@ def _sanitize_message(msg: Any, strip_extra_content: bool, strip_reasoning_detai
     if msg.get("role") == "tool" and "name" in msg:
         strip_keys.append("name")
     out_msg = {k: v for k, v in msg.items() if k not in strip_keys}
+    remapped = False
+    if mistral_tool_ids and msg.get("role") == "tool":
+        result_key = coalesce_tool_call_id({"id": msg.get("tool_call_id")})
+        if result_key and (mapped := _mistral_tool_id(result_key)) != msg.get("tool_call_id"):
+            out_msg["tool_call_id"] = mapped
+            remapped = True
     tool_calls = msg.get("tool_calls")
     copied_tool_calls = None
     if msg.get("role") == "assistant" and "tool_calls" in msg and (tool_calls is None or (isinstance(tool_calls, list) and not tool_calls)):
@@ -407,13 +453,17 @@ def _sanitize_message(msg: Any, strip_extra_content: bool, strip_reasoning_detai
                 strip_extra_content or not _has_replayable_thought_signature(tc["extra_content"])
             ):
                 keys.append("extra_content")
-            if keys:
+            key = coalesce_tool_call_id(tc) if mistral_tool_ids else ""
+            mapped = _mistral_tool_id(key) if key else None
+            if keys or (mapped is not None and mapped != tc.get("id")):
                 if copied_tool_calls is None:
                     copied_tool_calls = list(tool_calls)
                 copied_tool_calls[tc_idx] = {k: v for k, v in tc.items() if k not in keys}
+                if mapped is not None:
+                    copied_tool_calls[tc_idx]["id"] = mapped
         if copied_tool_calls is not None:
             out_msg["tool_calls"] = copied_tool_calls
-    return out_msg if strip_keys or copied_tool_calls is not None else None
+    return out_msg if strip_keys or remapped or copied_tool_calls is not None else None
 
 
 class ChatCompletionsTransport(ProviderTransport):
@@ -434,7 +484,13 @@ class ChatCompletionsTransport(ProviderTransport):
         """
         strip_extra_content = not _model_consumes_thought_signature(kwargs.get("model"))
         strip_reasoning_details = not _route_replays_reasoning_details(kwargs.get("base_url"))
-        sanitized_pairs = [(m, _sanitize_message(m, strip_extra_content, strip_reasoning_details)) for m in messages]
+        profile = kwargs.get("provider_profile")
+        provider = getattr(profile, "name", None) or kwargs.get("provider")
+        mistral_ids = _route_requires_mistral_tool_ids(provider, kwargs.get("model"), kwargs.get("base_url"))
+        sanitized_pairs = [
+            (m, _sanitize_message(m, strip_extra_content, strip_reasoning_details, mistral_tool_ids=mistral_ids))
+            for m in messages
+        ]
         if all(s is None for _, s in sanitized_pairs):
             return messages
         return [m if s is None else s for m, s in sanitized_pairs]
@@ -451,7 +507,13 @@ class ChatCompletionsTransport(ProviderTransport):
         With ``provider_profile`` every quirk comes from the profile; the legacy flag
         path below (is_kimi, is_openrouter, ...) is only reached for unregistered providers.
         """
-        sanitized = self.convert_messages(messages, model=model, base_url=params.get("base_url"))
+        sanitized = self.convert_messages(
+            messages,
+            model=model,
+            base_url=params.get("base_url"),
+            provider=params.get("provider"),
+            provider_profile=params.get("provider_profile"),
+        )
         _profile = params.get("provider_profile")
         if _profile:
             return self._build_kwargs_from_profile(_profile, model, sanitized, tools, params)
