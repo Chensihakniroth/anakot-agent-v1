@@ -8,6 +8,7 @@ import {
   useStdout,
   useTerminalTitle
 } from '@anakot/ink'
+import type { SessionControlReadResult } from '@anakot/shared/gateway-events'
 import { JSON_RPC_METHOD_NOT_FOUND, type ServerRequest } from '@anakot/shared/json-rpc-channel'
 import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -55,6 +56,7 @@ import { createSlashHandler } from './createSlashHandler.js'
 import { planGatewayRecovery } from './gatewayRecovery.js'
 import { getInputSelection } from './inputSelectionStore.js'
 import { type GatewayRpc, type StateSetter, type TranscriptRow } from './interfaces.js'
+import { applyLoopSnapshot } from './loopStatus.js'
 import { $overlayState, patchOverlayState } from './overlayStore.js'
 import { $goodVibesTick } from './petFlashStore.js'
 import { scrollWithSelectionBy } from './scroll.js'
@@ -601,6 +603,7 @@ export function useMainApp(gw: GatewayClient) {
 
   useEffect(() => {
     if (!ui.sid) {
+      applyLoopSnapshot(null, null)
       patchUiState({ liveSessionCount: 0, sessionTitle: '' })
 
       return
@@ -608,9 +611,19 @@ export function useMainApp(gw: GatewayClient) {
 
     let stopped = false
     applyAgentSnapshot(ui.sid)
+    applyLoopSnapshot(ui.sid, null)
 
     const refresh = () => {
       const sid = ui.sid
+      gw.request<SessionControlReadResult>('session.control.read', { session_id: sid })
+        .then(raw => {
+          const result = asRpcResult<SessionControlReadResult>(raw)
+
+          if (!stopped && getUiState().sid === sid) {
+            applyLoopSnapshot(sid, result?.control?.loop ?? null)
+          }
+        })
+        .catch(() => {})
       gw.request<SubagentListResponse>('subagent.list', { session_id: sid })
         .then(raw => {
           const result = asRpcResult<SubagentListResponse>(raw)

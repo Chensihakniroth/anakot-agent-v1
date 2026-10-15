@@ -29,6 +29,7 @@ import type { Msg, SessionInfo, SubagentProgress } from '../types.js'
 
 import { applyDelegationStatus, getDelegationState } from './delegationStore.js'
 import type { GatewayEventHandlerContext, NoticeLevel } from './interfaces.js'
+import { applyLoopSnapshot } from './loopStatus.js'
 import { getOverlayState, patchOverlayState } from './overlayStore.js'
 import { flashGoodVibes, flashPet } from './petFlashStore.js'
 import { forgetServerRequest } from './serverRequestStore.js'
@@ -841,11 +842,17 @@ export function createGatewayEventHandler(ctx: GatewayEventHandlerContext): (ev:
         return
       }
 
+      case 'session.control.update': {
+        applyLoopSnapshot(ev.session_id ?? getUiState().sid, ev.payload?.control?.loop ?? null)
+
+        return
+      }
+
       case 'session.usage': {
         // Live usage tick while a turn runs (see tui_gateway
         // _start_usage_ticker) — keeps the status-bar context window current
-        // mid-turn instead of only at message.complete. The session filter at
-        // the top of this handler already dropped ticks for non-focused
+        // mid-turn instead of only at message.complete. The session filter at the
+        // top of this handler already dropped ticks for non-focused
         // sessions.
         const usage = ev.payload?.usage
 

@@ -46,6 +46,10 @@ for c in json.load(sys.stdin):
 | c59d2994 | 2026-10-14 | feat(agent): add nemotron super 3.5 default parameters | PORTED | Added the 1,000,000-token context fallback and 600-second reasoning stale-timeout floor for `nemotron-3.5-super` |
 | c3ddf756 | 2026-10-15 | fix: config watcher and config backups race conditions | PORTED | Byte-content backup dedupe replaces `filecmp` cache semantics; pairing watcher uses per-file path/mtime/size signatures so same-mtime ledger additions broadcast |
 | 046094df | 2026-10-15 | fix(browser): one real-profile decision per browser, local=true stays local, note survives errors | PENDING | New upstream real-profile browser lifecycle cluster; Anakot browser session architecture requires a separate audit |
+| 2add194a | 2026-10-15 | feat(tui): standing /loop row with a live countdown above the live-work dock | PORTED | Adapted to Anakot's `@anakot/shared` contracts, `session.control.read`, and `session.control.update`; countdown is local and only the focused session renders it |
+| 874d1485 | 2026-10-15 | fix(gateway): viewers get session.control.update when /goal, /loop or /heartbeat state moves | CUSTOM | Anakot already publishes the same contract from its native `tui_gateway` control snapshot path; the new TUI consumer uses it directly |
+| cba95563 | 2026-10-15 | feat(cli): /loop gets a live-work dock row with a ticking countdown | PENDING | Hermes classic CLI dock has no direct Anakot equivalent; TUI parity is ported, while the classic CLI surface remains for a separate audit |
+| 73b9f2af | 2026-10-15 | fix(gateway): wire the desktop window bridges for local-viewer turns | CUSTOM | Anakot's `tui_gateway/session_notifications.py::_wire_desktop_sinks` already owns the emitter and process-registry routing with Anakot session IDs |
 | 80f4f989 | 2026-10-15 | fix(browser): a real profile that can't load falls back to a fresh browser | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
 | 460f9bac | 2026-10-15 | fix(browser): snapshot real profile while Chrome is running | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
 | 3bdb82d6 | 2026-10-15 | fix(update): keep the retirement downgrade probe fail-closed | SKIPPED | Hermes-specific source-release update pipeline (`hermes_cli/source_releases.py`); Anakot uses fork git-based update flow (`update_cmd_git.py`) |
@@ -213,6 +217,12 @@ for c in json.load(sys.stdin):
 - Added `agent/gemini_long_decode.py` for the Gemini continuation protocol: `CONTINUATION` hops preserve the request and send the returned token, unary responses merge model parts and usage, and streamed continuation finishes remain invisible to callers while the next hop is opened.
 - Extended native Gemini translation with 20-minute read headroom, long-decode budgets (`xhigh` 262,144; `max`/`ultra` 1,048,576), hidden-thinking accounting, and `initial_prompt_tokens` so billing totals do not masquerade as current context size.
 - Added Gemini 4 thinking-level clamping, a 600-second reasoning stale-timeout floor, Gemini 4 catalog/pricing entries, and AI Studio/Vertex guide updates. Regression coverage exercises profile wiring, unary hops, stream hops, usage, and catalog-independent policy helpers.
+
+### 2026-10-16 — Refresh + port: standing `/loop` live-work row (`2add194a`, upstream head `60f56a6b13c8`)
+- Scanned the latest 100 Hermes commits from the GitHub API after the `046094df` browser-lifecycle scan; filtered merge, release, CI, catalog, formatting, and test-only noise.
+- Ported the portable TUI feature manually: the focused Anakot TUI now reads `session.control.read`, consumes `session.control.update`, and renders an active/paused `/loop` row above the live-agent panel with a local countdown and prompt preview.
+- Reused Anakot's existing `LoopSnapshot` contract and gateway publication path instead of copying Hermes modules. Completed loops are hidden, paused loops show their reason, and non-focused session snapshots cannot bleed into the active TUI.
+- Verification: `npm run typecheck`, `npm run lint` (0 errors; 4 pre-existing warnings), and targeted Vitest (`116 passed`). `cba95563` remains `PENDING` for the classic CLI dock; `874d1485` and `73b9f2af` are `CUSTOM` because Anakot already has the corresponding gateway publication and desktop sink paths.
 
 ### 2026-10-15 — Follow-up upstream scan at `046094df28b7`
 - Scanned the latest 100 Hermes commits after the previous `db44c46208f1` scan and filtered release/chore/test/CI-only changes.
