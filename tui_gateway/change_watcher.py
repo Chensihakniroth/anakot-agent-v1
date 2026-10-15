@@ -53,6 +53,16 @@ def _newest_mtime_ns(paths) -> int | None:
     return max((m for m in map(_watcher_mtime_ns, paths) if m is not None), default=None)
 
 
+def _files_sig(paths) -> tuple:
+    """Sorted path/mtime/size signature so same-mtime file additions are visible."""
+    entries = []
+    for path in paths:
+        with contextlib.suppress(OSError):
+            stat = path.stat()
+            entries.append((str(path), stat.st_mtime_ns, stat.st_size))
+    return tuple(sorted(entries))
+
+
 def _skin_sig() -> tuple[str, float | None]:
     """(active skin name, its user-file mtime). Built-ins have no file, so only
     their name moves; a user skin's mtime lets an in-place color edit repaint too."""
@@ -139,7 +149,7 @@ def _pairing_sig():
             # Only the ledgers: _rate_limits.json moves on every unauthorized DM.
             entries += [
                 e for e in root.iterdir() if e.name.endswith(("-pending.json", "-approved.json"))]
-    return _newest_mtime_ns(entries)
+    return _files_sig(entries)
 
 
 # Live-profile pairing roots, cached on (home, ``profiles/`` dir mtime) with a TTL. The liveness

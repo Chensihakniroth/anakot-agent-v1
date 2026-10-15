@@ -112,6 +112,26 @@ def test_pending_pairing_request_broadcasts_pairing_changed(watcher_home):
     assert ("platforms.changed", {}) not in events
 
 
+
+
+def test_same_mtime_pairing_ledger_is_still_seen(watcher_home):
+    """A second pairing ledger created in the same mtime tick must still trigger a refresh."""
+    home, events = watcher_home
+    store = home / "platforms" / "pairing"
+    store.mkdir(parents=True)
+    first = store / "telegram-pending.json"
+    first.write_text("{}", encoding="utf-8")
+    server._broadcast_watched_changes(now=0.0)
+
+    second = store / "discord-pending.json"
+    second.write_text("{}", encoding="utf-8")
+    pinned = first.stat().st_mtime_ns
+    os.utime(second, ns=(pinned, pinned))
+    server._broadcast_watched_changes(now=10.0)
+
+    assert events == [("pairing.changed", {})]
+
+
 def test_pairing_signal_follows_a_profile_store(watcher_home):
     """Each profile keeps its own whitelist, and the page can be scoped to any."""
     home, events = watcher_home

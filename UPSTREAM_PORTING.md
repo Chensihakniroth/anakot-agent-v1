@@ -44,6 +44,12 @@ for c in json.load(sys.stdin):
 | 2d6a0e6f | 2026-10-13 | feat(gateway): connector downloads are a trusted media delivery root | PORTED | Added `<profile>/downloads/connectors` to Anakot's dynamic media-delivery allowlist |
 | 5f747344 | 2026-10-13 | feat(connectors): client calls to stage file inputs and fetch file outputs | PORTED | Added typed upload wire models plus storage-only PUT/GET transport that never forwards gateway bearer headers |
 | c59d2994 | 2026-10-14 | feat(agent): add nemotron super 3.5 default parameters | PORTED | Added the 1,000,000-token context fallback and 600-second reasoning stale-timeout floor for `nemotron-3.5-super` |
+| c3ddf756 | 2026-10-15 | fix: config watcher and config backups race conditions | PORTED | Byte-content backup dedupe replaces `filecmp` cache semantics; pairing watcher uses per-file path/mtime/size signatures so same-mtime ledger additions broadcast |
+| 046094df | 2026-10-15 | fix(browser): one real-profile decision per browser, local=true stays local, note survives errors | PENDING | New upstream real-profile browser lifecycle cluster; Anakot browser session architecture requires a separate audit |
+| 80f4f989 | 2026-10-15 | fix(browser): a real profile that can't load falls back to a fresh browser | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
+| 460f9bac | 2026-10-15 | fix(browser): snapshot real profile while Chrome is running | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
+| 3bdb82d6 | 2026-10-15 | fix(update): keep the retirement downgrade probe fail-closed | PENDING | Needs comparison against Anakot's fork-specific update/source release pipeline |
+| a6cced55 | 2026-10-15 | fix(gateway): re-enter the native callback for a messaging /retry redispatch | PENDING | Needs a multiplexed Anakot gateway provenance audit before porting |
 | e6835fd3 | 2026-10-14 | feat(cli): add curated model list at the top in the model picker list | CUSTOM | Anakot already owns a curated-first picker in `anakot_cli/models.py`; upstream Hermes picker code is not portable |
 | c5fc0958 | 2026-10-14 | refactor(agent): keep the Mistral tool-id rule beside its only consumer | PORTED | Folded into the final Anakot Chat Completions transport adaptation; route detection and stable mapping stay next to wire sanitization |
 | 0c1bfb7d | 2026-10-14 | fix(agent): keep composite tool ids paired on Mistral routes | PORTED | Final-state adaptation maps the coalesced call half on assistant and tool messages, preserving prompt history unchanged |
@@ -207,6 +213,16 @@ for c in json.load(sys.stdin):
 - Added `agent/gemini_long_decode.py` for the Gemini continuation protocol: `CONTINUATION` hops preserve the request and send the returned token, unary responses merge model parts and usage, and streamed continuation finishes remain invisible to callers while the next hop is opened.
 - Extended native Gemini translation with 20-minute read headroom, long-decode budgets (`xhigh` 262,144; `max`/`ultra` 1,048,576), hidden-thinking accounting, and `initial_prompt_tokens` so billing totals do not masquerade as current context size.
 - Added Gemini 4 thinking-level clamping, a 600-second reasoning stale-timeout floor, Gemini 4 catalog/pricing entries, and AI Studio/Vertex guide updates. Regression coverage exercises profile wiring, unary hops, stream hops, usage, and catalog-independent policy helpers.
+
+### 2026-10-15 — Follow-up upstream scan at `046094df28b7`
+- Scanned the latest 100 Hermes commits after the previous `db44c46208f1` scan and filtered release/chore/test/CI-only changes.
+- Recorded the new browser real-profile lifecycle cluster (`046094df`, `80f4f989`, `460f9bac`) and selected gateway/update candidates (`3bdb82d6`, `a6cced55`) as `PENDING`; the local architectures need an evidence pass before implementation.
+- Ported the portable config-backup and pairing-watcher race fix below. The newer plugin server-declaration change has no same-shaped declaration layer in Anakot and remains intentionally unported pending a contract gap.
+
+### 2026-10-15 — Ported config watcher and backup race fixes (`c3ddf7563bff`)
+- Replaced `filecmp.cmp` in `anakot_cli/config_backups.py` with byte comparison so equal-size edits within one filesystem mtime tick still create a backup.
+- Added per-file `(path, mtime_ns, size)` signatures to `tui_gateway/change_watcher.py` for pairing ledgers, preventing a second same-mtime file from being masked by the newest-mtime-only signature.
+- Regression verification: config-backup tests and the full change-watcher file passed.
 
 ### 2026-10-15 — Ported connector file inputs and outputs (`e1b18e2bca67`, `2d6a0e6f32f2`, `5f7473446b48`)
 - Added `tools/connectors/gateway/files.py`: connector schemas now expose uploadable values as local paths, remember nested/array file argument locations, validate paths through Anakot media-delivery policy, stage inputs through presigned uploads, and replace returned presigned URLs with profile-local downloaded paths.
