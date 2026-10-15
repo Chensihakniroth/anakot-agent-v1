@@ -16,6 +16,7 @@ class GeminiProfile(ProviderProfile):
     def build_extra_body(self, *, session_id: str | None = None, **context: Any) -> dict[str, Any]:
         """Native: ``thinking_config``; OpenAI-compat /openai subpath:
         ``extra_body.google.thinking_config`` (snake_case)."""
+        from agent.gemini_long_decode import long_decode_max_output_tokens
         from agent.transports.chat_completions import (
             _build_gemini_thinking_config,
             _is_gemini_openai_compat_base_url,
@@ -23,12 +24,18 @@ class GeminiProfile(ProviderProfile):
         )
 
         raw = _build_gemini_thinking_config(context.get("model") or "", context.get("reasoning_config"))
-        if not raw:
+        budget = long_decode_max_output_tokens(context.get("model") or "", context.get("reasoning_config"))
+        if not raw and budget is None:
             return {}
-        if self.name == "gemini" and _is_gemini_openai_compat_base_url(context.get("base_url") or self.base_url):
+        base_url = context.get("base_url") or self.base_url
+        if self.name == "gemini" and _is_gemini_openai_compat_base_url(base_url):
             thinking_config = _snake_case_gemini_thinking_config(raw)
             return {"extra_body": {"google": {"thinking_config": thinking_config}}} if thinking_config else {}
-        return {"thinking_config": raw}
+        from agent.gemini_native_adapter import is_native_gemini_base_url
+        body = {"thinking_config": raw} if raw else {}
+        if budget is not None and is_native_gemini_base_url(base_url):
+            body["max_output_tokens"] = budget
+        return body
 
 
 gemini = GeminiProfile(

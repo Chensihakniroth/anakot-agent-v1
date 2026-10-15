@@ -39,7 +39,7 @@ for c in json.load(sys.stdin):
 
 | SHA | Date | Description | Status | Notes |
 |-----|------|-------------|--------|-------|
-| 7e85c68a | 2026-10-13 | feat(gemini): Gemini 4 Argon support with long decode | PENDING | 2026-10-15 scan: no Gemini 4/Argon handling, continuation-token decode, or `gemini_long_decode` equivalent in Anakot |
+| 7e85c68a | 2026-10-13 | feat(gemini): Gemini 4 Argon support with long decode | PORTED | Added Gemini 4 thinking levels, `max_output_tokens` budgets, unary/stream continuation-token hops, summed billing usage with initial-context tracking, stale-timeout floor, catalog/pricing/docs entries, and regression coverage |
 | e1b18e2b | 2026-10-13 | feat(connectors): connector tools send and save local files | PARTIAL | 2026-10-15 scan: Anakot has connector gateway operations, but no local file staging/save bridge equivalent |
 | 2d6a0e6f | 2026-10-13 | feat(gateway): connector downloads are a trusted media delivery root | PENDING | Depends on the connector file-output path; no matching connector media-root contract found |
 | 5f747344 | 2026-10-13 | feat(connectors): client calls to stage file inputs and fetch file outputs | PENDING | Depends on the connector file bridge; no matching stage/fetch wire methods found |
@@ -201,7 +201,12 @@ for c in json.load(sys.stdin):
 ### 2026-10-15 — Upstream feature scan at `db44c46208f1`
 - Scanned 300 latest Hermes commits and filtered 12 untracked user-facing feature commits after excluding release-only, catalog, docs, test-only, merge, and formatting noise.
 - Confirmed the gateway coding-posture refactor cluster is already represented by Anakot's `agent/coding_context.py` and session policy implementation; the curated-first model picker is an Anakot-owned custom implementation.
-- New parity candidates recorded in the table: Gemini 4 Argon long decode (genuinely absent), connector file staging/output delivery (partial/absent), and Nemotron Super 3.5 defaults (not yet matched). These remain `PENDING` for the next port batch rather than being silently skipped.
+- New parity candidates recorded in the table: connector file staging/output delivery (partial/absent), and Nemotron Super 3.5 defaults (not yet matched). Gemini 4 Argon was ported in the follow-up batch below.
+
+### 2026-10-15 — Ported Gemini 4 Argon long decode (`7e85c68a0d93`)
+- Added `agent/gemini_long_decode.py` for the Gemini continuation protocol: `CONTINUATION` hops preserve the request and send the returned token, unary responses merge model parts and usage, and streamed continuation finishes remain invisible to callers while the next hop is opened.
+- Extended native Gemini translation with 20-minute read headroom, long-decode budgets (`xhigh` 262,144; `max`/`ultra` 1,048,576), hidden-thinking accounting, and `initial_prompt_tokens` so billing totals do not masquerade as current context size.
+- Added Gemini 4 thinking-level clamping, a 600-second reasoning stale-timeout floor, Gemini 4 catalog/pricing entries, and AI Studio/Vertex guide updates. Regression coverage exercises profile wiring, unary hops, stream hops, usage, and catalog-independent policy helpers.
 
 ### 2026-10-15 — Ported Mistral composite tool-id compatibility
 - Ported the final state of upstream `b33ed35968f0`, `0c1bfb7dfb47`, and `c5fc0958b49f` into `agent/transports/chat_completions.py`.

@@ -132,6 +132,7 @@ The `anakot model` picker shows Gemini models maintained in Anakot' provider reg
 
 | Model | ID | Notes |
 |-------|----|-------|
+| Gemini 4 Argon | `gemini-4-argon` | Long-decode reasoning model; `xhigh`/`max` enables continuation hops |
 | Gemini 3.8 Flash | `gemini-3.8-flash` | Most capable Flash model for long-horizon agentic and coding work |
 | Gemini 3.7 Flash | `gemini-3.7-flash` | Recommended default balance of speed, capability, and multimodal understanding |
 | Gemini 3.1 Pro Preview | `gemini-3.1-pro-preview` | Most capable reasoning, math, and coding model |

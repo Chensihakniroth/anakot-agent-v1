@@ -88,6 +88,7 @@ Vertex requires the `google/` vendor prefix on model IDs. The `anakot model` pic
 
 | Model | ID |
 |-------|----|
+| Gemini 4 Argon | `google/gemini-4-argon` |
 | Gemini 3.8 Flash | `google/gemini-3.8-flash` |
 | Gemini 3.7 Flash | `google/gemini-3.7-flash` |
 | Gemini 3.1 Pro Preview | `google/gemini-3.1-pro-preview` |

@@ -20,6 +20,7 @@ from typing import Any, Dict, Iterator, List, Optional
 import httpx
 
 from agent.bounded_response import read_streaming_error_body
+from agent.gemini_long_decode import continuation_token, merge_hop_responses, split_stream_continuation
 from agent.retry_utils import parse_retry_after_seconds
 from agent.gemini_schema import prepare_gemini_tool_parameters, sanitize_gemini_tool_parameters
 
@@ -70,6 +71,7 @@ _END = object()  # stream-exhausted marker for _advance_stream_iterator
 _TOOL_CHOICE_MODES = {"auto": "AUTO", "required": "ANY", "none": "NONE"}
 _FINISH_REASON_MAP = {
     "STOP": "stop", "MAX_TOKENS": "length", "SAFETY": "content_filter", "RECITATION": "content_filter", "OTHER": "stop",
+    "CONTINUATION": "length",
 }
 _HTTP_ERROR_CODES = {401: "gemini_unauthorized", 429: "gemini_rate_limited", 404: "gemini_model_not_found"}
 _MISSING_KEY_ERROR = (
@@ -525,9 +527,12 @@ def _dump_call_args(fc: Dict[str, Any], **kwargs: Any) -> str:
 
 def _usage_from_metadata(usage_meta: Dict[str, Any]) -> SimpleNamespace:
     count = lambda key: int(usage_meta.get(key) or 0)  # noqa: E731
+    reasoning_tokens = count("thoughtsTokenCount")
+    initial = {"initial_prompt_tokens": count("initialPromptTokenCount")} if "initialPromptTokenCount" in usage_meta else {}
     return SimpleNamespace(
-        prompt_tokens=count("promptTokenCount"), completion_tokens=count("candidatesTokenCount"),
+        prompt_tokens=count("promptTokenCount"), completion_tokens=count("candidatesTokenCount") + reasoning_tokens,
         total_tokens=count("totalTokenCount"), prompt_tokens_details=SimpleNamespace(cached_tokens=count("cachedContentTokenCount")),
+        completion_tokens_details=SimpleNamespace(reasoning_tokens=reasoning_tokens), **initial,
     )
 
 
@@ -758,7 +763,8 @@ class GeminiNativeClient:
         self.base_url = normalize_gemini_base_url(base_url, api_key)
         self._default_headers = dict(default_headers or {})
         self.chat = SimpleNamespace(completions=SimpleNamespace(create=self._create_chat_completion))
-        self._http = http_client or httpx.Client(timeout=timeout or httpx.Timeout(connect=15.0, read=600.0, write=30.0, pool=30.0))
+        # Gemini 4 hops can think for minutes; a short read timeout cuts long-decode requests off mid-think.
+        self._http = http_client or httpx.Client(timeout=timeout or httpx.Timeout(connect=15.0, read=1200.0, write=30.0, pool=30.0))
 
     def close(self) -> None:
         self.is_closed = True
@@ -787,6 +793,10 @@ class GeminiNativeClient:
         top_p: Optional[float] = None, stop: Any = None, extra_body: Optional[Dict[str, Any]] = None, timeout: Any = None, **_: Any,
     ) -> Any:
         extra = extra_body if isinstance(extra_body, dict) else {}
+        # Long-decode budget (Gemini 4) is carried in extra_body by the provider profile.
+        budget = extra.get("max_output_tokens")
+        if isinstance(budget, int) and budget > int(max_tokens or 0):
+            max_tokens = budget
         request = build_gemini_request(
             messages=messages or [], tools=tools, tool_choice=tool_choice, temperature=temperature, max_tokens=max_tokens,
             top_p=top_p, stop=stop, thinking_config=extra.get("thinking_config") or extra.get("thinkingConfig"), model=model,
@@ -796,28 +806,41 @@ class GeminiNativeClient:
         url = f"{self.base_url}/models/{model}:"
         if stream:
             return self._stream_completion(model, url + "streamGenerateContent?alt=sse", request, timeout)
-        response = self._http.post(url + "generateContent", json=request, headers=self._headers(), timeout=timeout)
+        hops = [self._generate(url + "generateContent", request, timeout)]
+        while token := continuation_token(hops[-1]):
+            hops.append(self._generate(url + "generateContent", {**request, "continuationToken": token}, timeout))
+        payload = merge_hop_responses(hops) if len(hops) > 1 else hops[0]
+        return translate_gemini_response(payload, model=model)
+
+    def _generate(self, url: str, request: Dict[str, Any], timeout: Any) -> Dict[str, Any]:
+        response = self._http.post(url, json=request, headers=self._headers(), timeout=timeout)
         if response.status_code != 200:
             raise gemini_http_error(response, api_key=self.api_key)
         try:
-            payload = response.json()
+            return response.json()
         except ValueError as exc:
             raise GeminiAPIError(
                 f"Invalid JSON from Gemini native API: {exc}", code="gemini_invalid_json", status_code=response.status_code, response=response,
             ) from exc
-        return translate_gemini_response(payload, model=model)
 
     def _stream_completion(self, model: str, url: str, request: Dict[str, Any], timeout: Any) -> Iterator[_GeminiStreamChunk]:
+        tool_call_indices: Dict[str, Dict[str, Any]] = {}
+        hop_usage: List[Dict[str, Any]] = []
+        body: Optional[Dict[str, Any]] = request
         try:
-            headers = {**self._headers(), "Accept": "text/event-stream"}
-            with self._http.stream("POST", url, json=request, headers=headers, timeout=timeout) as response:
-                if response.status_code != 200:
-                    raise gemini_http_error(
-                        response, body_text=read_streaming_error_body(response), api_key=self.api_key,
-                    )
-                tool_call_indices: Dict[str, Dict[str, Any]] = {}
-                for event in _iter_sse_events(response):
-                    yield from translate_stream_event(event, model, tool_call_indices)
+            while body is not None:
+                headers = {**self._headers(), "Accept": "text/event-stream"}
+                with self._http.stream("POST", url, json=body, headers=headers, timeout=timeout) as response:
+                    if response.status_code != 200:
+                        raise gemini_http_error(
+                            response, body_text=read_streaming_error_body(response), api_key=self.api_key,
+                        )
+                    body = None
+                    for event in _iter_sse_events(response):
+                        event, token = split_stream_continuation(event, hop_usage)
+                        if token:
+                            body = {**request, "continuationToken": token}
+                        yield from translate_stream_event(event, model, tool_call_indices)
         except httpx.HTTPError as exc:
             raise GeminiAPIError(f"Gemini streaming request failed: {exc}", code="gemini_stream_error") from exc
 

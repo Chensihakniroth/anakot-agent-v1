@@ -47,6 +47,9 @@ import pytest
     ("nvidia/nemotron-3-ultra-550b-a55b", 600.0),
     ("nvidia/nemotron-3-super-120b-a12b", 600.0),
     ("nvidia/nemotron-3-nano-30b-a3b", 300.0),
+    # Gemini 4 Argon long-decode hops can re-prefill for minutes.
+    ("google/gemini-4-argon", 600.0),
+    ("gemini-4-argon:preview", 600.0),
     # DeepSeek R1 + DeepSeek reasoner + V4 reasoning series.
     # V4 emits reasoning_content in a separate delta before final
     # content (same shape as R1), so it needs the same 600s floor.
