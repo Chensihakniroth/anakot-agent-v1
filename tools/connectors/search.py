@@ -20,8 +20,9 @@ def connections_in_scope(tool_defs: Iterable[Dict[str, Any]]) -> bool:
 
 def _connector_entry(name: str, connector: str, slug: str, schema: Dict[str, Any]) -> CatalogEntry:
     description = str(schema.get("description") or "")
-    input_schema = schema.get("input_schema")
-    parameters = input_schema if isinstance(input_schema, dict) else {}
+    from tools.connectors.gateway.files import model_parameters
+
+    parameters = model_parameters(name, schema.get("input_schema"))
     tool_def = {"type": "function", "function": {
         "name": name, "description": description, "parameters": parameters}}
     text = f"{connector} {slug.replace('_', ' ')} {description}"

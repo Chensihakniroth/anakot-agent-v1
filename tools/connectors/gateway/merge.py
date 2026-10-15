@@ -104,6 +104,9 @@ def render_remote_entry(planned: PlannedCall, remote: Mapping[str, Any]) -> dict
         hint = _opt_str(error.get("hint"))
         if hint:
             payload["hint"] = hint
+        family = _opt_str(error.get("family"))
+        if family:
+            payload["family"] = family
     return {"index": planned.position, "name": planned.name, "error": payload}
 
 

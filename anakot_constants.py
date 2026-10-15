@@ -168,6 +168,9 @@ def get_process_anakot_home() -> Path:
 # default profile) so the two lists cannot drift apart.
 LOCAL_RUNTIME_ROOT_DIRS: frozenset[str] = frozenset({"models", "runtimes", "node"})
 
+# Connector tool outputs are stored here under each active profile home.
+CONNECTOR_DOWNLOADS_SUBDIR = Path("downloads", "connectors")
+
 # get_default_anakot_root() memo keyed on (native home, expanded ANAKOT_HOME) so it stays
 # fresh when a test or plugin mutates either input; saves ~80us/call at 31+ sites.
 _default_anakot_root_memo: "tuple[str, str, Path] | None" = None

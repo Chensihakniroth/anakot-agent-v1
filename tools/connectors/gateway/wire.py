@@ -16,6 +16,9 @@ CONNECTOR_SEARCH_PATH = f"{CONNECTORS_PATH}/search"
 CONNECTOR_SCHEMAS_PATH = f"{CONNECTORS_PATH}/schemas"
 CONNECTOR_EXECUTE_PATH = f"{CONNECTORS_PATH}/execute"
 CONNECTOR_CONNECTIONS_PATH = f"{CONNECTORS_PATH}/connections"
+CONNECTOR_FILE_UPLOAD_PATH = f"{CONNECTORS_PATH}/files/upload"
+# Maximum declared size for a staged connector input.
+CONNECTOR_FILE_MAX_BYTES = 20 * 1024 * 1024
 
 # Anakot dispatch caps batches lower, so client-side chunking is deliberately absent.
 WIRE_BATCH_MAX = 25
@@ -27,6 +30,19 @@ ConnectorErrorCode = Literal[
     "TOOL_NOT_FOUND",
     "PROVIDER_ERROR",
 ]
+
+FILE_ERROR_FAMILIES: dict[str, str] = {
+    "FILE_NOT_ALLOWED": "product",
+    "FILE_NOT_FOUND": "product",
+    "FILE_TOO_LARGE": "product",
+    "FILE_UPLOAD_FAILED": "backend",
+}
+
+
+def execute_error_family(code: str, family: Optional[str] = None) -> Optional[str]:
+    if family in ("product", "backend"):
+        return family
+    return FILE_ERROR_FAMILIES.get(code)
 
 
 class _Wire(BaseModel):
@@ -84,6 +100,27 @@ class ConnectorSchemasResponse(_Wire):
     schemas: dict[str, ConnectorToolSchema] = Field(default_factory=dict)
     not_found: list[str] = Field(default_factory=list, alias="notFound")
     suggestions: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class ConnectorFileUploadRequest(_Wire):
+    toolkit: str
+    tool: str
+    filename: str
+    mimetype: str
+    size: int
+
+
+class ConnectorFileDescriptor(_Wire):
+    name: str
+    mimetype: str
+    s3key: str
+
+
+class ConnectorFileUploadResponse(_Wire):
+    upload_url: str = Field(alias="uploadUrl")
+    headers: dict[str, str] = Field(default_factory=dict)
+    descriptor: ConnectorFileDescriptor
+    expires_at: str = Field(alias="expiresAt")
 
 
 class ConnectorToolError(_Wire):

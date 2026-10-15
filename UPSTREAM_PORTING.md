@@ -40,10 +40,10 @@ for c in json.load(sys.stdin):
 | SHA | Date | Description | Status | Notes |
 |-----|------|-------------|--------|-------|
 | 7e85c68a | 2026-10-13 | feat(gemini): Gemini 4 Argon support with long decode | PORTED | Added Gemini 4 thinking levels, `max_output_tokens` budgets, unary/stream continuation-token hops, summed billing usage with initial-context tracking, stale-timeout floor, catalog/pricing/docs entries, and regression coverage |
-| e1b18e2b | 2026-10-13 | feat(connectors): connector tools send and save local files | PARTIAL | 2026-10-15 scan: Anakot has connector gateway operations, but no local file staging/save bridge equivalent |
-| 2d6a0e6f | 2026-10-13 | feat(gateway): connector downloads are a trusted media delivery root | PENDING | Depends on the connector file-output path; no matching connector media-root contract found |
-| 5f747344 | 2026-10-13 | feat(connectors): client calls to stage file inputs and fetch file outputs | PENDING | Depends on the connector file bridge; no matching stage/fetch wire methods found |
-| c59d2994 | 2026-10-14 | feat(agent): add nemotron super 3.5 default parameters | PENDING | Current Anakot metadata/catalog has Nemotron variants but no matching Super 3.5 default-parameter policy |
+| e1b18e2b | 2026-10-13 | feat(connectors): connector tools send and save local files | PORTED | Added schema path rewriting, policy-checked staging, downloaded output replacement, task-aware dispatch, and file regression coverage |
+| 2d6a0e6f | 2026-10-13 | feat(gateway): connector downloads are a trusted media delivery root | PORTED | Added `<profile>/downloads/connectors` to Anakot's dynamic media-delivery allowlist |
+| 5f747344 | 2026-10-13 | feat(connectors): client calls to stage file inputs and fetch file outputs | PORTED | Added typed upload wire models plus storage-only PUT/GET transport that never forwards gateway bearer headers |
+| c59d2994 | 2026-10-14 | feat(agent): add nemotron super 3.5 default parameters | PORTED | Added the 1,000,000-token context fallback and 600-second reasoning stale-timeout floor for `nemotron-3.5-super` |
 | e6835fd3 | 2026-10-14 | feat(cli): add curated model list at the top in the model picker list | CUSTOM | Anakot already owns a curated-first picker in `anakot_cli/models.py`; upstream Hermes picker code is not portable |
 | c5fc0958 | 2026-10-14 | refactor(agent): keep the Mistral tool-id rule beside its only consumer | PORTED | Folded into the final Anakot Chat Completions transport adaptation; route detection and stable mapping stay next to wire sanitization |
 | 0c1bfb7d | 2026-10-14 | fix(agent): keep composite tool ids paired on Mistral routes | PORTED | Final-state adaptation maps the coalesced call half on assistant and tool messages, preserving prompt history unchanged |
@@ -207,6 +207,14 @@ for c in json.load(sys.stdin):
 - Added `agent/gemini_long_decode.py` for the Gemini continuation protocol: `CONTINUATION` hops preserve the request and send the returned token, unary responses merge model parts and usage, and streamed continuation finishes remain invisible to callers while the next hop is opened.
 - Extended native Gemini translation with 20-minute read headroom, long-decode budgets (`xhigh` 262,144; `max`/`ultra` 1,048,576), hidden-thinking accounting, and `initial_prompt_tokens` so billing totals do not masquerade as current context size.
 - Added Gemini 4 thinking-level clamping, a 600-second reasoning stale-timeout floor, Gemini 4 catalog/pricing entries, and AI Studio/Vertex guide updates. Regression coverage exercises profile wiring, unary hops, stream hops, usage, and catalog-independent policy helpers.
+
+### 2026-10-15 — Ported connector file inputs and outputs (`e1b18e2bca67`, `2d6a0e6f32f2`, `5f7473446b48`)
+- Added `tools/connectors/gateway/files.py`: connector schemas now expose uploadable values as local paths, remember nested/array file argument locations, validate paths through Anakot media-delivery policy, stage inputs through presigned uploads, and replace returned presigned URLs with profile-local downloaded paths.
+- Added storage-only upload/download methods to `ConnectorClient`; storage receives only the gateway-issued headers, never the managed gateway bearer. Downloads use bounded streaming, safe unique names, temporary files, and the profile-aware `downloads/connectors` root.
+- Threaded `task_id` through connector dispatch so relative paths resolve against the calling terminal workspace. Added 10 regression tests covering schema refs, arrays, refusal/caps, storage header isolation, output sanitization, and media allowlisting. Connector bridge/dispatch suites remain green.
+
+### 2026-10-15 — Ported Nemotron Super 3.5 defaults (`c59d299408e9`)
+- Added `nemotron-3.5-super` to the model-metadata fallback table at 1,000,000 context tokens and to the 600-second reasoning stale-timeout floor. Focused metadata and timeout verification: 183 tests passed.
 
 ### 2026-10-15 — Ported Mistral composite tool-id compatibility
 - Ported the final state of upstream `b33ed35968f0`, `0c1bfb7dfb47`, and `c5fc0958b49f` into `agent/transports/chat_completions.py`.

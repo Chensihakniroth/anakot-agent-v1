@@ -11,6 +11,7 @@ from typing import Any, Callable, Optional, Sequence
 
 from tools.connectors.gateway.config import connectors_available
 from tools.connectors.gateway.errors import GatewayUnavailable, ToolGatewayError
+from tools.connectors.gateway.files import FileInputError, model_parameters, save_outputs, stage_inputs
 from tools.connectors.gateway.merge import fill_remote_failure, splice_remote_results
 from tools.connectors.gateway.names import parse_connector_name, vendor_slug_candidates
 
@@ -85,7 +86,7 @@ def connector_describe(
                 continue
             tools[composed] = {
                 "description": str(schema.get("description") or ""),
-                "parameters": schema.get("input_schema") or {},
+                "parameters": model_parameters(composed, schema.get("input_schema") or {}),
             }
         return {"tools": tools}
     except GatewayUnavailable:
@@ -102,6 +103,8 @@ def run_remote(
     *,
     availability: Optional[Callable[[], bool]],
     client_factory: Optional[Callable[[], Any]],
+    turn_id: Optional[str] = None,
+    task_id: Optional[str] = None,
 ) -> list[dict[str, Any]]:
     try:
         available = (availability or connectors_available)()
@@ -124,8 +127,7 @@ def run_remote(
     ]
     try:
         client = (client_factory or _default_client_factory)()
-        remote_results = client.execute(wire_planned)
-        entries = splice_remote_results(planned, remote_results)
+        entries = splice_remote_results(planned, _execute_with_files(client, wire_planned, task_id))
     except ToolGatewayError as exc:
         logger.debug(
             "Connector execute for dispatch %s failed (%s): %s",
@@ -163,8 +165,9 @@ def run_remote(
 
     # Retry confirmed misses once without disturbing successful sibling slots.
     try:
-        fallback_results = client.execute(fallback_planned)
-        fallback_entries = splice_remote_results(fallback_planned, fallback_results)
+        fallback_entries = splice_remote_results(
+            fallback_planned, _execute_with_files(client, fallback_planned, task_id)
+        )
     except ToolGatewayError as exc:
         logger.debug(
             "Connector execute fallback for dispatch %s failed (%s): %s",
@@ -187,3 +190,21 @@ def run_remote(
     for slot, fallback_entry in zip(fallback_slots, fallback_entries):
         entries[slot] = fallback_entry
     return entries
+
+
+def _execute_with_files(client: Any, planned: Sequence[Any], task_id: Optional[str]) -> list[dict[str, Any]]:
+    """Stage file inputs, execute runnable calls, and save returned files."""
+    results: list[Optional[dict[str, Any]]] = [None] * len(planned)
+    runnable: list[tuple[int, Any]] = []
+    for slot, plan in enumerate(planned):
+        try:
+            runnable.append((slot, stage_inputs(client, plan, task_id=task_id)))
+        except FileInputError as exc:
+            logger.warning("Connector %s file input refused (%s): %s", plan.name, exc.code, exc)
+            results[slot] = exc.result()
+    if runnable:
+        remote = client.execute([plan for _, plan in runnable])
+        for (slot, _), result in zip(runnable, remote or ()):
+            results[slot] = save_outputs(client, result)
+    return [result or {"data": None, "error": {"code": "PROVIDER_ERROR", "message": "No result was produced."}}
+            for result in results]

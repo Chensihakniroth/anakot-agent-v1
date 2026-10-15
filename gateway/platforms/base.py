@@ -390,7 +390,7 @@ from gateway.platforms.event import MessageEvent, MessageType, ProcessingOutcome
 from gateway.warning_notifications import diagnostic_wake_muted
 from gateway.session import SessionSource, build_session_key
 from gateway.session_transcript import TranscriptReadError
-from anakot_constants import get_default_anakot_root, get_anakot_dir, get_anakot_home
+from anakot_constants import CONNECTOR_DOWNLOADS_SUBDIR, get_default_anakot_root, get_anakot_dir, get_anakot_home
 
 if TYPE_CHECKING:
     from agent.display import ToolPreview
@@ -768,7 +768,10 @@ def _profile_cache_roots() -> List[Path]:
     profile path is allowlisted *before* the ``/root`` system denylist is consulted (which otherwise wins
     when ANAKOT_HOME is symlinked under a denied prefix and $HOME is not that prefix). See issue #31733.
     """
-    return [p / "cache" / subdir for p in _profile_dirs() for subdir in _MEDIA_DELIVERY_CACHE_SUBDIRS]
+    return [
+        *(p / "cache" / subdir for p in _profile_dirs() for subdir in _MEDIA_DELIVERY_CACHE_SUBDIRS),
+        *(p / CONNECTOR_DOWNLOADS_SUBDIR for p in (get_anakot_home(), *_profile_dirs())),
+    ]
 
 
 def _profile_dirs() -> List[Path]:
