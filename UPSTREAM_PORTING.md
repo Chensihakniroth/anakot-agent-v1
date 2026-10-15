@@ -48,8 +48,8 @@ for c in json.load(sys.stdin):
 | 046094df | 2026-10-15 | fix(browser): one real-profile decision per browser, local=true stays local, note survives errors | PENDING | New upstream real-profile browser lifecycle cluster; Anakot browser session architecture requires a separate audit |
 | 80f4f989 | 2026-10-15 | fix(browser): a real profile that can't load falls back to a fresh browser | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
 | 460f9bac | 2026-10-15 | fix(browser): snapshot real profile while Chrome is running | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
-| 3bdb82d6 | 2026-10-15 | fix(update): keep the retirement downgrade probe fail-closed | PENDING | Needs comparison against Anakot's fork-specific update/source release pipeline |
-| a6cced55 | 2026-10-15 | fix(gateway): re-enter the native callback for a messaging /retry redispatch | PENDING | Needs a multiplexed Anakot gateway provenance audit before porting |
+| 3bdb82d6 | 2026-10-15 | fix(update): keep the retirement downgrade probe fail-closed | SKIPPED | Hermes-specific source-release update pipeline (`hermes_cli/source_releases.py`); Anakot uses fork git-based update flow (`update_cmd_git.py`) |
+| a6cced55 | 2026-10-15 | fix(gateway): re-enter the native callback for a messaging /retry redispatch | SKIPPED | Hermes-specific session authority / native admission architecture (`session_ingress_context.py`); Anakot's gateway does not gate admission on event-identity callback wrappers |
 | e6835fd3 | 2026-10-14 | feat(cli): add curated model list at the top in the model picker list | CUSTOM | Anakot already owns a curated-first picker in `anakot_cli/models.py`; upstream Hermes picker code is not portable |
 | c5fc0958 | 2026-10-14 | refactor(agent): keep the Mistral tool-id rule beside its only consumer | PORTED | Folded into the final Anakot Chat Completions transport adaptation; route detection and stable mapping stay next to wire sanitization |
 | 0c1bfb7d | 2026-10-14 | fix(agent): keep composite tool ids paired on Mistral routes | PORTED | Final-state adaptation maps the coalesced call half on assistant and tool messages, preserving prompt history unchanged |
@@ -216,7 +216,8 @@ for c in json.load(sys.stdin):
 
 ### 2026-10-15 — Follow-up upstream scan at `046094df28b7`
 - Scanned the latest 100 Hermes commits after the previous `db44c46208f1` scan and filtered release/chore/test/CI-only changes.
-- Recorded the new browser real-profile lifecycle cluster (`046094df`, `80f4f989`, `460f9bac`) and selected gateway/update candidates (`3bdb82d6`, `a6cced55`) as `PENDING`; the local architectures need an evidence pass before implementation.
+- Recorded the new browser real-profile lifecycle cluster (`046094df`, `80f4f989`, `460f9bac`) as `PENDING` for a dedicated browser session audit.
+- Evaluated update candidate `3bdb82d6` (Hermes-specific `source_releases.py`; Anakot uses git updates) and gateway candidate `a6cced55` (Hermes-specific `session_ingress_context.py` native callback validation; Anakot does not use event-identity callback gating for /retry admission); marked both as `SKIPPED`.
 - Ported the portable config-backup and pairing-watcher race fix below. The newer plugin server-declaration change has no same-shaped declaration layer in Anakot and remains intentionally unported pending a contract gap.
 
 ### 2026-10-15 — Ported config watcher and backup race fixes (`c3ddf7563bff`)
