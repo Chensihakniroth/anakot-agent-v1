@@ -48,7 +48,7 @@ for c in json.load(sys.stdin):
 | 046094df | 2026-10-15 | fix(browser): one real-profile decision per browser, local=true stays local, note survives errors | PENDING | New upstream real-profile browser lifecycle cluster; Anakot browser session architecture requires a separate audit |
 | 2add194a | 2026-10-15 | feat(tui): standing /loop row with a live countdown above the live-work dock | PORTED | Adapted to Anakot's `@anakot/shared` contracts, `session.control.read`, and `session.control.update`; countdown is local and only the focused session renders it |
 | 874d1485 | 2026-10-15 | fix(gateway): viewers get session.control.update when /goal, /loop or /heartbeat state moves | CUSTOM | Anakot already publishes the same contract from its native `tui_gateway` control snapshot path; the new TUI consumer uses it directly |
-| cba95563 | 2026-10-15 | feat(cli): /loop gets a live-work dock row with a ticking countdown | PENDING | Hermes classic CLI dock has no direct Anakot equivalent; TUI parity is ported, while the classic CLI surface remains for a separate audit |
+| cba95563 | 2026-10-15 | feat(cli): /loop gets a live-work dock row with a ticking countdown | PORTED | Adapted into Anakot's existing `cli_subagent_monitor` dock; the loop row appears even without subagents and owns the live countdown, while the one-shot post-turn status is suppressed when the dock is installed |
 | 73b9f2af | 2026-10-15 | fix(gateway): wire the desktop window bridges for local-viewer turns | CUSTOM | Anakot's `tui_gateway/session_notifications.py::_wire_desktop_sinks` already owns the emitter and process-registry routing with Anakot session IDs |
 | 80f4f989 | 2026-10-15 | fix(browser): a real profile that can't load falls back to a fresh browser | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
 | 460f9bac | 2026-10-15 | fix(browser): snapshot real profile while Chrome is running | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
@@ -222,7 +222,12 @@ for c in json.load(sys.stdin):
 - Scanned the latest 100 Hermes commits from the GitHub API after the `046094df` browser-lifecycle scan; filtered merge, release, CI, catalog, formatting, and test-only noise.
 - Ported the portable TUI feature manually: the focused Anakot TUI now reads `session.control.read`, consumes `session.control.update`, and renders an active/paused `/loop` row above the live-agent panel with a local countdown and prompt preview.
 - Reused Anakot's existing `LoopSnapshot` contract and gateway publication path instead of copying Hermes modules. Completed loops are hidden, paused loops show their reason, and non-focused session snapshots cannot bleed into the active TUI.
-- Verification: `npm run typecheck`, `npm run lint` (0 errors; 4 pre-existing warnings), and targeted Vitest (`116 passed`). `cba95563` remains `PENDING` for the classic CLI dock; `874d1485` and `73b9f2af` are `CUSTOM` because Anakot already has the corresponding gateway publication and desktop sink paths.
+- Verification: `npm run typecheck`, `npm run lint` (0 errors; 4 pre-existing warnings), and targeted Vitest (`116 passed`). `cba95563` is ported separately below; `874d1485` and `73b9f2af` are `CUSTOM` because Anakot already has the corresponding gateway publication and desktop sink paths.
+
+### 2026-10-16 — Ported classic CLI loop dock (`cba95563d41b`)
+- Added the standing loop row to Anakot's existing `cli_subagent_monitor` instead of importing Hermes' dock modules. It renders with or without live subagents, reserves the dock's existing bounded surface, and updates its countdown through the monitor's normal one-second polling/invalidation path.
+- Suppressed the redundant one-shot `/loop` remaining-status line when the dock is installed; the dock becomes the single live countdown surface.
+- Verification: `scripts/run_tests.sh tests/anakot_cli/test_loops.py tests/anakot_cli/test_subagent_dock_collapse.py -q` — 72 passed; neighboring subagent monitor/dock tests — 11 passed.
 
 ### 2026-10-15 — Follow-up upstream scan at `046094df28b7`
 - Scanned the latest 100 Hermes commits after the previous `db44c46208f1` scan and filtered release/chore/test/CI-only changes.

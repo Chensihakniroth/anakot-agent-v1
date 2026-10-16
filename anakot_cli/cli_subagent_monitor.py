@@ -1,7 +1,8 @@
-"""Classic CLI subagent dock and scoped controls; no agent-loop state is changed."""
+"""Classic CLI subagent and standing-loop dock; no agent-loop state is changed."""
 from __future__ import annotations
 
 import json
+import math
 import time
 
 from prompt_toolkit.utils import get_cwidth
@@ -20,16 +21,53 @@ def _clip(value, width):
     return result + ('…' if width else '')
 
 
+def countdown(seconds):
+    """Render time until the next loop wakeup, rounding up to avoid under-reporting."""
+    left = max(0, math.ceil(seconds))
+    if left < 60:
+        return f'{left}s'
+    minutes = math.ceil(left / 60)
+    hours, minutes = divmod(minutes, 60)
+    return f'{hours}h{minutes:02d}m' if hours else f'{minutes}m'
+
+
+def loop_row(cli, now=None):
+    """Return ``(badge, row, prompt)`` for the session's standing loop."""
+    mgr = getattr(cli, '_loop_manager', None)
+    if (mgr is None or getattr(mgr, 'session_id', None) != getattr(cli, 'session_id', None)
+            or not mgr.has_loop()):
+        return '', '', ''
+    state = mgr.state
+    runs = (f'{state.ticks_fired}/{state.times} runs' if state.times
+            else f"{state.ticks_fired} run{'s' if state.ticks_fired != 1 else ''}")
+    if state.status == 'paused':
+        reason = f' · {state.paused_reason}' if state.paused_reason else ''
+        return '⏸ loop paused', f'⏸ loop paused{reason} · {runs} · {state.prompt}', state.prompt
+    if state.awaiting_response:
+        when = 'running now'
+    else:
+        remaining = state.next_due_at - (time.time() if now is None else now)
+        when = f'next in {countdown(remaining)}' if remaining > 0 else 'due, waiting for idle'
+    return f'↻ loop {when}', f'↻ loop · {state.cadence_label()} · {runs} · {when} · {state.prompt}', state.prompt
+
+
 class SubagentMonitor:
     def __init__(self, cli):
         self.cli = cli
         self.entries = []
+        self.loop = ''
+        self.loop_badge = ''
+        self.loop_prompt = ''
         self.selected_id = None
         self._signature = None
         self._last_poll = 0
         self.app = None
         self.opening = False
         self.collapsed = False
+
+    @property
+    def has_rows(self):
+        return bool(self.entries or self.loop)
 
     @property
     def selected(self):
@@ -48,10 +86,14 @@ class SubagentMonitor:
             row['elapsed'] = max(0, int(now - live.get('started_at', now)))
             row['last_tool'] = live.get('last_tool') or ''
             row.pop('running_seconds', None)
-        signature = json.dumps(entries, sort_keys=True, default=str)
+        loop_badge, loop, loop_prompt = loop_row(self.cli, now)
+        signature = json.dumps([entries, loop], sort_keys=True, default=str)
         changed = signature != self._signature
         self._signature = signature
         self.entries = entries
+        self.loop = loop
+        self.loop_badge = loop_badge
+        self.loop_prompt = loop_prompt
         if self.selected is None:
             self.selected_id = entries[0]['subagent_id'] if entries else None
         return changed
@@ -86,7 +128,7 @@ class SubagentMonitor:
         return json.loads(_handle_control_action(action, target or self.selected_id, message, getattr(self.cli, 'agent', None)))
 
     def dock_text(self, *, columns, rows):
-        if not self.entries:
+        if not self.has_rows:
             return ''
         if self.collapsed:
             count = f'{len(self.entries)} live'
@@ -99,9 +141,13 @@ class SubagentMonitor:
             )
             width = max(0, columns - 1)
             heading = next((text for text in headings if get_cwidth(text) <= width), count)
-            row = self.entries[0]
-            activity = f"last: {row['last_tool']}" if row.get('last_tool') else row.get('status') or 'starting'
-            if get_cwidth(heading + ' · ' + activity) <= width:
+            activity = self.loop_prompt if self.loop and not self.entries else ''
+            if not activity and self.entries:
+                row = self.entries[0]
+                activity = f"last: {row['last_tool']}" if row.get('last_tool') else row.get('status') or 'starting'
+            if self.loop_badge and get_cwidth(heading + ' · ' + self.loop_badge) <= width:
+                heading += ' · ' + self.loop_badge
+            if activity and get_cwidth(heading + ' · ' + activity) <= width:
                 heading += ' · ' + activity
             return _clip(' ' + heading, max(0, columns))
         columns = max(0, columns - 2)
@@ -109,8 +155,10 @@ class SubagentMonitor:
         hidden = len(self.entries) - count
         heading = f' Subagents · {len(self.entries)} live · Ctrl+T expand · F7 collapse'
         lines = [_clip(heading, columns)]
+        if self.loop:
+            lines.append(_clip(f' {self.loop}', columns))
         for row in self.entries[:count]:
-            activity = f"{row['elapsed']}s · " + (f"last: {row['last_tool']}" if row['last_tool'] else row.get('status') or 'starting')
+            activity = f"{row['elapsed']}s · " + (f"last: {row['last_tool']}" if row.get('last_tool') else row.get('status') or 'starting')
             # Reserve activity even on narrow terminals; task names use the remainder.
             goal_width = max(3, columns - get_cwidth(activity) - 5)
             lines.append(_clip(f" ● {_clip(row.get('goal'), goal_width)} · {activity}", columns))
@@ -337,5 +385,5 @@ def install_dock(cli):
     cli._subagent_dock_widget = ConditionalContainer(
         Window(FormattedTextControl(text), wrap_lines=False, dont_extend_height=True,
                style='class:subagent-dock'),
-        filter=Condition(lambda: bool(monitor.entries) and not modal_prompt_active(cli)),
+        filter=Condition(lambda: monitor.has_rows and not modal_prompt_active(cli)),
     )

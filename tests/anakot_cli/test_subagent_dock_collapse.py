@@ -90,3 +90,33 @@ def test_collapsed_summary_prioritizes_live_count_and_controls_at_small_widths()
             assert 'last: terminal' in text and 'Ctrl+T expand' in text and 'F7 restore' in text
     monitor.entries.clear()
     assert monitor.dock_text(columns=80, rows=20) == ''
+
+
+def test_standing_loop_uses_the_dock_countdown_when_no_subagents_are_running():
+    from anakot_cli.cli_subagent_monitor import SubagentMonitor
+    from anakot_cli.loops import LoopState
+
+    now = 1_000.0
+    state = LoopState(
+        prompt='check the deploy',
+        interval_seconds=300,
+        current_delay=300,
+        ticks_fired=1,
+        created_at=700,
+        last_fired_at=700,
+        next_due_at=1_300,
+    )
+    cli = SimpleNamespace(agent=None, session_id='owner')
+    cli._loop_manager = SimpleNamespace(
+        session_id='owner', state=state, has_loop=lambda: True)
+    monitor = SubagentMonitor(cli)
+
+    assert monitor.refresh(now=now)
+    text = monitor.dock_text(columns=100, rows=20)
+    assert '↻ loop' in text
+    assert 'next in 5m' in text
+    assert 'check the deploy' in text
+
+    monitor.collapsed = True
+    collapsed = monitor.dock_text(columns=100, rows=20)
+    assert '↻ loop next in 5m' in collapsed
