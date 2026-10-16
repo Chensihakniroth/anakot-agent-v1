@@ -775,3 +775,20 @@ class TestLightpandaSessionLifecycle:
         dead_owner.write_text(json.dumps({"owner_pid": 2**22 + 7}), encoding="utf-8")
         assert browser_lightpanda.reap_orphaned_lightpanda() == 0
         assert not bad.exists() and not dead_owner.exists()
+
+    def test_write_record_publishes_complete_json(self, tmp_path, monkeypatch):
+        from tools import browser_lightpanda
+
+        monkeypatch.setenv("ANAKOT_HOME", str(tmp_path))
+        server = browser_lightpanda.LightpandaServer(
+            "live", 9222, MagicMock(pid=os.getpid()), "x.log", start_time=123
+        )
+        browser_lightpanda._write_record(server)
+        record = browser_lightpanda._state_dir() / "live.json"
+        assert record.exists()
+        payload = json.loads(record.read_text(encoding="utf-8"))
+        assert payload["pid"] == os.getpid()
+        assert payload["port"] == 9222
+        assert payload["owner_pid"] == os.getpid()
+        assert payload["start_time"] == 123
+        assert isinstance(payload["started_at"], float)
