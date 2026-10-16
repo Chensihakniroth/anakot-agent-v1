@@ -30,9 +30,14 @@ _GIB = 1 << 30
 # reality). Small cards give up window to this; spill mode is their path to big models.
 _MARGIN_FLOOR = 2 << 30
 _MARGIN_FRACTION = 0.09
+# Room left for a desktop/browser allocation between planning and model launch.
+_LAUNCH_HEADROOM = 1 << 30
 # UMA headroom: on unified-memory machines the model shares physical memory with the OS and every
 # app, so budget from RAM minus this fraction.
 _UMA_HEADROOM_FRACTION = 0.20
+# llama-server prompt-cache bounds. A cache below the minimum costs more startup time than it saves.
+_PROMPT_CACHE_MAX = 8 << 30
+_PROMPT_CACHE_MIN = 512 << 20
 
 # Engine-fallback gates for the unified-pool quirk — BOTH must hold, and no discrete card can
 # meet either: (1) the allocator's pool exceeds the smi report by well past rounding/ECC slack
@@ -59,6 +64,26 @@ def _stdout(*argv: str) -> str:
     return subprocess.run(
         list(argv), capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=5
     ).stdout
+
+
+def _windows_memory_status():
+    """Return ``GlobalMemoryStatusEx`` data on Windows, otherwise ``None``."""
+    try:
+        import ctypes
+
+        class MEMORYSTATUSEX(ctypes.Structure):
+            _fields_ = ([("dwLength", ctypes.c_ulong), ("dwMemoryLoad", ctypes.c_ulong)]
+                        + [(name, ctypes.c_ulonglong) for name in (
+                            "ullTotalPhys", "ullAvailPhys", "ullTotalPageFile", "ullAvailPageFile",
+                            "ullTotalVirtual", "ullAvailVirtual", "ullAvailExtendedVirtual")])
+
+        stat = MEMORYSTATUSEX()
+        stat.dwLength = ctypes.sizeof(MEMORYSTATUSEX)
+        if not ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)):
+            return None
+        return stat
+    except (AttributeError, OSError):
+        return None
 
 
 def _ram_bytes() -> tuple[int, int]:
@@ -250,10 +275,36 @@ def _unified_pool_bytes(smi_total: int, ram_total: int) -> int | None:
     return None
 
 
+def _windows_commit_room(own_bytes: int = 0) -> int | None:
+    """Commit the managed local server may take on Windows right now."""
+    stat = _windows_memory_status()
+    if stat is None or not stat.ullTotalPageFile:
+        return None
+    margin = max(_MARGIN_FLOOR, int(stat.ullTotalPhys * _MARGIN_FRACTION))
+    return max(0, int(stat.ullAvailPageFile) + max(0, own_bytes) - margin)
+
+
+def model_commit_bytes(model_bytes: int) -> int:
+    """Convert the estimator's UMA footprint to Windows' approximate commit charge."""
+    return int(model_bytes / (1 - _UMA_HEADROOM_FRACTION))
+
+
+def prompt_cache_bytes(live: HardwareBudget | None, model_bytes: int, residents: int = 1) -> int | None:
+    """Return a bounded prompt-cache size when a live Windows UMA commit room is available."""
+    room = live.commit_room_bytes if live is not None else None
+    if room is None or model_bytes <= 0:
+        return None
+    residents = max(1, residents)
+    remaining = max(0, room - residents * model_commit_bytes(model_bytes)) // residents
+    cache = min(_PROMPT_CACHE_MAX, remaining)
+    return cache if cache >= _PROMPT_CACHE_MIN else 0
+
+
 def _uma_budget(base: int, total: int) -> HardwareBudget:
     usable = max(0, int(base * (1 - _UMA_HEADROOM_FRACTION)))
     return HardwareBudget(usable_vram_bytes=usable, total_device_bytes=total,
-                          ram_available_bytes=0, uma=True)
+                          ram_available_bytes=0, uma=True, platform=sys.platform,
+                          commit_room_bytes=_windows_commit_room())
 
 
 def probe_budget(*, planning: bool = False) -> HardwareBudget:
@@ -299,4 +350,23 @@ def probe_budget(*, planning: bool = False) -> HardwareBudget:
     return HardwareBudget(usable_vram_bytes=max(0, (total if planning else free) - margin),
                           total_device_bytes=total,
                           ram_available_bytes=ram_total if planning else ram_avail,
-                          uma=False)
+                          uma=False, platform=sys.platform)
+
+
+def launch_budget(capacity: HardwareBudget, *, own_bytes: int = 0) -> HardwareBudget | None:
+    """Narrow a capacity budget to current live memory before launching a local model."""
+    from dataclasses import replace
+
+    if capacity.uma:
+        room = _windows_commit_room(model_commit_bytes(own_bytes) if own_bytes > 0 else 0)
+        if room is None:
+            return None
+        usable = min(capacity.usable_vram_bytes, int(room * (1 - _UMA_HEADROOM_FRACTION)))
+        return replace(capacity, usable_vram_bytes=usable, commit_room_bytes=room)
+    vram = _nvidia_vram()
+    if vram is None:
+        return None
+    total, free = vram
+    others = max(0, total - free - max(0, own_bytes))
+    usable = min(capacity.usable_vram_bytes, max(0, total - others - _LAUNCH_HEADROOM))
+    return replace(capacity, usable_vram_bytes=usable)

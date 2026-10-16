@@ -106,6 +106,10 @@ def preset_for_model(gguf: Path, budget: HardwareBudget,
     keys = _args_to_keys(launch_args(
         profile, decision, mtp_capable=is_mtp, uma=budget.uma, mtp_prefill=plan.mtp_prefill,
         mtp_draft_depth=entry.mtp_draft_depth if entry is not None else 3))
+    from anakot_cli.local_runtime.hardware import prompt_cache_bytes
+    cache_bytes = prompt_cache_bytes(budget, profile.weights_bytes + plan.overhead_bytes)
+    if cache_bytes is not None:
+        keys["cache-ram"] = str(cache_bytes // (1 << 20))
     keys["model"] = str(gguf)
     if entry is not None and is_mtp:
         # Integrated-MTP targets sample on the backend, and so does the draft (pairing validated
