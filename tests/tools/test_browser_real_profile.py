@@ -429,10 +429,13 @@ class TestLocalSessionRealProfile:
         assert info["features"]["real_profile"] is True
         assert info["session_name"].startswith("rp_")
 
-    def test_local_session_fails_closed_on_error(self):
+    def test_local_session_falls_back_to_fresh_browser_on_error(self):
         with patch.object(bt_real_profile, "_real_profile_cdp", return_value=(None, "no chromium")):
-            with pytest.raises(RuntimeError, match="no chromium"):
-                bt_session._create_local_session("t1")
+            info = bt_session._create_local_session("t1")
+        assert info["cdp_url"] is None and info["session_name"].startswith("h_")
+        assert "real_profile" not in info["features"]
+        assert "no chromium" in info["real_profile_unavailable"]
+        assert "without the user's logins" in info["real_profile_unavailable"]
 
     def test_local_session_without_consent_is_throwaway(self):
         with patch.object(bt_real_profile, "_real_profile_cdp", return_value=(None, None)):

@@ -31,6 +31,10 @@ _SESSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 # Set on the env dict by the CDP resolvers when the resolved browser is EXCLUSIVE to this named session
 # (per-name provider / named BU cloud / Lightpanda). Popped before the subprocess launches — never exported.
 _PRIVATE_BROWSER_SENTINEL = "_ANAKOT_BU_PRIVATE_BROWSER"
+_REAL_PROFILE_FALLBACK_SENTINEL = "_ANAKOT_BU_REAL_PROFILE_FALLBACK"
+_LOCAL_FALLBACK_SENTINEL = "_ANAKOT_BU_LOCAL_FALLBACK"
+_real_profile_fallback_notes: dict[str, str] = {}
+_real_profile_note_delivered: set[str] = set()
 
 # Prepended to the model's code for named sessions on SHARED browsers (a /browser connect CDP override): the
 # harness daemon attaches to the first existing page at startup, so two fresh named daemons can land on the
@@ -121,7 +125,10 @@ def _export_session_cdp(env: dict, get_session_info: Callable[[str], Any], cache
                         fail_msg: Callable[[Exception], str], no_cdp_msg: str) -> Optional[str]:
     """Export the CDP endpoint from ``get_session_info(cache_key)``; error string on failure / no CDP."""
     try:
-        cdp = str((get_session_info(cache_key) or {}).get("cdp_url") or "")
+        session_info = get_session_info(cache_key) or {}
+        cdp = str(session_info.get("cdp_url") or "")
+        if session_info.get("real_profile_unavailable"):
+            env.setdefault(_REAL_PROFILE_FALLBACK_SENTINEL, session_info["real_profile_unavailable"])
     except Exception as e:
         return fail_msg(e)
     if not cdp:
@@ -532,8 +539,21 @@ def _route_backend(env: dict, session: str, task_id: Optional[str], local: bool)
     BEFORE provider resolution so a hit short-circuits the cloud path via the BU_CDP_* env contract. Named
     sessions compose with the backend: BU_NAME namespaces the harness daemon (IPC socket, log, pid) and on
     provider backends additionally keys its own cloud browser."""
+    route_key = _backend_cache_key(task_id, session)
+    remembered = _real_profile_fallback_notes.get(route_key)
+    if remembered and local:
+        env[_REAL_PROFILE_FALLBACK_SENTINEL] = remembered
+        env[_LOCAL_FALLBACK_SENTINEL] = "1"
+        return _resolve_local_engine_cdp(env, task_id, session)
     rp_err = _resolve_real_profile_cdp(env, force_local=local)
     if rp_err:
+        if local:
+            from tools.browser_tool_real_profile import real_profile_fallback_note
+            note = real_profile_fallback_note(rp_err)
+            _real_profile_fallback_notes[route_key] = note
+            env[_REAL_PROFILE_FALLBACK_SENTINEL] = note
+            env[_LOCAL_FALLBACK_SENTINEL] = "1"
+            return _resolve_local_engine_cdp(env, task_id, session)
         return rp_err
     # local=True is only served by the real-profile route; consent off must not pretend.
     if local and not _has_cdp_env(env) and not _real_profile_consented():
@@ -630,6 +650,11 @@ def browser_exec(code: str, session: str = "", timeout_s: int = _DEFAULT_TIMEOUT
     route_err = _route_backend(env, session, task_id, bool(local))
     if route_err:
         return tool_error(route_err)
+    route_key = _backend_cache_key(task_id, session)
+    route_note = env.pop(_REAL_PROFILE_FALLBACK_SENTINEL, None)
+    if route_note:
+        _real_profile_fallback_notes.setdefault(route_key, route_note)
+    env.pop(_LOCAL_FALLBACK_SENTINEL, None)
     _attach_vault_supervisor(env, task_id)
 
     # SHARED browser (/browser connect CDP override): pin each named session to its own tab (see
@@ -665,6 +690,9 @@ def browser_exec(code: str, session: str = "", timeout_s: int = _DEFAULT_TIMEOUT
         "exit_code": proc.returncode,
         "output": redact_sensitive_text(proc.stdout, force=True),
     }
+    if route_key in _real_profile_fallback_notes and route_key not in _real_profile_note_delivered:
+        _real_profile_note_delivered.add(route_key)
+        result["real_profile_unavailable"] = _real_profile_fallback_notes[route_key]
     if workspace:
         result["workspace"] = workspace
     if session:

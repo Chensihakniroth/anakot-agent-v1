@@ -199,18 +199,28 @@ def _session_record(prefix: str, cdp_url: Optional[str], features: Dict[str, Any
             "cdp_url": cdp_url, "features": features}
 
 
+def real_profile_note(task_id: str) -> Optional[str]:
+    """Return a fallback note from an existing task session without creating a session."""
+    with _bt._cleanup_lock:
+        return (_bt._active_sessions.get(task_id) or {}).get("real_profile_unavailable")
+
+
 def _create_local_session(task_id: str, allow_real_profile: bool = True) -> Dict[str, str]:
     """Local Chromium session; consented real-profile CDP attach when allowed.
 
-    Real-profile fails closed on resolver/launch errors (a consented user must never be
-    silently downgraded to a throwaway). The hybrid private-URL sidecar passes
+    A real-profile resolver/launch error falls back to a fresh signed-out browser and records
+    the reason, so the model can be honest about missing logins. The hybrid private-URL sidecar passes
     ``allow_real_profile=False``: the user's cookie jar must not reach an arbitrary
     internal host the model chose.
     """
     if allow_real_profile:
         cdp_url, err = _real_profile._real_profile_cdp()
         if err:
-            raise RuntimeError(err)
+            info = _session_record("h", None, {"local": True})
+            from tools.browser_tool_real_profile import real_profile_fallback_note
+            info["real_profile_unavailable"] = real_profile_fallback_note(err)
+            _bt.logger.warning("Real-profile unavailable for task %s; using fresh browser: %s", task_id, err)
+            return info
         if cdp_url:
             info = _session_record("rp", _cdp._resolve_cdp_override(cdp_url), {"local": True, "real_profile": True})
             _bt.logger.info("Created real-profile local session %s for task %s", info["session_name"], task_id)

@@ -149,6 +149,12 @@ def _real_profile_snapshot_error(err: str) -> str:
     return f"{_RP}{err}"
 
 
+def real_profile_fallback_note(err: str) -> str:
+    """Explain that the signed-in profile was unavailable and a fresh browser is serving instead."""
+    return (f"{err} Using a fresh browser without the user's logins for this session instead; "
+            "tell the user if the task needs their accounts.")
+
+
 def _launch_real_profile_chrome(real_binary: str, copy_dir: str) -> Tuple[Optional[int], Optional[str]]:
     """Launch the user's REAL browser binary on the profile COPY; return (debug_port, error).
 
