@@ -22,3 +22,11 @@ def test_unreadable_current_epoch_keeps_a_recorded_lock_conservative(monkeypatch
     monkeypatch.setattr(status, "_current_boot_epoch", lambda: "")
     assert not status._scoped_lock_record_is_stale(
         {"pid": 321, "start_time": 123, "boot_epoch": "boot-old"}, 321)
+
+
+def test_runtime_status_record_with_old_epoch_cannot_prove_gateway_identity(monkeypatch):
+    _live_gateway(monkeypatch)
+    monkeypatch.setattr(status, "_current_boot_epoch", lambda: "boot-new")
+    monkeypatch.setattr(status, "_read_process_cmdline", lambda _pid: "anakot gateway run")
+    assert not status._record_matches_live_gateway_pid(
+        {"pid": 321, "start_time": 123, "boot_epoch": "boot-old"}, 321)

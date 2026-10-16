@@ -443,6 +443,11 @@ def _record_matches_live_gateway_pid(
     """True when a live PID still identifies as this gateway record. The live command line wins (a
     stale record's argv must not make a recycled PID count as a gateway; with ``expected_home`` it
     must also belong to that profile); unreadable cmdline (Windows/EACCES) -> persisted record."""
+    recorded_epoch = record.get("boot_epoch")
+    if recorded_epoch:
+        current_epoch = _current_boot_epoch()
+        if not current_epoch or current_epoch != recorded_epoch:
+            return False
     live_cmdline = _read_process_cmdline(pid)
     if not live_cmdline:
         return _record_looks_like_gateway(record)
