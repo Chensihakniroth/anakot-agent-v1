@@ -155,6 +155,20 @@ class TestSmartApprovePromptHardening(unittest.TestCase):
         mock_call_llm.return_value = self._make_response("APPROVE")
         assert _smart_approve("python -c 'print(1)'", "script execution") == "approve"
 
+    @patch("agent.auxiliary_client._get_auxiliary_task_config", return_value={})
+    @patch("agent.auxiliary_client.call_llm")
+    def test_verdict_disables_reasoning_by_default(self, mock_call_llm, _mock_config):
+        mock_call_llm.return_value = self._make_response("APPROVE")
+        _smart_approve("python -c 'print(1)'", "script execution")
+        assert mock_call_llm.call_args.kwargs["reasoning_config"] == {"enabled": False}
+
+    @patch("agent.auxiliary_client._get_auxiliary_task_config", return_value={"reasoning_effort": "high"})
+    @patch("agent.auxiliary_client.call_llm")
+    def test_operator_reasoning_setting_is_preserved(self, mock_call_llm, _mock_config):
+        mock_call_llm.return_value = self._make_response("APPROVE")
+        _smart_approve("python -c 'print(1)'", "script execution")
+        assert mock_call_llm.call_args.kwargs["reasoning_config"] is None
+
     @patch("agent.auxiliary_client.call_llm")
     def test_deny_response(self, mock_call_llm):
         mock_call_llm.return_value = self._make_response("DENY")

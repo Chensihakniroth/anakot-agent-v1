@@ -71,6 +71,23 @@ def _get_smart_policy() -> str:
     return policy.strip() if isinstance(policy, str) else ""
 
 
+def _verdict_reasoning() -> dict | None:
+    """Disable thinking for one-word verdicts unless the operator opted in.
+
+    A reasoning model can spend a tiny approval budget on hidden reasoning and return no
+    verdict. Preserve an explicit per-task reasoning setting, including provider-specific
+    ``extra_body.reasoning`` configuration.
+    """
+    from agent.auxiliary_client import _get_auxiliary_task_config
+
+    config = _get_auxiliary_task_config("approval")
+    extra_body = config.get("extra_body")
+    if config.get("reasoning_effort") not in (None, "") or (
+            isinstance(extra_body, dict) and "reasoning" in extra_body):
+        return None
+    return {"enabled": False}
+
+
 def _smart_approve(command: str, description: str) -> str:
     """Ask the auxiliary LLM; return 'approve', 'deny', or 'escalate' (uncertain/failed).
 
@@ -109,6 +126,7 @@ def _smart_approve(command: str, description: str) -> str:
         response = call_llm(
             task="approval", temperature=0, max_tokens=16, timeout=smart_timeout,
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_prompt}],
+            reasoning_config=_verdict_reasoning(),
         )
         logger.debug("Smart approvals: LLM call completed in %.1fs", time.monotonic() - _smart_t0)
         answer = (response.choices[0].message.content or "").strip().upper()
