@@ -151,6 +151,18 @@ def _alias_reserved_tools(
     return rewritten, alias_map
 
 
+def _openai_prefers_native_web_search(params: dict[str, Any]) -> bool:
+    """True when the Codex Responses route should use OpenAI's native search tool."""
+    if params.get("is_codex_backend") is not True:
+        return False
+    try:
+        from tools.web_tools import _get_search_backend
+
+        return (_get_search_backend() or "").strip().lower() == "openai-native"
+    except Exception:
+        return False
+
+
 def _xai_prefers_native_web_search() -> bool:
     """True when xAI Responses should use Grok's native ``web_search`` built-in.
 
@@ -206,7 +218,12 @@ def _alias_wire_tools(response_tools: Any, params: dict[str, Any], is_xai_respon
                 {**t, "name": _XAI_CLIENT_WEB_SEARCH_ALIAS} if is_client_web_search(t) else t for t in response_tools
             ]
             wire_aliases[_XAI_CLIENT_WEB_SEARCH_ALIAS] = "web_search"
+    if response_tools and _openai_prefers_native_web_search(params):
+        # OpenAI's Responses API executes this tool server-side. Do not send
+        # Anakot's function with the same conceptual name on a Codex route.
+        response_tools = [t for t in response_tools if not is_client_web_search(t)] + [{"type": "web_search"}]
     # OpenCode Responses backends reserve web_search / search_files as function names (HTTP 400 "custom
+
     # function name 'X' is reserved", #85589). Alias them on the wire; normalize_response maps them back.
     if response_tools and _is_opencode_responses_backend(params):
         response_tools, _oc_aliases = _alias_reserved_tools(response_tools, _OPENCODE_RESERVED_TOOL_NAMES)
