@@ -455,10 +455,19 @@ def _build_pid_record() -> dict:
     return {
         "pid": os.getpid(), "kind": _GATEWAY_KIND, "argv": list(sys.argv),
         "start_time": _get_process_start_time(os.getpid()),
+        "boot_epoch": _current_boot_epoch(),
         # Scoped locks are machine-global; the owner's home lets a cross-profile
         # --replace place its takeover marker where the target will read it.
         "anakot_home": str(_canonical_anakot_home(_get_process_anakot_home())),
     }
+
+
+def _current_boot_epoch() -> str:
+    """Return the current host/container epoch when it can be proved, else empty."""
+    with contextlib.suppress(Exception):
+        from gateway.drain_control import current_instantiation_epoch
+        return current_instantiation_epoch()
+    return ""
 
 
 def _get_code_identity_fields() -> dict[str, Any]:
@@ -1177,6 +1186,13 @@ def _scoped_lock_record_is_stale(existing: dict[str, Any], existing_pid: Optiona
     cmdline unreadable AND start_time unknown on either side => the lock record's own argv is the
     only signal left. Stopped (SIGTSTP) processes look alive to _pid_exists; stale so --replace
     works."""
+    recorded_epoch = existing.get("boot_epoch")
+    if recorded_epoch:
+        current_epoch = _current_boot_epoch()
+        if not current_epoch:
+            return False  # A recycled PID cannot be disproved without the current epoch.
+        if recorded_epoch != current_epoch:
+            return True
     if existing_pid is None or not _pid_exists(existing_pid):
         return True
     recorded_start = existing.get("start_time")
