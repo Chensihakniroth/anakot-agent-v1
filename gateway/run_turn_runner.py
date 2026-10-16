@@ -34,6 +34,16 @@ if TYPE_CHECKING:  # string annotations only; never imported at runtime (cycle)
 # Log-record parity with the origin module.
 logger = logging.getLogger("gateway.run")
 
+
+def _append_progress_repeat_count(message: str, occurrences: int) -> str:
+    """Keep a repeat counter outside a closing Markdown code fence."""
+    suffix = f"(×{occurrences})"
+    body = message.rstrip("\r\n")
+    if re.search(r"(?:^|\n)[ \t]*```[ \t]*\r?\Z", body):
+        line_end = "\r\n" if message.endswith("\r\n") else "\n"
+        return f"{body}{line_end}{suffix}"
+    return f"{message} {suffix}"
+
 # Consecutive turns a session's persisted transcript may lag its live cached history before
 # _load_turn_history escalates the lag line from WARNING to ERROR (#114266: 11 days of WARNING).
 _TRANSCRIPT_LAG_ESCALATION_TURNS = 3
@@ -308,7 +318,7 @@ class TurnRunner:
         if msg == ctx.last_progress_msg[0]:
             ctx.repeat_count[0] += 1
             if native:
-                sc.on_tool_progress(f"{msg} (×{ctx.repeat_count[0] + 1})")
+                sc.on_tool_progress(_append_progress_repeat_count(msg, ctx.repeat_count[0] + 1))
             else:
                 ctx.progress_queue.put(("__dedup__", msg, ctx.repeat_count[0]))
             return
@@ -642,7 +652,7 @@ class TurnRunner:
             _, base_msg, count = raw
             if not st.progress_lines:
                 return base_msg
-            st.progress_lines[-1] = f"{base_msg} (×{count + 1})"
+            st.progress_lines[-1] = _append_progress_repeat_count(base_msg, count + 1)
             return st.progress_lines[-1]
         st.progress_lines.append(raw)
         return raw
