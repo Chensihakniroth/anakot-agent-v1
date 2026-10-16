@@ -494,7 +494,8 @@ class TestContentBearingProgress:
                 accumulator.feed(keepalive)
                 accumulator.feed(empty_role_chunk)
         # No substantive payload arrived: the fence must have stayed stale.
-        assert fence.seconds_since_progress() > 0.0
+        assert not fence.progress_observed
+        assert fence.seconds_since_progress() >= 0.0
 
         with aux_progress_hook(fence.touch_progress):
             accumulator.feed(_chunk(content="token"))

@@ -24,6 +24,12 @@ from types import SimpleNamespace
 from typing import Any, Callable, Dict, List, NamedTuple, Optional, Tuple, TYPE_CHECKING, Union
 from urllib.parse import urlparse, parse_qs, urlunparse
 
+from agent.local_prompt_progress import (
+    PromptReadingClock, current_prompt_reading_hook, prompt_progress, prompt_reading_hook,
+    with_prompt_progress,
+)
+from agent.sleep_clock import awake_seconds
+
 from agent.error_classifier import (
     _BILLING_PATTERNS,
     _OVERLOADED_PATTERNS,
@@ -411,11 +417,12 @@ def aux_progress_hook(hook):
 
 def _current_aux_stream_deadline() -> Optional[float]:
     """The waiting host's absolute monotonic deadline, if one is installed."""
-    return getattr(_aux_stream_deadline, "value", None)
+    value = getattr(_aux_stream_deadline, "value", None)
+    return value() if callable(value) else value
 
 
 @contextlib.contextmanager
-def aux_stream_deadline(deadline: Optional[float]):
+def aux_stream_deadline(deadline: float | Callable[[], float | None] | None):
     """Publish the host's absolute ``time.monotonic()`` deadline to the stream consumer.
 
     ``None`` is a passthrough; re-entrant-safe. Host->worker return leg of the progress hook:
@@ -429,7 +436,7 @@ def aux_stream_deadline(deadline: Optional[float]):
     session that compression never managed to shrink. See #99692.
     """
     previous = getattr(_aux_stream_deadline, "value", None)
-    _aux_stream_deadline.value = deadline if isinstance(deadline, (int, float)) else previous
+    _aux_stream_deadline.value = deadline if isinstance(deadline, (int, float)) or callable(deadline) else previous
     try:
         yield
     finally:
@@ -458,6 +465,7 @@ def _run_protected_sync_provider_call(callback: Callable[[dict[str, Any]], Any],
     dispatch_hook = getattr(_aux_dispatch, "hook", None)
     provider_response_hook = getattr(_aux_provider_response, "hook", None)
     host_deadline = _current_aux_stream_deadline()
+    reading_hook = current_prompt_reading_hook()
     # #99692: the stream is consumed on the daemon below, and thread-locals do not cross that boundary — an
     # owner-thread-only deadline would leave the fix inert on exactly the path large-session compression
     # takes (protected call + hard-cancel source installed).
@@ -472,6 +480,7 @@ def _run_protected_sync_provider_call(callback: Callable[[dict[str, Any]], Any],
                 _aux_thread_local_hook(_aux_dispatch, dispatch_hook),
                 _aux_thread_local_hook(_aux_provider_response, provider_response_hook),
                 aux_stream_deadline(host_deadline),
+                prompt_reading_hook(reading_hook),
                 aux_interrupt_protection(cancel_check=cancel_check),
             ):
                 outcome["result"] = callback(kwargs)
@@ -6818,11 +6827,19 @@ def _create_with_progress(
         return _create_with_progress_once(client, retry_kwargs, task, force_stream=force_stream)
 
 
-def _stream_request_plan(kwargs: Dict[str, Any]) -> "Tuple[Dict[str, Any], str, float]":
-    """(stream kwargs, model name, total ceiling) for a streamed re-aggregation."""
+def _stream_request_plan(
+    kwargs: Dict[str, Any], client: Any = None,
+) -> "Tuple[Dict[str, Any], str, float]":
+    """(stream kwargs, model name, total ceiling) for a streamed re-aggregation.
+
+    Managed local llama-server requests also ask for prompt-reading progress so long prefill
+    remains observable and does not consume the entire total ceiling.
+    """
     stream_kwargs = dict(kwargs)
     stream_kwargs["stream"] = True
     stream_kwargs["stream_options"] = {"include_usage": True}
+    if _is_managed_local_endpoint(str(getattr(client, "base_url", "") or "")):
+        stream_kwargs = with_prompt_progress(stream_kwargs)
     return (stream_kwargs, str(kwargs.get("model") or ""),
             _aux_stream_total_ceiling(kwargs.get("timeout")))
 
@@ -6852,7 +6869,7 @@ def _create_with_progress_once(
         if not _client_streams_internally(client):
             _notify_aux_provider_response()
         return response
-    stream_kwargs, model, total_ceiling = _stream_request_plan(kwargs)
+    stream_kwargs, model, total_ceiling = _stream_request_plan(kwargs, client)
     try:
         chunks = client.chat.completions.create(**stream_kwargs)
     except Exception as exc:
@@ -6896,7 +6913,7 @@ def _aggregate_chat_stream(
     """Consume a chunk stream into a complete response; TimeoutError (phrased "timed out" so
     ``_is_timeout_error`` matches) when *total_ceiling* elapses."""
     acc = _ChatStreamAccumulator(
-        model=model, total_ceiling=total_ceiling, host_deadline=_current_aux_stream_deadline())
+        model=model, total_ceiling=total_ceiling, host_deadline=_current_aux_stream_deadline)
     try:
         for chunk in chunks:
             acc.feed(chunk)
@@ -6913,8 +6930,9 @@ class _ChatStreamAccumulator:
     """Shared per-chunk accumulation so sync and async aggregation cannot drift."""
 
     def __init__(self, model: str = "", total_ceiling: Optional[float] = None,
-                 host_deadline: Optional[float] = None):
-        self._started = time.monotonic()
+                 host_deadline: float | Callable[[], float | None] | None = None):
+        self._started = awake_seconds()
+        self._prompt_reading = PromptReadingClock(self._started)
         self._total_ceiling = total_ceiling
         # Absolute instant the waiting host gives up; checked alongside (not instead of) the
         # ceiling, and unaffected by pre-construction dispatch/TTFT.
@@ -6932,11 +6950,13 @@ class _ChatStreamAccumulator:
 
     def _check_deadlines(self) -> None:
         """Raise TimeoutError past the total ceiling or the host deadline."""
-        now = time.monotonic()
-        if self._total_ceiling is not None and (now - self._started) >= self._total_ceiling:
+        now = awake_seconds()
+        if self._total_ceiling is not None and (
+                now - self._started - self._prompt_reading.seconds) >= self._total_ceiling:
             raise TimeoutError(f"Auxiliary streamed call timed out after {self._total_ceiling:.0f}s "
                                "total ceiling (stream still open but over budget)")
-        if self._host_deadline is not None and now >= self._host_deadline:
+        host_deadline = self._host_deadline() if callable(self._host_deadline) else self._host_deadline
+        if host_deadline is not None and now >= host_deadline:
             raise TimeoutError("Auxiliary streamed call timed out at the host compression "
                                f"deadline after {time.monotonic() - self._started:.0f}s "
                                "(the caller already stopped waiting; streaming on would only "
@@ -6983,12 +7003,18 @@ class _ChatStreamAccumulator:
         # Every frame records transport timing (TTFP); only a substantive payload ticks the
         # forward-progress hook that keeps compression alive.
         _notify_aux_timing_response()
+        progress = prompt_progress(chunk)
+        read_more = progress is not None and self._prompt_reading.tick(progress)
         self._check_deadlines()
         self.resp_id = getattr(chunk, "id", None) or self.resp_id
         self.resp_model = getattr(chunk, "model", None) or self.resp_model
         chunk_usage = getattr(chunk, "usage", None)
         if chunk_usage:
             self.usage = chunk_usage
+        if progress is not None:
+            if read_more:
+                _notify_aux_progress()
+            return
         choices = getattr(chunk, "choices", None) or []
         if not choices:
             return
@@ -7039,7 +7065,7 @@ async def _aggregate_chat_stream_async(
 ) -> Any:
     """Async mirror of :func:`_aggregate_chat_stream` (AsyncOpenAI streams need ``async for``)."""
     acc = _ChatStreamAccumulator(
-        model=model, total_ceiling=total_ceiling, host_deadline=_current_aux_stream_deadline())
+        model=model, total_ceiling=total_ceiling, host_deadline=_current_aux_stream_deadline)
     try:
         async for chunk in chunks:
             acc.feed(chunk)
@@ -7053,7 +7079,7 @@ async def _aggregate_chat_stream_async(
 
 async def _acreate_with_stream(client: Any, kwargs: Dict[str, Any], task: Optional[str] = None) -> Any:
     """Async create() for stream-only providers: ``stream=True`` + aggregate the async chunks."""
-    stream_kwargs, model, total_ceiling = _stream_request_plan(kwargs)
+    stream_kwargs, model, total_ceiling = _stream_request_plan(kwargs, client)
     chunks = await client.chat.completions.create(**stream_kwargs)
     if hasattr(chunks, "choices"):  # shims may hand back a complete response despite stream=True
         return chunks
@@ -7077,7 +7103,7 @@ async def _acreate_with_progress(
         if not _async_client_streams_internally(client):
             _notify_aux_provider_response()
         return response
-    stream_kwargs, model, total_ceiling = _stream_request_plan(kwargs)
+    stream_kwargs, model, total_ceiling = _stream_request_plan(kwargs, client)
     try:
         chunks = await client.chat.completions.create(**stream_kwargs)
     except Exception as exc:

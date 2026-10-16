@@ -29,6 +29,8 @@ from agent.error_classifier import (
     FailoverReason, PROVIDER_STREAM_EMPTY_FRAME_ERROR_CODE, PROVIDER_STREAM_NON_JSON_ERROR_CODE)
 from agent.sdk_transform_bypass import bypass_chat_sdk_request_transform
 from agent.errors import EmptyStreamError
+from agent.local_prompt_progress import prompt_progress, prompt_progress_percent, with_prompt_progress
+from agent.sleep_clock import awake_seconds
 from agent.chat_completion_stream_monitor import StreamingWaitMonitor
 from agent.transports.chat_completions import is_router_timeout_shim, router_timeout_shim_may_follow
 from agent.fast_mode import effective_request_overrides
@@ -2625,7 +2627,7 @@ class _StreamingCall(StreamingWaitMonitor):
         self.deltas_were_sent = {"yes": False}  # for the partial-delivery fallback
         self.provider_tool_in_flight = {"yes": False}
         # Last REAL chunk; the monitor detects SSE-ping-only connections with it.
-        self.last_chunk_time = {"t": time.time()}
+        self.last_chunk_time = {"t": awake_seconds()}
         # Shared by the socket read timeout (``_stream_timeouts``) and the stale
         # detector (``_resolve_stale_timeout``); None until resolved.
         self._stream_stale_timeout = None
@@ -2761,7 +2763,7 @@ class _StreamingCall(StreamingWaitMonitor):
 
     def _count_chunk(self, diag, chunk) -> None:
         """Stamp liveness for a real chunk; diagnostics are best-effort."""
-        self.last_chunk_time["t"] = time.time()
+        self.last_chunk_time["t"] = awake_seconds()
         self.agent._touch_activity("receiving stream response")
         with contextlib.suppress(Exception):
             diag["chunks"] = int(diag.get("chunks", 0)) + 1
@@ -2826,7 +2828,7 @@ class _StreamingCall(StreamingWaitMonitor):
             stream_kwargs["stream_options"] = {"include_usage": True}
         request_client = self._attempt_request_client = self.clients.set_client(
             self.agent._create_request_openai_client(reason="chat_completion_stream_request", api_kwargs=stream_kwargs))
-        self.last_chunk_time["t"] = time.time()
+        self.last_chunk_time["t"] = awake_seconds()
         self.agent._touch_activity("waiting for provider response (streaming)")
         # #93650: as above — the streaming path carries the same bulk
         # messages/tools payload and pays the same client-side walk.
@@ -2882,7 +2884,7 @@ class _StreamingCall(StreamingWaitMonitor):
             return False
         # Stamp BEFORE Relay processes the chunk so the watchdog can't cancel
         # a live stream mid-interceptor.
-        self.last_chunk_time["t"] = time.time()
+        self.last_chunk_time["t"] = awake_seconds()
         return True
 
     def _writer_still_current(self, label: str) -> bool:
@@ -2919,7 +2921,12 @@ class _StreamingCall(StreamingWaitMonitor):
 
         def _open_stream(next_api_kwargs: dict[str, Any]):
             timeout = _httpx.Timeout(connect=conn_cap, read=read_timeout, write=base_timeout, pool=conn_cap)
-            return self._open_chat_stream({**next_api_kwargs, "stream": True, "timeout": timeout})
+            request_kwargs = {**next_api_kwargs, "stream": True, "timeout": timeout}
+            with contextlib.suppress(Exception):
+                from agent.auxiliary_client import _is_managed_local_endpoint
+                if _is_managed_local_endpoint(str(getattr(self.agent, "base_url", "") or "")):
+                    request_kwargs = with_prompt_progress(request_kwargs)
+            return self._open_chat_stream(request_kwargs)
 
         def _flush_pending_stream_text():
             pending_parts = list(pending_text_parts)
@@ -2939,6 +2946,14 @@ class _StreamingCall(StreamingWaitMonitor):
             self.clients.set_stream_handle(stream)
 
         for chunk in _iter_provider_stream_chunks(stream, response=lambda: self._attempt_stream_response):
+            progress = prompt_progress(chunk)
+            if progress is not None:
+                self.last_chunk_time["t"] = awake_seconds()
+                self.agent._touch_activity("local model reading prompt")
+                percent = prompt_progress_percent(progress)
+                if percent is not None:
+                    self.agent._emit_wait_notice(f"⚙ processing prompt — {percent}%")
+                continue
             self._count_chunk(_diag, chunk)
             if self.agent._interrupt_requested:
                 # A half-read SSE response stays checked out of the httpx pool and the finally
@@ -3174,7 +3189,7 @@ class _StreamingCall(StreamingWaitMonitor):
         # Eventless stream: the SDK's get_final_message() raises AssertionError (no
         # message_start); shims may fabricate a contentless Message. All -> EmptyStreamError.
         saw_stream_event = False
-        self.last_chunk_time["t"] = time.time()
+        self.last_chunk_time["t"] = awake_seconds()
         _diag = self._new_diag()
         self._writer_token = self._attempt_stream_response = None
         self._attempt_request_client = request_client
@@ -3511,7 +3526,7 @@ class _StreamingCall(StreamingWaitMonitor):
         self._shutdown_stale_attempt_socket(_killed_response)
         _bump_stale_streak(self.agent)  # circuit breaker, see ``_stale_streak()``
         # Reset the timer so we don't kill repeatedly while the worker unwinds.
-        self.last_chunk_time["t"] = time.time()
+        self.last_chunk_time["t"] = awake_seconds()
         self.agent._emit_diagnostic_wait(f"⚠ no output from provider for {int(elapsed)}s — reconnecting...")
         self.agent._touch_activity(f"stale stream detected after {int(elapsed)}s, reconnecting")
 

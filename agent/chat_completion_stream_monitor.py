@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from agent import chat_completion_wait_notice as wn
 from agent.model_metadata import is_local_endpoint
+from agent.sleep_clock import awake_seconds
 
 
 class StreamingWaitMonitor:
@@ -59,14 +60,14 @@ class StreamingWaitMonitor:
     def _monitor_loop(self) -> None:
         _HEARTBEAT_INTERVAL = 30.0  # seconds between gateway activity touches
         self._mon = SimpleNamespace(
-            last_heartbeat=time.time(), last_load_poll=0.0,
+            last_heartbeat=awake_seconds(), last_load_poll=0.0,
             load_notice_shown=False, load_notice_misses=0, wait_notice_started_ts=None,
             wait_notice=wn.WaitNoticeState(),
         )
         _is_local_base = bool(self.agent.base_url) and is_local_endpoint(self.agent.base_url)
         while not self._call_done.is_set():
             self._call_done.wait(timeout=0.3)
-            _hb_now = time.time()
+            _hb_now = awake_seconds()
             if _is_local_base and self._poll_local_load_notice(_hb_now):
                 continue
             # Reasoning callbacks do not clear the classic CLI spinner. The empty
@@ -79,7 +80,7 @@ class StreamingWaitMonitor:
             if _hb_now - self._mon.last_heartbeat >= _HEARTBEAT_INTERVAL:
                 self._mon.last_heartbeat = _hb_now
                 self._heartbeat(int(_hb_now - self.last_chunk_time["t"]))
-            _stale_elapsed = time.time() - self.last_chunk_time["t"]
+            _stale_elapsed = awake_seconds() - self.last_chunk_time["t"]
             if _stale_elapsed > self._stream_stale_timeout:
                 self._mon.wait_notice_started_ts = None  # Reconnect status has its own owner.
                 self._mon.wait_notice.reset()

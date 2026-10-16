@@ -23,7 +23,8 @@ def test_resumed_chunks_clear_wait_without_erasing_local_load(monkeypatch, local
     loading = "Loading local model weights"
     monkeypatch.setattr(h, "_managed_local_load_notice",
                         lambda *args: loading if now[0] >= 1060.6 else None)
-    monkeypatch.setattr(h.time, "time", lambda: now[0])
+    monkeypatch.setattr(h, "awake_seconds", lambda: now[0])
+    monkeypatch.setattr("agent.chat_completion_stream_monitor.awake_seconds", lambda: now[0])
 
     if heartbeat_race:
         heartbeat = call._heartbeat
