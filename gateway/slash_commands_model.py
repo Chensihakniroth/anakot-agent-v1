@@ -25,6 +25,8 @@ logger = logging.getLogger("gateway.run")  # log-record parity with gateway/run.
 _FAST_SELECTIONS = {
     "fast": ("priority", "fast", "gateway.fast.label_fast"),
     "on": ("priority", "fast", "gateway.fast.label_fast"),
+    "ultra": ("ultrafast", "ultrafast", None),
+    "ultrafast": ("ultrafast", "ultrafast", None),
     "normal": (None, "normal", "gateway.fast.label_normal"),
     "off": (None, "normal", "gateway.fast.label_normal"),
     "auto": ("auto", "auto", None),
@@ -792,7 +794,8 @@ class GatewayModelCommandsMixin:
             return t("gateway.fast.not_supported")
         if args and args != "status":
             return self._apply_fast_selection(session_key, args, persist=persist_global)
-        mode = "fast" if self._service_tier == "priority" else (self._service_tier or "normal")
+        mode = ("fast" if self._service_tier == "priority" else
+                "ultrafast" if self._service_tier == "ultrafast" else (self._service_tier or "normal"))
         status = {"fast": t("gateway.fast.status_fast"), "normal": t("gateway.fast.status_normal")}.get(mode, mode)
 
         async def _on_fast_choice(_chat_id: str, value: str) -> str:
@@ -804,7 +807,7 @@ class GatewayModelCommandsMixin:
             title=t("gateway.fast.picker_title", mode=status),
             choices=[
                 {"value": v, "label": t(f"gateway.fast.choice_{v}"), "is_current": mode == v}
-                for v in ("fast", "normal", "auto", "cold")
+                for v in ("fast", "ultrafast", "normal", "auto", "cold")
             ],
             on_choice_selected=_on_fast_choice,
         )

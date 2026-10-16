@@ -179,7 +179,8 @@ _BUSY_MODE_LONG = {
 
 # /fast argument -> (service_tier value, persisted config value)
 _FAST_TIERS = {
-    "fast": ("priority", "fast"), "on": ("priority", "fast"), "normal": (None, "normal"),
+    "fast": ("priority", "fast"), "on": ("priority", "fast"), "ultra": ("ultrafast", "ultrafast"),
+    "ultrafast": ("ultrafast", "ultrafast"), "normal": (None, "normal"),
     "off": (None, "normal"), "auto": ("auto", "auto"), "cold": ("cold", "cold")}
 
 # /reasoning display toggles: arg -> (attr, value, headline, follow-up note)

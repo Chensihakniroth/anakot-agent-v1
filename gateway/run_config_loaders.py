@@ -226,6 +226,8 @@ class GatewayConfigLoadersMixin:
             return None
         if value in {"fast", "priority", "on"}:
             return "priority"
+        if value in {"ultra", "ultrafast"}:
+            return "ultrafast"
         if value in {"auto", "cold"}:
             return value
         logger.warning("Unknown service_tier '%s', ignoring", raw)

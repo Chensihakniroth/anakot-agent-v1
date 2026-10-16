@@ -31,3 +31,17 @@ def test_unknown_priority_is_preserved(monkeypatch):
     overrides = {"service_tier": "priority"}
     tiers.negotiate_request_tier(agent, overrides)
     assert overrides == {"service_tier": "priority"}
+
+
+def test_ultrafast_downgrades_to_priority_when_only_priority_is_advertised(monkeypatch):
+    import agent.codex_service_tiers as tiers
+
+    def offers(_model, tier, *, base_url, access_token):
+        return tier == "priority"
+
+    monkeypatch.setattr(tiers, "codex_account_offers_tier", offers)
+    agent = SimpleNamespace(provider="openai-codex", api_mode="codex_responses", model="gpt-5.6",
+                            base_url="https://chatgpt.com/backend-api/codex", api_key="token")
+    overrides = {"service_tier": "ultrafast"}
+    tiers.negotiate_request_tier(agent, overrides)
+    assert overrides == {"service_tier": "priority"}

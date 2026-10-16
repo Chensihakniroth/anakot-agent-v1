@@ -579,10 +579,10 @@ export const sessionCommands: SlashCommand[] = [
     name: 'fast',
     run: (arg, ctx) => {
       const mode = arg.trim().toLowerCase()
-      const valid = new Set(['', 'status', 'normal', 'fast', 'on', 'off', 'toggle'])
+      const valid = new Set(['', 'status', 'normal', 'fast', 'ultra', 'ultrafast', 'on', 'off', 'toggle'])
 
       if (!valid.has(mode)) {
-        return ctx.transcript.sys('usage: /fast [normal|fast|status|on|off|toggle]')
+        return ctx.transcript.sys('usage: /fast [normal|fast|ultrafast|status|on|off|toggle]')
       }
 
       if (!mode || mode === 'status') {
@@ -590,7 +590,7 @@ export const sessionCommands: SlashCommand[] = [
           .rpc<ConfigGetValueResponse>('config.get', { key: 'fast', session_id: ctx.sid })
           .then(
             ctx.guarded<ConfigGetValueResponse>(r =>
-              ctx.transcript.sys(`fast mode: ${r.value === 'fast' ? 'fast' : 'normal'}`)
+              ctx.transcript.sys(`fast mode: ${r.value === 'fast' ? 'fast' : r.value === 'ultrafast' ? 'ultrafast' : 'normal'}`)
             )
           )
           .catch(ctx.guardedErr)
@@ -600,15 +600,15 @@ export const sessionCommands: SlashCommand[] = [
         .rpc<ConfigSetResponse>('config.set', { key: 'fast', session_id: ctx.sid, value: mode })
         .then(
           ctx.guarded<ConfigSetResponse>(r => {
-            const next = r.value === 'fast' ? 'fast' : 'normal'
+            const next = r.value === 'fast' ? 'fast' : r.value === 'ultrafast' ? 'ultrafast' : 'normal'
             ctx.transcript.sys(`fast mode: ${next}`)
             patchUiState(state => ({
               ...state,
               info: state.info
                 ? {
                     ...state.info,
-                    fast: next === 'fast',
-                    service_tier: next === 'fast' ? 'priority' : ''
+                    fast: next === 'fast' || next === 'ultrafast',
+                    service_tier: next === 'fast' ? 'priority' : next === 'ultrafast' ? 'ultrafast' : ''
                   }
                 : state.info
             }))

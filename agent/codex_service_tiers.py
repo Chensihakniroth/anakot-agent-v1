@@ -103,11 +103,28 @@ def codex_account_offers_tier(model: Any, tier: str, *, base_url: Any, access_to
 
 def negotiate_request_tier(agent: Any, overrides: dict[str, Any]) -> None:
     """Remove an unsupported priority request while preserving unknown discoveries."""
+    requested = overrides.get("service_tier")
     if (
-        overrides.get("service_tier") != "priority"
+        requested not in {"priority", "ultrafast"}
         or getattr(agent, "provider", None) != "openai-codex"
         or getattr(agent, "api_mode", None) != "codex_responses"
     ):
+        return
+    if requested == "ultrafast":
+        ultrafast = codex_account_offers_tier(
+            getattr(agent, "model", None), "ultrafast",
+            base_url=getattr(agent, "base_url", None), access_token=getattr(agent, "api_key", None),
+        )
+        if ultrafast is True:
+            return
+        priority = codex_account_offers_tier(
+            getattr(agent, "model", None), "priority",
+            base_url=getattr(agent, "base_url", None), access_token=getattr(agent, "api_key", None),
+        )
+        if priority is False:
+            overrides.pop("service_tier", None)
+        elif priority is True:
+            overrides["service_tier"] = "priority"
         return
     supported = codex_account_offers_tier(
         getattr(agent, "model", None), "priority",

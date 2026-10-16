@@ -157,8 +157,8 @@ def _set_model(rid, params, key, value, session):
                confirm_message=result.get("confirm_message", ""), scope=result.get("scope", "session"))
 
 
-_FAST_WORDS = {"fast": "fast", "on": "fast", "normal": "normal", "off": "normal",
-               "auto": "auto", "cold": "cold"}
+_FAST_WORDS = {"fast": "fast", "on": "fast", "ultra": "ultrafast", "ultrafast": "ultrafast",
+               "normal": "normal", "off": "normal", "auto": "auto", "cold": "cold"}
 
 
 def _set_fast(rid, params, key, value, session):
@@ -176,7 +176,7 @@ def _set_fast(rid, params, key, value, session):
     if nv is None:
         return _err(rid, 4002, f"unknown fast mode: {value}")
     overrides = None
-    if nv == "fast":
+    if nv in {"fast", "ultrafast"}:
         from anakot_cli.models import resolve_fast_mode_overrides
         if agent is not None:
             target_model = getattr(agent, "model", None)
@@ -189,6 +189,8 @@ def _set_fast(rid, params, key, value, session):
                                                 base_url=getattr(agent, "base_url", None))
         if overrides is None:
             return _err(rid, 4002, "fast mode is not available for this model")
+        if nv == "ultrafast":
+            overrides["service_tier"] = "ultrafast"
     if session is not None:
         # Session-scoped like `reasoning` (global = `--global` / Settings → Model): writing config.yaml
         # here flipped fast mode for every surface. The create override survives rebuilds; "" pins normal.
