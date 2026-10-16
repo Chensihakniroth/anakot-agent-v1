@@ -42,6 +42,8 @@ class AccountUsageSnapshot:
     windows: tuple[AccountUsageWindow, ...] = ()
     details: tuple[str, ...] = ()
     unavailable_reason: Optional[str] = None
+    # Stable, non-secret account identity when the provider can decode one.
+    identity: Optional[str] = None
     # Exact decoded provider response body (no headers/credentials) for integrations that need
     # fields Anakot does not normalize yet. Only populated by providers that fetch a JSON body.
     raw: Optional[dict] = None
@@ -637,9 +639,14 @@ _USAGE_FETCHERS: dict[str, Callable[[Optional[str], Optional[str]], Optional[Acc
 
 def fetch_account_usage(
     provider: Optional[str], *, base_url: Optional[str] = None, api_key: Optional[str] = None,
+    read_only: bool = False, identity_id: Optional[str] = None,
 ) -> Optional[AccountUsageSnapshot]:
     fetcher = _USAGE_FETCHERS.get(str(provider or "").strip().lower())
     try:
-        return fetcher(base_url, api_key) if fetcher else None
+        snapshot = fetcher(base_url, api_key) if fetcher else None
+        if snapshot is not None:
+            from agent.account_usage_cache import remember_account_usage
+            remember_account_usage(provider, snapshot, identity_id=identity_id, base_url=base_url)
+        return snapshot
     except Exception:
         return None
