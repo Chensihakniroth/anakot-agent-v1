@@ -46,3 +46,18 @@ def test_stale_snapshots_are_not_presented_as_live():
     fresh = _snapshot()
     assert cache.snapshot_is_stale(old) is True
     assert cache.snapshot_is_stale(fresh) is False
+
+
+def test_inventory_attaches_fresh_usage_without_blocking(monkeypatch):
+    from anakot_cli import inventory
+
+    snapshot = _snapshot()
+    refreshed = []
+    monkeypatch.setattr("agent.account_usage_cache.has_account_usage", lambda slug: slug == "openai-codex")
+    monkeypatch.setattr("agent.account_usage_cache.cached_account_usage", lambda slug: snapshot)
+    monkeypatch.setattr("agent.account_usage_cache.snapshot_is_stale", lambda value: False)
+    monkeypatch.setattr("agent.account_usage_cache.refresh_account_usage_async", lambda providers: refreshed.extend(providers) or [])
+    rows = [{"slug": "openai-codex", "authenticated": True, "is_user_defined": False}]
+    inventory._apply_usage(rows)
+    assert rows[0]["usage"]["windows"][0]["label"] == "5h"
+    assert refreshed == ["openai-codex"]

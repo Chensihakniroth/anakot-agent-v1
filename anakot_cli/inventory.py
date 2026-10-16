@@ -147,6 +147,7 @@ def build_models_payload(
     if featured:
         _apply_featured(rows)
     _apply_custom_aliases(rows)
+    _apply_usage(rows)
 
     return {"providers": rows, "model": ctx.current_model, "provider": ctx.current_provider}
 
@@ -321,6 +322,38 @@ def _apply_capabilities(rows: list[dict]) -> None:
             caps[model] = entry
 
         row["capabilities"] = caps
+
+
+def _apply_usage(rows: list[dict]) -> None:
+    """Attach cached account-usage windows without blocking the model picker.
+
+    The cache is read-only on the picker path; refreshes run in daemon workers and
+    a stale/missing snapshot is omitted rather than presented as a confident gauge.
+    """
+    from agent.account_usage_cache import (
+        cached_account_usage, has_account_usage, refresh_account_usage_async, snapshot_is_stale,
+    )
+
+    wanted: list[str] = []
+    for row in rows:
+        slug = str(row.get("slug") or "").strip().lower()
+        if not slug or row.get("is_user_defined") or row.get("authenticated") is False:
+            continue
+        if not has_account_usage(slug):
+            continue
+        wanted.append(slug)
+        snapshot = cached_account_usage(slug)
+        if snapshot is None or snapshot_is_stale(snapshot):
+            continue
+        windows = [
+            {"label": window.label, "used_percent": float(window.used_percent),
+             "resets_at": window.reset_at.isoformat() if window.reset_at else None,
+             "scope": getattr(window, "scope", "account")}
+            for window in snapshot.windows if window.used_percent is not None
+        ]
+        if windows:
+            row["usage"] = {"windows": windows}
+    refresh_account_usage_async(wanted)
 
 
 # Newest N models per lab an aggregator row features by default (older tail behind search/show-all);
