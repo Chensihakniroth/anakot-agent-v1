@@ -377,6 +377,7 @@ def _dispatch_unit(unit: _Batch, unit_id: Optional[str], slot_key: Optional[str]
         runner=lambda: _execute_and_aggregate(unit, honor_parent_interrupt=False),
         interrupt_fn=_interrupt, delegation_id=unit_id, slot_key=slot_key,
         task_indexes=[i for (i, _, _) in unit.children] if len(unit.children) < len(unit.task_list) else None,
+        task_transcripts={str(i): unit.live_paths[i] for (i, _, _) in unit.children if i < len(unit.live_paths)},
         progress_fn=lambda: _batch_progress_token(child_agents), **routing,
     )
 
