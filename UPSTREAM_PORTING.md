@@ -266,6 +266,12 @@ for c in json.load(sys.stdin):
 - `0b76ea80274b8b5992f04e97df9542cee1dc8d27` (owner-state Bot delivery refusals remain resendable) is **CUSTOM**: Anakot's `tools.bot_relay` queues file envelopes and uses tri-state roster liveness; it has no Hermes admission/receipt pin state or `runtime_draining`/`stale_epoch` refusal protocol. The existing `runtime_offline` fail-fast behavior is intentionally preserved.
 - `3fe2cd6f50be` and the adjacent Bot Chat admission series are **CUSTOM** pending a protocol-level equivalence; current Anakot Bot Mode already has a separate `bot_relay`/live-mailbox contract. These commits are not silently treated as direct ports.
 
+### 2026-10-16 — Full Hermes parity baseline (`e5eb6b36fe78`)
+- The goal is now **full upstream capability parity**, not merely the applicable v0.22.2 release behavior. This means continuing to reconcile Hermes `main` as it evolves, while preserving Anakot's native architecture and profile/security boundaries.
+- Downloaded and inventoried the official Hermes `main` tree at `e5eb6b36fe78eb012cefd1f5f436cd458411b8b3` and compared it with the current Anakot tree. The trees contain 10,990 shared paths, 8,785 Hermes-only paths, and 43,690 Anakot-only/generated/vendor paths after excluding build caches and dependency directories. This confirms that the full-parity effort is **not complete**.
+- The `v0.22.2` tag resolves to `7b77e29eedd85a8497ce2821448dac7964dc46f6`; the current upstream `main` has advanced beyond that tag. Future ports will be tracked against exact upstream SHAs and categorized `PORTED`, `CUSTOM`, or `N/A` rather than treating a release number as proof of parity.
+- Do not bump Anakot's package version solely because behavior was ported. The version remains `0.21.3` until a deliberate Anakot release is cut after the full parity work and release checks are complete.
+
 ### 2026-10-16 — Refresh + port: standing `/loop` live-work row (`2add194a`, upstream head `60f56a6b13c8`)
 - Scanned the latest 100 Hermes commits from the GitHub API after the `046094df` browser-lifecycle scan; filtered merge, release, CI, catalog, formatting, and test-only noise.
 - Ported the portable TUI feature manually: the focused Anakot TUI now reads `session.control.read`, consumes `session.control.update`, and renders an active/paused `/loop` row above the live-agent panel with a local countdown and prompt preview.
