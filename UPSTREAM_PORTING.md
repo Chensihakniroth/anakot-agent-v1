@@ -262,6 +262,8 @@ for c in json.load(sys.stdin):
 ### 2026-10-16 — Post-v0.22.2 upstream-head follow-up (`6206f893`)
 - Refreshed the official Hermes `main` feed and head. The current head is `6206f89320f3506c901948be0f487eae7f2b0d71`; the newest feed entries are predominantly plugin-catalog pin/disclosure churn and test-only changes.
 - Ported Hermes `ecffe12eae3691e728869c77c6f0c0fb7ad97400` (Telegram progress code-fence preservation) as an Anakot-native adaptation in `gateway/run_turn_runner.py`: repeated progress counters now appear after a closing Markdown fence instead of turning the counter into invalid fence text. Focused gateway verification: 49 tests passed.
+- Ported Hermes `c09527ad4f5bc2d710fec50198afae881b75bfed` (Codex selected-credential service-tier negotiation) as an Anakot-native adaptation: the authenticated Codex catalog is cached per token fingerprint, known unsupported `priority` requests are omitted, and unknown catalog results preserve the user's request. Focused agent verification: 5 tests passed.
+- Hermes `690b75a31a6da0f925d23f1024072793f1bc0872` (Ultrafast picker and `/fast ultra` surface) remains **PENDING** for the next feature slice; it requires reconciling Anakot's `/fast` CLI/gateway/TUI surfaces and localized labels, not just the account-tier backend.
 - The current feed's catalog pin/disclosure commits (`6206f893`, `ae896f88`, `0f808899`, `9ba09732`, `e1a8c665`, `c3ff0701`, `dedfde40`, `3ee0e7f7`, `89647c1f`, `53bec2a3`, `8e8eca87`, `37d9a5ab`, `d4c737ca`, `724b1da0`, `7b8b5727`, `87141251`) are **N/A/CUSTOM**: they update Hermes' external plugin catalog and disclosures, while Anakot uses its own plugin discovery/catalog and does not vendor Hermes plugin pins.
 
 ### 2026-10-16 — Full Hermes parity baseline (`6206f893`)

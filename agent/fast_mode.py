@@ -47,4 +47,6 @@ def effective_request_overrides(agent: Any) -> dict[str, Any]:
     overrides.update(
         resolve_fast_mode_overrides(getattr(agent, "model", None), provider=getattr(agent, "provider", None), base_url=base_url) or {}
     )
+    from agent.codex_service_tiers import negotiate_request_tier
+    negotiate_request_tier(agent, overrides)
     return overrides
