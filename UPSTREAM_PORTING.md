@@ -55,7 +55,7 @@ for c in json.load(sys.stdin):
 | cba95563 | 2026-10-15 | feat(cli): /loop gets a live-work dock row with a ticking countdown | PORTED | Adapted into Anakot's existing `cli_subagent_monitor` dock; the loop row appears even without subagents and owns the live countdown, while the one-shot post-turn status is suppressed when the dock is installed |
 | 73b9f2af | 2026-10-15 | fix(gateway): wire the desktop window bridges for local-viewer turns | CUSTOM | Anakot's `tui_gateway/session_notifications.py::_wire_desktop_sinks` already owns the emitter and process-registry routing with Anakot session IDs |
 | 80f4f989 | 2026-10-15 | fix(browser): a real profile that can't load falls back to a fresh browser | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
-| 460f9bac | 2026-10-15 | fix(browser): snapshot real profile while Chrome is running | PENDING | Follow-up in the same real-profile lifecycle cluster; not yet adapted |
+| 460f9bac | 2026-10-15 | fix(browser): snapshot real profile while Chrome is running | PORTED | Session cookies remain authoritative and copy with the normal budget; locked password/autofill databases use a short optional budget and are skipped so a running browser can still produce a signed-in snapshot; cookie failures remain fail-closed |
 | 3bdb82d6 | 2026-10-15 | fix(update): keep the retirement downgrade probe fail-closed | SKIPPED | Hermes-specific source-release update pipeline (`hermes_cli/source_releases.py`); Anakot uses fork git-based update flow (`update_cmd_git.py`) |
 | a6cced55 | 2026-10-15 | fix(gateway): re-enter the native callback for a messaging /retry redispatch | SKIPPED | Hermes-specific session authority / native admission architecture (`session_ingress_context.py`); Anakot's gateway does not gate admission on event-identity callback wrappers |
 | e6835fd3 | 2026-10-14 | feat(cli): add curated model list at the top in the model picker list | CUSTOM | Anakot already owns a curated-first picker in `anakot_cli/models.py`; upstream Hermes picker code is not portable |
@@ -232,6 +232,11 @@ for c in json.load(sys.stdin):
 - Added `shellDriveToNativePath` to Anakot's existing profile-aware `wsl-path-bridge.ts`. It recognizes Git Bash, Cygwin, and drvfs spellings (`/c/...`, `/cygdrive/c/...`, `/mnt/c/...`) only when the corresponding native file exists; otherwise genuine single-letter WSL directories continue through the WSL bridge.
 - Kept the broader Hermes `local-read-path` attachment module out of the tree because Anakot has a different preview/read architecture; the behavior is wired at the existing filesystem bridge seam.
 - Verification: targeted Electron Vitest `wsl-path-bridge.test.ts` — 13 passed; targeted ESLint passed. Desktop typecheck remains blocked by unrelated existing `connection-request`/`unavailable` errors.
+
+### 2026-10-16 — Ported running-browser real-profile snapshots (`460f9bac`)
+- Adapted `anakot_cli/browser_connect.py` so session cookies (`Cookies`) remain the authoritative signed-in state with the normal backup budget, while password/autofill databases use a short optional budget and are logged/skipped when a running browser holds them locked.
+- A cookie snapshot failure still fails closed; the system never launches a supposedly signed-in real-profile session without session cookies. Updated the invariant tests and compatibility seams for the new deadline parameter.
+- Verification: snapshot-error tests — 3 passed; real-profile unreadable-cookie regression — 1 passed; `python -m py_compile anakot_cli/browser_connect.py` passed. The broader Windows real-profile file still has unrelated mode-bit/relaunch failures.
 
 ### 2026-10-16 — Refresh + port: standing `/loop` live-work row (`2add194a`, upstream head `60f56a6b13c8`)
 - Scanned the latest 100 Hermes commits from the GitHub API after the `046094df` browser-lifecycle scan; filtered merge, release, CI, catalog, formatting, and test-only noise.
