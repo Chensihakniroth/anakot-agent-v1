@@ -12,6 +12,8 @@ const IS_WINDOWS = process.platform === 'win32'
 const WIN_DRIVE_RE = /^([A-Za-z]):[\\/]/
 // `/mnt/c` and `/mnt/c/...` (drvfs default automount root).
 const WSL_MOUNT_RE = /^\/mnt\/([a-z])(?:\/(.*))?$/i
+// `/c/...`, `/cygdrive/c/...`, `/mnt/c/...` (Git Bash, Cygwin, drvfs).
+const SHELL_DRIVE_RE = /^\/(?:cygdrive\/|mnt\/)?([a-z])(?:\/|$)/i
 
 let cachedDistro: null | string = null
 let cachedUncBase: null | string = null
@@ -158,7 +160,6 @@ export function wslPosixToWindowsAccessible(
   return `${wslUncBase(distro ?? resolveDistro())}\\${relative}`
 }
 
-/** Native folder dialog `defaultPath`: open a WSL cwd in the Windows picker. */
 export function resolvePickerDefaultPath(
   defaultPath: string | undefined,
   distro?: string,
@@ -180,9 +181,32 @@ export function resolvePickerDefaultPath(
   return value.startsWith('/') && !WIN_DRIVE_RE.test(value) ? wslPosixToWindowsAccessible(value, distro) : defaultPath
 }
 
+/**
+ * Git Bash / Cygwin / drvfs drive spelling (`/c/...`, `/cygdrive/c/...`,
+ * `/mnt/c/...`) → native `C:/...`, but only when the native file exists.
+ * A real single-letter WSL directory stays on the WSL bridge when no native
+ * twin exists.
+ */
+export function shellDriveToNativePath(value: string, exists: (path: string) => boolean = fs.existsSync): null | string {
+  const drive = String(value || '').match(SHELL_DRIVE_RE)
+
+  if (!drive) {
+    return null
+  }
+
+  const nativePath = `${drive[1].toUpperCase()}:/${value.slice(drive[0].length)}`
+
+  return exists(nativePath) ? nativePath : null
+}
+
 /** fs read path: on Windows, make a WSL cwd readable via its UNC / drive form. */
 export function resolveLocalReadPath(dirPath: string, distro?: string, profile?: null | string): string {
   const value = String(dirPath || '').trim()
+  const nativeDrivePath = IS_WINDOWS ? shellDriveToNativePath(value) : null
+
+  if (nativeDrivePath) {
+    return nativeDrivePath
+  }
 
   // In remote-gateway mode the POSIX paths belong to a host the Windows
   // desktop cannot open locally — skip the WSL bridge entirely (no distro

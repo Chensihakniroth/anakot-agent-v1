@@ -8,6 +8,7 @@ import {
   resolveLocalReadPath,
   resolvePickerDefaultPath,
   setWslBridgeActive,
+  shellDriveToNativePath,
   wslPosixToWindowsAccessible
 } from './wsl-path-bridge'
 
@@ -123,6 +124,21 @@ test('toggling the bridge is idempotent and does not corrupt cached state', () =
 
   // Bridging still works after the toggles.
   assert.equal(resolvePickerDefaultPath('/home/alex', 'Ubuntu'), '\\\\wsl.localhost\\Ubuntu\\home\\alex')
+})
+
+test('shellDriveToNativePath maps Git Bash/Cygwin/drvfs drive paths only when the native file exists', () => {
+  const existing = new Set(['C:/Users/alex/notes.txt', 'D:/x', 'C:/'])
+  const exists = (path: string) => existing.has(path)
+
+  assert.equal(shellDriveToNativePath('/c/Users/alex/notes.txt', exists), 'C:/Users/alex/notes.txt')
+  assert.equal(shellDriveToNativePath('/C/Users/alex/notes.txt', exists), 'C:/Users/alex/notes.txt')
+  assert.equal(shellDriveToNativePath('/cygdrive/d/x', exists), 'D:/x')
+  assert.equal(shellDriveToNativePath('/mnt/c/Users/alex/notes.txt', exists), 'C:/Users/alex/notes.txt')
+  assert.equal(shellDriveToNativePath('/c', exists), 'C:/')
+  assert.equal(shellDriveToNativePath('/e/projects', exists), null)
+  assert.equal(shellDriveToNativePath('/home/alex/proj', exists), null)
+  assert.equal(shellDriveToNativePath('/mnt/data/x', exists), null)
+  assert.equal(shellDriveToNativePath('C:\\Users\\alex', exists), null)
 })
 
 // ── state isolation: every test sees a clean active bridge ────────────
