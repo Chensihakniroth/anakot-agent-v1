@@ -2,8 +2,8 @@ import { DEFAULT_REASONING_EFFORT, type ModelOptionsResult } from '@anakot/share
 import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 
-import { useSessionView } from '@/app/chat/session-view'
 import type { AnakotGateway } from '@/anakot'
+import { useSessionView } from '@/app/chat/session-view'
 import { useI18n } from '@/i18n'
 import { modelOptionsQueryKey, requestModelOptions } from '@/lib/model-options'
 import { currentPickerSelection } from '@/lib/model-status-label'

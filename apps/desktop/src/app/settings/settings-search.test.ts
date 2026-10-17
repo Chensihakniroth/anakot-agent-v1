@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Settings2, Wrench } from '@/lib/icons'
-import type { ConfigFieldSchema, AnakotConfigRecord } from '@/types/anakot'
+import type { AnakotConfigRecord, ConfigFieldSchema } from '@/types/anakot'
 
 import {
   buildConfigSearchEntries,

@@ -3,6 +3,20 @@ import { useStore } from '@nanostores/react'
 import { useQuery } from '@tanstack/react-query'
 import { useEffect, useMemo, useRef, useState } from 'react'
 
+import {
+  type AnakotGateway,
+  getActionStatus,
+  getLogs,
+  getMcpCatalog,
+  getUsageAnalytics,
+  installMcpCatalogEntry,
+  type McpCatalogEntry,
+  type McpTestResult,
+  type ProfileScope,
+  profileScopeKey,
+  saveMcpServers,
+  testMcpServer
+} from '@/anakot'
 import { type CodeEditorApi } from '@/components/chat/code-editor'
 import { JsonDocumentEditor } from '@/components/chat/json-document-editor'
 import { LogTail } from '@/components/chat/log-tail'
@@ -17,20 +31,6 @@ import { Switch } from '@/components/ui/switch'
 import { TextTab } from '@/components/ui/text-tab'
 import { Textarea } from '@/components/ui/textarea'
 import { Tip } from '@/components/ui/tooltip'
-import {
-  getActionStatus,
-  getLogs,
-  getMcpCatalog,
-  getUsageAnalytics,
-  type AnakotGateway,
-  installMcpCatalogEntry,
-  type McpCatalogEntry,
-  type McpTestResult,
-  type ProfileScope,
-  profileScopeKey,
-  saveMcpServers,
-  testMcpServer
-} from '@/anakot'
 import { type Translations, useI18n } from '@/i18n'
 import { startCompletionPoll } from '@/lib/completion-poll'
 import { brandFor } from '@/lib/mcp-brands'

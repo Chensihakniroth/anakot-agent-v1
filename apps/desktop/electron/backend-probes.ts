@@ -230,10 +230,10 @@ async function verifyAnakotCli(anakotCommand: string, opts?: { shell?: boolean }
 }
 
 export {
+  anakotRuntimeImportProbe,
   canImportAnakotCli,
   DEFAULT_PROBE_TIMEOUT_MS,
   execProbe,
-  anakotRuntimeImportProbe,
   isTimeoutError,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,

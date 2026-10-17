@@ -36,7 +36,11 @@ describe('parseRichMarkup', () => {
   })
 
   it('handles empty lines', () => {
-    expect(parseRichMarkup('a\n\nb')).toEqual([['', 'a'], ['', ' '], ['', 'b']])
+    expect(parseRichMarkup('a\n\nb')).toEqual([
+      ['', 'a'],
+      ['', ' '],
+      ['', 'b']
+    ])
   })
 })
 

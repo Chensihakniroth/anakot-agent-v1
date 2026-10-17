@@ -65,6 +65,7 @@ async function readPreUpdateBackupEnabled(
         error instanceof Error ? error.message : String(error)
       }`
     )
+
     return true
   }
 }
