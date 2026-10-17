@@ -3,7 +3,7 @@
 Contracts:
 - connect/reconnect mint ONE operation, block the turn via the callback, return per-target
   outcomes; links live on the target and never in the model result on a desktop session
-- off-desktop (no callback): result carries connect_url and returns at once (PR3 delivers it)
+- off-desktop (including a callback attached by the gateway): result carries connect_url and returns at once (PR3 delivers it)
 - reconnect is a repair: active → connected with no gateway mint; force → always reinitiate
 - the watcher polls the gateway once per tick, transitions targets, settles on all-resolved
 - ``wait`` is gone from the schema
@@ -290,13 +290,14 @@ def test_off_desktop_connect_returns_links_and_does_not_block():
     assert live.current("s1") is None
 
 
-def test_callback_presence_decides_the_card_path_on_tui():
+def test_tui_surface_does_not_show_a_card_even_when_a_callback_is_attached():
     gw = GatewayFake(flips={"gmail": 1})
     cb = _desktop_callback()
     out = _run({"action": "connect", "connectors": ["gmail"]}, gw, callback=cb, platform="tui")
-    assert len(cb.seen) == 1
-    assert out["targets"][0]["state"] == "connected"
-    assert "connect_url" not in out["targets"][0]
+    assert cb.seen == []
+    assert out["status"] == "initiated"
+    assert out["targets"][0]["connect_url"].startswith("https://connect.example/gmail/")
+    assert live.current("s1") is None
 
 
 # ---------------------------------------------------------------------------

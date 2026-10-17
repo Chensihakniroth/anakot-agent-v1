@@ -18,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 # The renderer's answer vocabulary → target state. A failed approval stays open; a decline resolves.
 _OUTCOME_STATES = {
+    "approved": TargetState.connected,
     "installed": TargetState.connected, "enabled": TargetState.connected, "authorized": TargetState.connected,
     "connected": TargetState.connected,
     "declined": TargetState.skipped, "skipped": TargetState.skipped,

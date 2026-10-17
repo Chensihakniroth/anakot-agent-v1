@@ -34,6 +34,7 @@ const GMAIL: ConnectionTarget = {
 const REQUEST: ConnectionRequest = {
   deadlineAt: 1_800_000_000,
   opId: 'operation-1',
+  seq: 0,
   toolCallId: 'connector-call-1',
   sessionId: SESSION_ID,
   settled: false,
@@ -175,7 +176,7 @@ describe('ConnectorTool operation card', () => {
     })
     expect(request).toHaveBeenCalledWith(
       'connectors.connect',
-      { connectors: ['gmail'], reconnect: true, session_id: SESSION_ID },
+      { connectors: ['gmail'], owner: { session_id: SESSION_ID, type: 'session' }, reconnect: true },
       expect.any(Number),
       undefined
     )
@@ -210,8 +211,8 @@ describe('ConnectorTool operation card', () => {
     await waitFor(() => {
       expect(request).toHaveBeenCalledWith('connection.respond', {
         op_id: 'operation-1',
+        owner: { session_id: SESSION_ID, type: 'session' },
         result: { settled_by: 'continue' },
-        session_id: SESSION_ID
       })
     })
   })

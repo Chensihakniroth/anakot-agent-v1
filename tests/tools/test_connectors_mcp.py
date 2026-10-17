@@ -184,6 +184,13 @@ def test_callback_answer_folds_into_the_operation_and_settles_once():
     assert by_name["figma"]["state"] == TargetState.skipped.value
 
 
+def test_contract_approved_answer_marks_an_mcp_target_connected():
+    callback = _answering(json.dumps({"targets": [{"name": "linear", "status": "approved"}]}))
+    out = _mcp({"action": "enable", "connectors": [_linear()]}, callback)
+
+    assert out["targets"][0]["state"] == TargetState.connected.value
+
+
 def test_no_answer_settles_by_deadline_and_marks_targets_not_connected():
     with patch("tools.connectors.operation.OPERATION_DEADLINE_SECONDS", 0.05):
         out = _mcp({"action": "install", "connectors": [_linear()]}, _answering(None))

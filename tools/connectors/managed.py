@@ -6,7 +6,7 @@ import time
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from tools.connectors.contract import Actor, SettleReason, TargetState, allowed
-from tools.connectors.gateway.config import operation_session_key
+from tools.connectors.gateway import config as gateway_config
 from tools.connectors.gateway.errors import RateLimited
 from tools.connectors.operation import ConnectionOperation, DetachedOperation, IllegalTransition, Target
 from tools.connectors.run import Kind, run_operation
@@ -255,8 +255,10 @@ def run_managed_action(
                 "Use action 'status' to list them."
             )
         force = bool(args.get("force", False))
-        session_key = operation_session_key(session_id)
-        if connection_callback is None:
+        session_key = gateway_config.operation_session_key(session_id)
+        # The gateway attaches the callback to every session, including CLI/TUI sessions. The
+        # surface decides whether a renderer can show a card; only Desktop owns the blocking flow.
+        if connection_callback is None or gateway_config.session_platform() != "desktop":
             return _no_card_result(client, action, connectors, force, session_key)
         return run_operation(
             [Target(n, "connector", action) for n in connectors],

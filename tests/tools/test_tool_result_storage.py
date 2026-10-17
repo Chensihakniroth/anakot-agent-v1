@@ -18,6 +18,7 @@ from tools.tool_result_storage import (
     _write_to_sandbox,
     cleanup_spillover_cache,
     enforce_turn_budget,
+    expired_archive_fields,
     generate_preview,
     get_spillover_dir,
     maybe_persist_tool_result,
@@ -39,6 +40,16 @@ class TestGeneratePreview:
         preview, has_more = generate_preview(text)
         assert preview == text
         assert has_more is False
+
+
+class TestExpiredArchiveFields:
+    def test_marks_only_persisted_result_roots(self):
+        windows_result_path = STORAGE_DIR.replace("/", "\\") + "\\call.txt"
+
+        assert expired_archive_fields(windows_result_path)["expired"] is True
+        assert expired_archive_fields("/tmp/anakot-results/call.txt")["expired"] is True
+        assert expired_archive_fields("/workspace/notes/cache/spillover/call.txt") == {}
+        assert expired_archive_fields("C:\\Users\\me\\notes\\call.txt") == {}
 
 
 # ── _write_to_sandbox ─────────────────────────────────────────────────
@@ -507,11 +518,12 @@ class TestSpillover:
     def test_cleanup_missing_dir_returns_zero(self):
         assert cleanup_spillover_cache() == 0
 
-    def test_first_spill_prunes_expired_files(self):
+    def test_first_spill_prunes_expired_files(self, monkeypatch):
         """The once-per-process prune fires on the first host-side spill."""
         import os
         import time as _time
 
+        import tools.tool_result_storage as trs
         spill_dir = get_spillover_dir()
         spill_dir.mkdir(parents=True, exist_ok=True)
         old = spill_dir / "ancient.txt"

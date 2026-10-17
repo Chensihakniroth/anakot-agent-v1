@@ -91,6 +91,39 @@ export interface Translations {
     disclaimer: string
     execution: string
   }
+  connectorsPage: {
+    tab: string
+    title: string
+    search: string
+    loading: string
+    loadFailed: string
+    retry: string
+    refresh: string
+    connected: string
+    pending: string
+    notConnected: string
+    enable: (name: string) => string
+    disable: (name: string) => string
+    connect: string
+    reconnect: string
+    connectFailed: string
+    waiting: string
+    policyUnavailable: string
+    policyFailed: string
+    policyConflict: string
+    policyReadOnly: string
+    accounts: string
+    noAccounts: string
+    disconnect: string
+    disconnectConfirm: (name: string) => string
+    disconnectFailed: string
+    tools: string
+    refreshTools: string
+    toolsFailed: string
+    noTools: string
+    staleTools: string
+    scopeNote: string
+  }
   sessionImport: {
     title: string
     subtitle: string

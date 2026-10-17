@@ -7,11 +7,15 @@ else a copy in the sandbox temp dir; (3) ``enforce_turn_budget``."""
 
 import hashlib
 import logging
+import math
 import os
+import posixpath
 import re
 import shlex
+import sqlite3
 import threading
 import time
+from tempfile import gettempdir
 
 from tools.budget_config import DEFAULT_PREVIEW_SIZE_CHARS, BudgetConfig, DEFAULT_BUDGET
 
@@ -35,20 +39,86 @@ def get_spillover_dir():
     return get_anakot_home() / SPILLOVER_SUBDIR
 
 
-def cleanup_spillover_cache(max_age_hours: int = SPILLOVER_MAX_AGE_HOURS) -> int:
-    """Delete spillover files older than *max_age_hours*; returns count removed (same
-    contract as the ``cleanup_*_cache`` helpers the gateway housekeeping loop runs hourly)."""
-    cutoff = time.time() - (max_age_hours * 3600)
-    removed = 0
+def _spillover_retention_hours() -> int:
+    """Return the session retention window in hours, with a 24-hour safety floor."""
     try:
-        entries = list(get_spillover_dir().iterdir())
+        from anakot_cli.config import load_config_readonly
+        days = float((load_config_readonly().get("sessions") or {}).get("retention_days", 90))
+        if not math.isfinite(days):
+            return SPILLOVER_MAX_AGE_HOURS
+    except Exception:
+        return SPILLOVER_MAX_AGE_HOURS
+    return max(SPILLOVER_MAX_AGE_HOURS, int(days * 24))
+
+
+# Transcript pointers can be stored as plain text or behind the NUL sentinel used by structured
+# multimodal content. Accept both host-side POSIX paths and Windows paths.
+_SPILLOVER_NAME_RE = re.compile(r"spillover(?:/|\\+)([A-Za-z0-9_.-]+)")
+SPILLOVER_SQL_FILTER = "(instr(content, 'spillover') > 0 OR instr(api_content, 'spillover') > 0)"
+
+
+def spillover_names_in_text(*texts) -> set:
+    """Return spillover archive basenames referenced by transcript text or structured content."""
+    names: set = set()
+    for text in texts:
+        if isinstance(text, str) and "spillover" in text:
+            names.update(_SPILLOVER_NAME_RE.findall(text))
+    return names
+
+
+def referenced_spillover_names(spill_dir) -> set | None:
+    """Return archive names still referenced by the profile's state database.
+
+    ``None`` means the reference set is unknown, so destructive cleanup must fail closed.
+    """
+    db_path = spill_dir.parent.parent / "state.db"
+    if not db_path.exists():
+        return set()
+    try:
+        conn = sqlite3.connect(f"{db_path.resolve().as_uri()}?mode=ro", uri=True, timeout=5.0)
+        try:
+            rows = conn.execute(
+                f"SELECT content, api_content FROM messages WHERE {SPILLOVER_SQL_FILTER} LIMIT 20001"
+            ).fetchall()
+        finally:
+            conn.close()
+    except (OSError, sqlite3.Error, ValueError):
+        return None
+    if len(rows) > 20_000:
+        return None
+    return spillover_names_in_text(*(value for row in rows for value in row))
+
+
+def cleanup_spillover_cache(max_age_hours: int | None = None) -> int:
+    """Delete unreferenced spillover files older than the session retention window.
+
+    An explicit age is retained for tests and legacy callers. Referenced archives are never
+    age-pruned; session deletion retires them through the state ownership fence instead.
+    """
+    age_hours = _spillover_retention_hours() if max_age_hours is None else max_age_hours
+    cutoff = time.time() - (age_hours * 3600)
+    expired = []
+    spill_dir = get_spillover_dir()
+    try:
+        entries = list(spill_dir.iterdir())
     except OSError:
         return 0
     for f in entries:
         try:
             if f.is_file() and f.stat().st_mtime < cutoff:
-                f.unlink()
-                removed += 1
+                expired.append(f)
+        except OSError:
+            pass
+    if not expired:
+        return 0
+    referenced = referenced_spillover_names(spill_dir)
+    removed = 0
+    for f in expired:
+        if referenced is None or f.name in referenced:
+            continue
+        try:
+            f.unlink()
+            removed += 1
         except OSError:
             pass
     return removed
@@ -227,7 +297,9 @@ def _build_persisted_message(preview: str, has_more: bool, original_size: int,
         "Use the read_file tool with offset and limit to access specific sections of this output.\n"
         "Recovery: page through the saved file with read_file (offset/limit) or "
         "process it with execute_code — do NOT re-request the same data from the "
-        "remote API; the full result is already on disk.\n\n"
+        "remote API; the archive is kept while this session's transcript references "
+        "it. If it is missing, inspect the current state before retrying — the call "
+        "that produced it may already have taken effect.\n\n"
         f"Preview (first {len(preview)} chars):\n"
         + preview + ("\n..." if has_more else "")
         + f"\n{PERSISTED_OUTPUT_CLOSING_TAG}")
@@ -242,6 +314,40 @@ def extract_persisted_path(content: str) -> str | None:
     match = (_PERSISTED_PATH_RE.search(content)
              if isinstance(content, str) and PERSISTED_OUTPUT_TAG in content else None)
     return match.group(1).strip() if match else None
+
+
+def expired_archive_fields(path: str) -> dict:
+    """Return read-file fields explaining that a missing persisted-result archive expired.
+
+    Ordinary missing files keep the normal error shape. The extra hint is limited to the two
+    result-storage roots so a similarly named user file is never misclassified.
+    """
+    if not isinstance(path, str):
+        return {}
+
+    def normalized(value: object) -> str:
+        return posixpath.normpath(str(value).replace("\\", "/")).rstrip("/")
+
+    candidate = normalized(path)
+    roots = (get_spillover_dir(), STORAGE_DIR, posixpath.join(gettempdir(), "anakot-results"))
+    casefold = os.name == "nt"
+    candidate_key = candidate.casefold() if casefold else candidate
+    parent = posixpath.dirname(candidate_key)
+    if not any(
+        (normalized(root).casefold() if casefold else normalized(root)) == parent
+        for root in roots
+    ):
+        return {}
+
+    return {
+        "expired": True,
+        "hint": (
+            "This was a persisted tool result archive and it has expired (pruned with its "
+            "session or by the cache sweep); the full output is no longer recoverable. Inspect "
+            "the current state before re-running the original tool — the call that produced it "
+            "may already have taken effect."
+        ),
+    }
 
 
 def maybe_persist_tool_result(content: str, tool_name: str, tool_use_id: str, env=None,

@@ -279,6 +279,8 @@ class SessionMaintenanceMixin:
                                 if self._write_guards_reject(conn, sid, allow_closed_compression_parent=True)}
             if not session_ids:
                 return 0
+            from anakot_state_media import retire_spillover
+            retire_spillover(conn, session_ids)
             # Batched: a cron-heavy store prunes tens of thousands of ids in one call.
             for chunk in _id_chunks(session_ids):
                 ph = _placeholders(chunk)
@@ -289,6 +291,8 @@ class SessionMaintenanceMixin:
             self._delete_unreferenced_system_prompts(conn)
             return len(session_ids)
         count = self._execute_write(_do)
+        from anakot_state_media import collect_retired_spillover
+        collect_retired_spillover(self)
         for sid in removed_ids:
             self._remove_session_files(sessions_dir, sid)
         return count

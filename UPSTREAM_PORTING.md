@@ -129,7 +129,7 @@ for c in json.load(sys.stdin):
 | 836b5f82 | 2026-09-22 | fix(config): user-installed platform plugins feed env-var metadata | SKIPPED | Unsafe in Anakot's multiplexed process: import-time mutation leaks profile-owned names and lets another profile's `reload_env()` delete them; requires a profile-aware env metadata/blocklist redesign |
 | 5c0e73ef | 2026-09-22 | feat(desktop): render plugin-declared settings in Plugins tab | PORTED | Backend half: plugins_settings.py renders config_schema; plugins_state.save_plugin_setting is the shared writer; plugins.manage list carries settings_schema and the new settings action writes it. Desktop form component not ported (see note) |
 | 30de0e01 | 2026-09-22 | fmt(js): `npm run fix` on merge | N/A | Reformats upstream's plugin update-consent block (outcome.kind/'consent', updateConsentConfirm); this tree has no consent flow — the call returns a plain boolean |
-| 70f5dc5f | 2026-09-22 | feat(connectors): backend API for desktop Connectors page | PARTIAL | Owner union (`ConnectorOwner` session\|account), account-scoped handlers, all 10 connector contracts, profile-keyed open-operation table. NOT done: `connectors.tools` portal/ETag cache slice, bundled-MCP `connector:` dedup manifest, desktop Connectors page, Ink `connectionSetupOverlay`. |
+| 70f5dc5f | 2026-09-22 | feat(connectors): backend API for desktop Connectors page | PORTED | Backend portal catalog/accounts/policy handlers and 24-hour ETag tool-list cache are present. Added a native profile-scoped Capabilities → Connectors surface with catalog/state, connect/reconnect, disconnect, forced tool-list refresh, and policy controls. Remaining: bundled-MCP `connector:` dedup/local-server merge and the full upstream account/dialog polish plus Ink `connectionSetupOverlay`. |
 | 966d091d | 2026-09-22 | fix(aux-hooks): tolerate test seams stubbing relay metadata | PORTED | metadata read with str(.get(...) or "") at every call site |
 | 0e580956 | 2026-09-22 | feat(plugins): fire pre/post_auxiliary_call events | PORTED | agent/auxiliary_hooks.py emits the pair at all three relay funnels; registered in VALID_HOOKS + bounded-timeout set + hooks test payloads + docs |
 | 9863e315 | 2026-09-22 | fix(plugins): per-plugin load deadline for hung register() | PORTED | plugins.load_timeout_seconds (default 10s) wraps import+register on a daemon worker; ctx abandoned after overrun, late registrations refused, abandoned loaders capped at 8 |
@@ -203,6 +203,12 @@ for c in json.load(sys.stdin):
 | 9023a4af8 | 2026-10-05 | fix(memory): stage headless single-query writes | PORTED | `_interactive_approval_available()` gates inline prompt on single-query context |
 | ed4c35076 | 2026-10-05 | fix(dashboard-auth): cap request bodies on the public auth routes | PORTED | `AuthBodyLimitMiddleware` (64KB) registered innermost in web_server |
 | 5af47ddcd | 2026-10-05 | fix(compaction): retain oversized typed user text at checkpoint boundary | PORTED | `_input_text_parts_cost` + `_truncate_input_text_parts` in native_compaction.py |
+| 1f1bb5cd | 2026-10-16 | fix(tools): read_file on a pruned spill archive says "expired" | PORTED | `read_file` now distinguishes an expired persisted-result archive from an ordinary missing path, including cached not-found retries; ordinary files keep the normal error shape |
+| 309fddab | 2026-10-16 | fix(tools): spill pointers in structured content and Windows paths count as references | PENDING | Local spillover extraction still only recognizes forward-slash text and age-prunes without a state.db reference scan; requires a profile-scoped ownership-fence adaptation |
+| 6dcf6358 | 2026-10-16 | fix(state): capture spillover pointers in the shared deletion fence | PENDING | Local `SessionDB` has no retired-spillover state-meta fence yet; this must cover canonical delete, bulk delete, prune, and profile-scoped collection before the retention change is complete |
+| b26bb96d | 2026-10-16 | fix(mcp): a lazy server whose first connect failed is not ready | CUSTOM | `tools/mcp_tool_discovery.py::get_mcp_status` already gives failed lazy registrations `failed` precedence over `lazy`, so the false-ready state is covered by Anakot's native status path |
+| 4e0806d5 | 2026-10-16 | fix(approval): skip the execute_code gate only while an approving viewer is attached | CUSTOM | Anakot has no Hermes `SessionAuthority` viewer/subscriber capability boundary; approval visibility is owned by the session-scoped notifier/approval transport, so importing the upstream viewer exemption would guess at attachment state |
+| 073a3af5 | 2026-10-16 | fix(platforms): the terminal secret blocklist reads no plugin files at import (safe mode) | CUSTOM | Anakot's local environment policy uses static/core config registries and does not scan plugin adapter files from `_build_provider_env_blocklist`; the safe-mode import-time file-scan regression does not exist in this architecture |
 
 ---
 
@@ -382,6 +388,22 @@ for c in json.load(sys.stdin):
 - Created this tracking file
 - Pulled latest 100 Hermes commits
 - All commits marked PENDING
+
+### 2026-10-17 — Upstream head refresh (`605e4045934`)
+- Refreshed `upstream/main` from the official Hermes remote. The head is `605e4045934`; the post-`6206f893` window is dominated by platform-registry/plugin loading, approval-surface, MCP lifecycle, spillover retention, and session/update fixes, plus catalog/docs noise.
+- Audited the directly comparable candidates: `1f1bb5cd` is ported below; `309fddab` and `6dcf6358` remain a linked spillover ownership-fence cluster; `b26bb96d`, `4e0806d5`, and `073a3af5` are covered by Anakot-native behavior or intentional architecture differences and are recorded as `CUSTOM`.
+
+### 2026-10-17 — Ported expired persisted-result diagnostics (`1f1bb5cdb5`)
+- Adapted `tools/tool_result_storage.py::expired_archive_fields` and the `read_file` boundary so missing files under the profile's `cache/spillover` or remote result root are marked `expired` with a warning not to blindly rerun the producing call.
+- Enriched both the first miss and the task-local negative-cache retry; ordinary missing paths remain unchanged.
+- Verification: 40 tool-result-storage tests, the focused file-tools integration test, and Python compilation passed. The full file-tools neighbor still has six pre-existing Windows-path/macOS-carveout failures unrelated to this change.
+
+### 2026-10-17 — Continued connector parity (`70f5dc5f`)
+- Verified the existing backend half already includes the portal catalog/accounts/policy RPCs and the profile/member-keyed 24-hour ETag tool-list cache; the missing `connectors.tools` claim in the older row was stale.
+- Added a native profile-scoped Capabilities → Connectors tab. It reads catalog/state/accounts/policy, opens account-owned connect/reconnect operations, polls settlement, disconnects accounts with confirmation, refreshes tool lists, and writes connector/tool policy through the existing RPC contracts.
+- Added pure derivation invariants and a component wiring test; corrected the renderer's stale connection-state/sequence contract fixtures so the desktop TypeScript project is green.
+- Verification: 29 focused Vitest tests passed, desktop typecheck (renderer/Electron/E2E) passed, ESLint passed, production desktop build passed, and 47 connector lifecycle/RPC tests passed across the managed, MCP, operation-RPC, and operation-E2E suites. The E2E fixtures now follow the gateway's asynchronous long-handler responses and account-scoped watcher contract.
+- Remaining for this upstream cluster: bundled-MCP `connector:` dedup/local-server merge, the full upstream account/dialog polish, and Ink `connectionSetupOverlay`.
 
 ---
 

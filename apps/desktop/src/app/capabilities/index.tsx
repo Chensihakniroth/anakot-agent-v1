@@ -16,6 +16,7 @@ import { PanelEmpty } from '../overlays/panel'
 import { PageSearchShell } from '../page-search-shell'
 import type { SetStatusbarItemGroup } from '../shell/statusbar-controls'
 
+import { ConnectorsTab } from './connectors-tab'
 import { McpTab } from './mcp/mcp-tab'
 import { PluginsTab } from './plugins/plugins-tab'
 import { CapabilityScopeSelector, useCapabilityScope } from './scope-selector'
@@ -28,7 +29,7 @@ import { ToolsetsTab } from './toolsets/toolsets-tab'
 
 // Skills Hub browsing lives inside the Skills tab. Legacy `?tab=hub`
 // links fall back to 'skills' via useRouteEnumParam.
-const CAPABILITY_MODES = ['skills', 'toolsets', 'mcp', 'plugins'] as const
+const CAPABILITY_MODES = ['skills', 'toolsets', 'connectors', 'mcp', 'plugins'] as const
 
 type CapabilityMode = (typeof CAPABILITY_MODES)[number]
 
@@ -140,6 +141,7 @@ export function CapabilitiesView({
   // connection is a fresh tab — never one profile's selection, open editor or
   // pending install left standing over another profile's backend.
   const tabContent = {
+    connectors: () => <ConnectorsTab key={`connectors-${scope.key}`} profile={scope.profile} query={query} />,
     // The gateway instance backs ONLY the live `reload.mcp` RPC, and it is the
     // ACTIVE gateway's socket — for a scope pinned to a different backend that
     // RPC would hot-reload the wrong machine's MCP servers, so it is withheld
@@ -181,11 +183,14 @@ export function CapabilitiesView({
       // searching it is noise.
       searchHidden={mode === 'mcp' || mode === 'plugins'}
       searchHints={searchHints}
-      searchPlaceholder={mode === 'skills' ? t.skills.searchSkills : t.skills.searchToolsets}
+      searchPlaceholder={
+        mode === 'skills' ? t.skills.searchSkills : mode === 'connectors' ? t.connectorsPage.search : t.skills.searchToolsets
+      }
       searchValue={query}
       tabs={[
         { id: 'skills', label: t.skills.tabSkills, meta: skills?.length ?? null },
         { id: 'toolsets', label: t.skills.tabToolsets, meta: toolsets ? visibleToolsetCount(toolsets) : null },
+        { id: 'connectors', label: t.connectorsPage.tab },
         { id: 'mcp', label: t.skills.tabMcp },
         { id: 'plugins', label: t.skills.tabPlugins }
       ]}

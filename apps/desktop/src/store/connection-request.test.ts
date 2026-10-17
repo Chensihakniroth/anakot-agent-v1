@@ -20,6 +20,7 @@ import { $gateway } from './gateway'
 const WIRE = {
   deadline_at: 1_800_000_000,
   op_id: 'op-1',
+  seq: 0,
   tool_call_id: 'call-1',
   timeout_seconds: 120,
   targets: [
@@ -50,6 +51,8 @@ function frame(
   return {
     deadline_at: WIRE.deadline_at,
     op_id: 'op-1',
+    owner: { session_id: 's1', type: 'session' },
+    seq: 1,
     settled: false,
     settled_by: null,
     targets: WIRE.targets.map(target => ({ ...target, state: states[target.name] ?? target.state })),
@@ -72,6 +75,7 @@ describe('connection-request store', () => {
 
     expect(parsed?.deadlineAt).toBe(WIRE.deadline_at)
     expect(parsed?.opId).toBe('op-1')
+    expect(parsed?.seq).toBe(WIRE.seq)
     expect(parsed?.targets.map(t => [t.name, t.kind, t.state])).toEqual([
       ['gmail', 'connector', 'pending'],
       ['notion', 'connector', 'pending']
@@ -102,6 +106,7 @@ describe('connection-request store', () => {
     const overlaid = applyOperationStatus(req, {
       deadline_at: WIRE.deadline_at,
       op_id: 'op-1',
+      seq: 1,
       settled: false,
       settled_by: null,
       targets: [
@@ -135,6 +140,24 @@ describe('connection-request store', () => {
     expect(settled.settledBy).toBe('deadline')
     expect(settled.targets.every(target => target.state === 'not_connected')).toBe(true)
     expect(applyConnectionUpdate(settled, frame({ gmail: 'connected' }))).toBe(settled)
+  })
+
+  it('ignores a lower sequence frame even when its state is newer-looking', () => {
+    const req = applyOperationStatus(request('a'), {
+      deadline_at: WIRE.deadline_at,
+      op_id: 'op-1',
+      seq: 3,
+      settled: false,
+      settled_by: null,
+      targets: WIRE.targets.map(target => ({ ...target, state: target.name === 'gmail' ? 'connected' : target.state }))
+    })
+
+    const stale = applyConnectionUpdate(req, frame({ gmail: 'pending' }, { seq: 2 }))
+
+    expect(stale).toBe(req)
+
+    expect(stale.seq).toBe(3)
+    expect(stale.targets[0].state).toBe('connected')
   })
 
   it('updateConnectionRequest writes the store only when something changed', () => {
@@ -173,7 +196,7 @@ describe('connection-request store', () => {
 
     expect(await skipConnectionTarget(req, 'notion')).toBe(true)
     expect(rpc.mock.calls[0][0]).toBe('connection.respond')
-    expect(rpc.mock.calls[0][1]).toMatchObject({ op_id: 'op-1', session_id: 'a' })
+    expect(rpc.mock.calls[0][1]).toMatchObject({ op_id: 'op-1', owner: { session_id: 'a', type: 'session' } })
     expect(rpc.mock.calls[0][1].result).toEqual({ targets: [{ name: 'notion', status: 'skipped' }] })
     expect($connectionRequests.get().a).toBeDefined()
 

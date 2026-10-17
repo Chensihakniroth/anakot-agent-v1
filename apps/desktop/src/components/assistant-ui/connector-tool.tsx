@@ -1,5 +1,5 @@
-import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import type { ConnectionTargetState } from '@anakot/shared'
+import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useState } from 'react'
 
@@ -148,8 +148,7 @@ const CONNECTOR_CARD_PHASES = {
   initiated: { mark: 'waiting', resolved: false, settled: notConnected, verb: 'open' },
   not_connected: { mark: 'idle', resolved: false, settled: notConnected, verb: 'none' },
   pending: { mark: 'idle', resolved: false, settled: notConnected, verb: 'open' },
-  skipped: { mark: 'idle', resolved: true, settled: skipped, verb: 'none' },
-  unavailable: { mark: 'idle', resolved: true, settled: notConnected, verb: 'none' }
+  skipped: { mark: 'idle', resolved: true, settled: skipped, verb: 'none' }
 } satisfies Record<ConnectionTargetState, ConnectorCardPhase>
 
 const MARK_LABEL = {
@@ -176,14 +175,18 @@ export function ConnectorOffer({ owner, request }: ConnectorOfferProps) {
     setReissuing(current => new Set(current).add(target.name))
 
     try {
+      if (!request.sessionId) {
+        throw new Error(copy.ownerMissing)
+      }
+
       const reply = await requestGatewayForAgent<ToolCallMessagePartProps['result']>(
         owner.connectionId,
         owner.profile,
         'connectors.connect',
         {
           connectors: [target.name],
+          owner: { session_id: request.sessionId, type: 'session' },
           reconnect: true,
-          session_id: request.sessionId
         },
         45000
       )

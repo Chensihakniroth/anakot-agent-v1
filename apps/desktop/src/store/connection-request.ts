@@ -39,15 +39,15 @@ export interface ConnectionRequest {
   settledBy: ConnectionSettleReason | null
   /** Local receipt time (Unix seconds), used to reject stale resume cleanup. */
   receivedAt?: number
+  /** Backend snapshot sequence; lower frames are stale and must not regress the card. */
+  seq: number
   sessionId: string | null
 }
 
 /** Answers the card may give for one target. Anything else the backend refuses (4002). */
 export type ConnectionTargetOutcome =
-  | { name: string; status: 'skipped' }
-  | { name: string; status: 'connected'; tools?: string[] }
-  | { name: string; status: 'initiated' }
-  | { name: string; status: 'failed'; detail?: string }
+  | { detail?: string; name: string; status: 'skipped' }
+  | { detail?: string; name: string; status: 'approved' }
 
 export interface ConnectionOutcome {
   targets?: ConnectionTargetOutcome[]
@@ -69,12 +69,11 @@ const TARGET_STATES: readonly ConnectionTargetState[] = [
   'initiated',
   'not_connected',
   'pending',
-  'skipped',
-  'unavailable'
+  'skipped'
 ]
 
 const ACTIONS: readonly ConnectionTargetAction[] = ['authorize', 'connect', 'enable', 'install', 'reconnect']
-const SETTLE_REASONS: readonly ConnectionSettleReason[] = ['all_resolved', 'continue', 'deadline', 'interrupt', 'unavailable']
+const SETTLE_REASONS: readonly ConnectionSettleReason[] = ['all_resolved', 'continue', 'deadline', 'interrupt']
 
 // The wire carries these as typed literals already; the lookups defend against a backend a version ahead.
 const oneOf =
@@ -124,6 +123,7 @@ export function normalizeConnectionRequest(
     deadlineAt: payload.deadline_at,
     opId: payload.op_id,
     receivedAt: Date.now() / 1000,
+    seq: payload.seq,
     sessionId,
     settled: false,
     settledBy: null,
@@ -134,7 +134,7 @@ export function normalizeConnectionRequest(
 
 /** Overlay the authoritative `connectors.operation.status` snapshot on the cached request. */
 export function applyOperationStatus(request: ConnectionRequest, status: ConnectionOperationStatus): ConnectionRequest {
-  if (status.op_id !== request.opId) {
+  if (status.op_id !== request.opId || status.seq < request.seq) {
     return request
   }
 
@@ -150,12 +150,15 @@ export function applyOperationStatus(request: ConnectionRequest, status: Connect
 
   // Same reference on a no-op so subscribers do not re-render for an identical frame.
   const unchanged =
+    request.seq === status.seq &&
     request.deadlineAt === status.deadline_at &&
     request.settled === status.settled &&
     request.settledBy === settledBy &&
     targets.every((target, index) => target === request.targets[index])
 
-  return unchanged ? request : { ...request, deadlineAt: status.deadline_at, settled: status.settled, settledBy, targets }
+  return unchanged
+    ? request
+    : { ...request, deadlineAt: status.deadline_at, settled: status.settled, settledBy, seq: status.seq, targets }
 }
 
 function mergeLiveTarget(target: ConnectionTarget, live: ConnectionOperationTarget): ConnectionTarget {
@@ -241,15 +244,16 @@ export const hasConnectionRequest = (sessionId: string | null | undefined): bool
  *  and the card re-renders from that; only settlement removes it. */
 export async function respondToConnectionRequest(request: ConnectionRequest, outcome: ConnectionOutcome): Promise<boolean> {
   const current = $connectionRequests.get()[keyFor(request.sessionId)]
+  const gateway = $gateway.get()
 
-  if (!current || current.opId !== request.opId || current.settled) {
+  if (!current || current.opId !== request.opId || current.settled || !current.sessionId || !gateway) {
     return false
   }
 
-  await $gateway.get()?.request('connection.respond', {
+  await gateway.request('connection.respond', {
     op_id: request.opId,
     result: outcome,
-    session_id: request.sessionId
+    owner: { session_id: current.sessionId, type: 'session' }
   })
 
   return true

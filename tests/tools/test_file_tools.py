@@ -6,6 +6,8 @@ handling without requiring a running terminal environment.
 
 import json
 import logging
+import os
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,6 +19,64 @@ from tools.file_tools import (
 
 
 class TestReadFileHandler:
+    @patch("tools.file_tools._read_extracted_document", return_value=None)
+    @patch("tools.file_tools._resolve_path_for_task")
+    @patch("tools.file_tools._get_file_ops")
+    def test_missing_persisted_result_is_marked_expired(
+        self, mock_get, mock_resolve, _mock_extract, monkeypatch
+    ):
+        from tools import tool_result_storage as storage
+
+        mock_resolve.return_value = Path("/tmp/anakot/cache/spillover/expired.txt")
+        monkeypatch.setattr(storage, "get_spillover_dir", lambda: Path("/tmp/anakot/cache/spillover"))
+        mock_ops = MagicMock()
+        result_obj = MagicMock()
+        result_obj.content = ""
+        result_obj.to_dict.return_value = {
+            "error": "File not found: expired.txt",
+            "similar_files": ["nearby.txt"],
+        }
+        mock_ops.read_file.return_value = result_obj
+        mock_get.return_value = mock_ops
+
+        first = json.loads(read_file_tool("expired.txt", task_id="expired-archive-test"))
+        second = json.loads(read_file_tool("expired.txt", task_id="expired-archive-test"))
+
+        assert first["expired"] is True
+        assert second["error"] == first["error"]
+        assert second["similar_files"] == ["nearby.txt"]
+        assert second["expired"] is True
+        assert mock_ops.read_file.call_count == 1
+        assert "has expired" in second["hint"]
+
+    def test_real_pruned_archive_read_reports_expired(self, tmp_path, monkeypatch):
+        """A deleted persisted-result archive is not mistaken for an ordinary typo."""
+        monkeypatch.setenv("TERMINAL_CWD", str(tmp_path))
+        monkeypatch.chdir(tmp_path)
+        from tools.tool_result_storage import extract_persisted_path, maybe_persist_tool_result
+
+        persisted = maybe_persist_tool_result(
+            content="z" * 50_000,
+            tool_name="terminal",
+            tool_use_id="file-tools-expired-integration",
+            env=None,
+            threshold=30_000,
+        )
+        path = extract_persisted_path(persisted)
+        assert path
+        os.remove(path)
+
+        expired = json.loads(read_file_tool(path, task_id="expired-archive-integration"))
+        plain = json.loads(
+            read_file_tool(str(tmp_path / "nope.txt"), task_id="expired-archive-integration")
+        )
+
+        assert expired["error"].startswith("File not found:")
+        assert expired["expired"] is True
+        assert "expired" in expired["hint"]
+        assert "expired" not in plain
+        assert "expired" not in (plain.get("hint") or "")
+
     @patch("tools.file_tools._get_file_ops")
     def test_returns_file_content(self, mock_get):
         mock_ops = MagicMock()

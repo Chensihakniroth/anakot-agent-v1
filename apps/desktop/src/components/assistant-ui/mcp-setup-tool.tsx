@@ -4,13 +4,13 @@ import { type ToolCallMessagePartProps, useAuiState } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useState } from 'react'
 
+import { getActionStatus, getMcpCatalog, installMcpCatalogEntry, type McpCatalogEntry, setMcpServerEnabled } from '@/anakot'
 import { capabilityScoped } from '@/api/client'
 import { useSessionView } from '@/app/chat/session-view'
 import { ToolFallback } from '@/components/assistant-ui/tool/fallback'
 import { WIDGET_SHELL_CLASS } from '@/components/chat/widget-shell'
 import { Button } from '@/components/ui/button'
 import { ConnectorCard, ConnectorRow, type ConnectorRowMark, ConnectorSummary } from '@/components/ui/connector-card'
-import { getActionStatus, getMcpCatalog, installMcpCatalogEntry, type McpCatalogEntry, setMcpServerEnabled } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { connectorText, type McpTarget, mcpTargets } from '@/lib/connector-tools'
 import { triggerHaptic } from '@/lib/haptics'
@@ -61,8 +61,7 @@ const DONE = {
 } satisfies Record<SetupAction, (copy: SetupCopy, server: string) => string>
 
 // Mirrors `RESOLVED_STATES` in tools/connectors/contract.py.
-const resolved = (target: ConnectionTarget): boolean =>
-  target.state === 'connected' || target.state === 'skipped' || target.state === 'unavailable'
+const resolved = (target: ConnectionTarget): boolean => target.state === 'connected' || target.state === 'skipped'
 
 function readSetupAction(args: unknown): SetupAction {
   const [target] = mcpTargets('manage_connections', parseMaybeObject(args))
@@ -212,7 +211,7 @@ function McpSetupRow({ action, copy, request, single, target }: McpSetupRowProps
       return
     }
 
-    if (outcome.status === 'connected') {
+    if (outcome.status === 'approved') {
       invalidateMcpSuggestionIndex()
     }
 
@@ -231,16 +230,16 @@ function McpSetupRow({ action, copy, request, single, target }: McpSetupRowProps
       if (action === 'enable') {
         await setMcpServerEnabled(server, true)
         triggerHaptic('submit')
-        await respond({ name: server, status: 'connected' })
+        await respond({ name: server, status: 'approved' })
 
         return
       }
 
       if (action === 'authorize') {
-        const flow = await completeMcpDesktopOAuth({ serverName: server, profile: oauthScope })
+        await completeMcpDesktopOAuth({ serverName: server, profile: oauthScope })
 
         triggerHaptic('submit')
-        await respond({ name: server, status: 'connected', tools: (flow.tools ?? []).map(tool => tool.name) })
+        await respond({ name: server, status: 'approved' })
 
         return
       }
@@ -254,7 +253,7 @@ function McpSetupRow({ action, copy, request, single, target }: McpSetupRowProps
       }
 
       if (!catalogEntry) {
-        await respond({ detail: copy.notInCatalog(server), name: server, status: 'failed' })
+        await respond({ detail: copy.notInCatalog(server), name: server, status: 'skipped' })
 
         return
       }
@@ -287,7 +286,7 @@ function McpSetupRow({ action, copy, request, single, target }: McpSetupRowProps
       }
 
       triggerHaptic('submit')
-      await respond({ name: server, status: 'connected' })
+      await respond({ name: server, status: 'approved' })
     } catch (error) {
       // The user closed the sign-in window; the row simply offers again.
       if (error instanceof McpOAuthCancelled) {
@@ -298,7 +297,7 @@ function McpSetupRow({ action, copy, request, single, target }: McpSetupRowProps
       await respond({
         detail: error instanceof Error ? error.message : String(error),
         name: server,
-        status: 'failed'
+        status: 'skipped'
       })
     } finally {
       setWorking(false)

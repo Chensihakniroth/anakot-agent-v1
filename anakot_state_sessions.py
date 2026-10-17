@@ -159,6 +159,9 @@ def _collect_delegate_child_ids(conn, parent_ids: List[str]) -> List[str]:
 
 def _delete_delegate_children(conn, parent_ids: List[str]) -> List[str]:
     ids = _collect_delegate_child_ids(conn, parent_ids)
+    if ids:
+        from anakot_state_media import retire_spillover
+        retire_spillover(conn, ids)
     for chunk in _id_chunks(ids):
         ph = _session_ids_placeholders(chunk)
         conn.execute(f"DELETE FROM messages WHERE session_id IN ({ph})", chunk)
@@ -1507,6 +1510,8 @@ class SessionSessionsMixin:
                 session_id, *_collect_delegate_child_ids(conn, [session_id])
             }:
                 return False
+            from anakot_state_media import retire_spillover
+            retire_spillover(conn, [session_id])
             removed_ids.extend(_delete_delegate_children(conn, [session_id]))
             conn.execute(  # orphan remaining children (branches) so FK is satisfied
                 "UPDATE sessions SET parent_session_id = NULL WHERE parent_session_id = ?", (session_id,),
@@ -1517,6 +1522,8 @@ class SessionSessionsMixin:
             removed_ids.append(session_id)
             return True
         deleted = self._execute_write(_do)
+        from anakot_state_media import collect_retired_spillover
+        collect_retired_spillover(self)
         for sid in removed_ids:
             self._remove_session_files(sessions_dir, sid)
         return bool(deleted)
@@ -1561,6 +1568,8 @@ class SessionSessionsMixin:
             ).fetchall()]
             if not existing:
                 return 0
+            from anakot_state_media import retire_spillover
+            retire_spillover(conn, existing)
             removed_ids.extend(_delete_delegate_children(conn, existing))
             for chunk in _id_chunks(existing):
                 ph = _session_ids_placeholders(chunk)
@@ -1573,6 +1582,8 @@ class SessionSessionsMixin:
             removed_ids.extend(existing)
             return len(existing)
         count = self._execute_write(_do)
+        from anakot_state_media import collect_retired_spillover
+        collect_retired_spillover(self)
         for sid in removed_ids:
             self._remove_session_files(sessions_dir, sid)
         return count

@@ -13,6 +13,7 @@ const SESSION_ID = 'session-1'
 const REQUEST: ConnectionRequest = {
   deadlineAt: 1_800_000_000,
   opId: 'operation-1',
+  seq: 0,
   toolCallId: 'mcp-call-1',
   sessionId: SESSION_ID,
   settled: false,

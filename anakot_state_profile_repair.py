@@ -235,13 +235,19 @@ class SessionProfileRepairMixin:
         def _do(conn) -> bool:
             if conn.execute("SELECT 1 FROM sessions WHERE id = ?", (session_id,)).fetchone() is None:
                 return False
+            from anakot_state_media import retire_spillover
+            retire_spillover(conn, [session_id])
             conn.execute("UPDATE sessions SET parent_session_id = NULL WHERE parent_session_id = ?", (session_id,))
             conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
             conn.execute("DELETE FROM session_model_usage WHERE session_id = ?", (session_id,))
             conn.execute("DELETE FROM sessions WHERE id = ?", (session_id,))
             self._delete_unreferenced_system_prompts(conn)
             return True
-        return bool(self._execute_write(_do))
+        result = bool(self._execute_write(_do))
+        if result:
+            from anakot_state_media import collect_retired_spillover
+            collect_retired_spillover(self)
+        return result
 
     # ── routing index ─────────────────────────────────────────────────────────
 

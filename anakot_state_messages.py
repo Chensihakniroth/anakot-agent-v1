@@ -560,11 +560,16 @@ class SessionMessagesMixin:
                 # FTS triggers don't fire on `active`: replaced turns stay searchable (include_inactive=True).
                 conn.execute("UPDATE messages SET active = 0 WHERE session_id = ? AND active = 1", (session_id,))
             else:
+                from anakot_state_media import retire_spillover
+                retire_spillover(conn, [session_id])
                 conn.execute(f"DELETE FROM messages WHERE session_id = ?{' AND active = 1' if active_only else ''}", (session_id,))
             conn.execute(_RESET_COUNTERS_SQL, (session_id,))
             total_messages, total_tool_calls = self._insert_message_rows(conn, session_id, messages)
             conn.execute(f"{_SET_COUNTERS_SQL} WHERE id = ?", (total_messages, total_tool_calls, session_id))
         self._execute_write(_do)
+        if not archive_dropped:
+            from anakot_state_media import collect_retired_spillover
+            collect_retired_spillover(self)
 
     def has_archived_messages(self, session_id: str) -> bool:
         """True if the session has any soft-archived (``active = 0``) rows (tests/diagnostics).
@@ -1379,9 +1384,13 @@ class SessionMessagesMixin:
     def clear_messages(self, session_id: str) -> None:
         """Delete all messages for a session and reset its counters."""
         def _do(conn):
+            from anakot_state_media import retire_spillover
+            retire_spillover(conn, [session_id])
             conn.execute("DELETE FROM messages WHERE session_id = ?", (session_id,))
             conn.execute(_RESET_COUNTERS_SQL, (session_id,))
         self._execute_write(_do)
+        from anakot_state_media import collect_retired_spillover
+        collect_retired_spillover(self)
 
     def purge_stale_tool_call_markers(self, *, dry_run: bool = False, backup: bool = True) -> Dict[str, Any]:
         """Permanently clear bare tool-call marker content ("[memory]") left by pre-fix sessions

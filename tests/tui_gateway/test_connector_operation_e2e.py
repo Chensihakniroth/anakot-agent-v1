@@ -87,11 +87,12 @@ class FakeConnectorClient:
             for name in ("gmail", "notion")
         ]
 
-    def connections(self, connectors, *, reinitiate=False):
+    def connections(self, connectors, *, reinitiate=False, **_kwargs):
         return {
             "results": [
                 {
                     "connector": name,
+                    "connection_id": f"account-{name}",
                     "status": "initiated",
                     "connect_url": f"https://connect.example/{name}",
                     "reinitiated": reinitiate,
@@ -99,6 +100,12 @@ class FakeConnectorClient:
                 for name in connectors
             ]
         }
+
+    def account_status(self, connection_id, *, timeout):
+        name = str(connection_id).removeprefix("account-")
+        with self._lock:
+            connected = name in self._connected
+        return {"status": "active" if connected else "pending"}
 
     def set_connected(self, name):
         with self._lock:
@@ -132,6 +139,9 @@ def owned_session(monkeypatch, tmp_path):
 
 
 def _rpc(client, method, **params):
+    with client._frames_lock:
+        start = len(client.frames)
+
     response = server.dispatch(
         {
             "jsonrpc": "2.0",
@@ -141,8 +151,18 @@ def _rpc(client, method, **params):
         },
         client.transport,
     )
-    assert response is not None
-    return response
+    if response is not None:
+        return response
+
+    deadline = time.monotonic() + 5
+    while time.monotonic() < deadline:
+        with client._frames_lock:
+            response = next((frame for frame in client.frames[start:] if frame.get("id") == 7), None)
+        if response is not None:
+            return response
+        time.sleep(0.01)
+
+    pytest.fail(f"RPC response was not written for {method}")
 
 
 def test_desktop_connect_settles_through_callback_response(owned_session, monkeypatch):

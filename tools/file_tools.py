@@ -635,6 +635,16 @@ def read_file_tool(path: str, offset: int = 1, limit: int = DEFAULT_READ_LIMIT, 
         resolved_str = str(_resolved)
         cached_not_found = _check_not_found_cache("read", resolved_str, task_id)
         if cached_not_found is not None:
+            from tools.tool_result_storage import expired_archive_fields
+            fields = expired_archive_fields(resolved_str)
+            if fields:
+                try:
+                    cached_payload = json.loads(cached_not_found)
+                    if isinstance(cached_payload, dict):
+                        cached_payload.update(fields)
+                        return json.dumps(cached_payload, ensure_ascii=False)
+                except (TypeError, ValueError):
+                    pass
             return cached_not_found
 
         # Dedup: identical (path, offset, limit) on an unchanged file returns a
@@ -662,6 +672,8 @@ def read_file_tool(path: str, offset: int = 1, limit: int = DEFAULT_READ_LIMIT, 
         # error results still flow through the tracking below unchanged.
         _err = result_dict.get("error") or ""
         if isinstance(_err, str) and _err.startswith("File not found:"):
+            from tools.tool_result_storage import expired_archive_fields
+            result_dict.update(expired_archive_fields(resolved_str))
             _record_not_found("read", resolved_str, task_id, json.dumps(result_dict, ensure_ascii=False))
 
         # Char budget on the FORMATTED content (what enters context), BEFORE
