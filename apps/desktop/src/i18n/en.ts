@@ -1417,6 +1417,14 @@ export const en: Translations = {
       vram: label => `${label} GPU memory`,
       ram: label => `${label} RAM`,
       unifiedMemory: 'Unified memory',
+      storageTitle: 'Model storage',
+      storageDetail:
+        'Choose another drive for downloaded GGUF files. Existing managed model files move to the new folder automatically.',
+      storageChoose: 'Change location',
+      storageMoving: 'Moving models…',
+      storagePickerTitle: 'Choose model storage folder',
+      storageUpdated: path => `Model storage is now ${path}.`,
+      storageUpdateFailed: 'Could not change model storage location',
       modelsTitle: 'Models',
       recommended: 'Recommended',
       /* The Recommended badge's tooltip, keyed by the resolver branch that

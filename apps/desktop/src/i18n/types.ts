@@ -1238,6 +1238,13 @@ export interface Translations {
       vram: (label: string) => string
       ram: (label: string) => string
       unifiedMemory: string
+      storageTitle: string
+      storageDetail: string
+      storageChoose: string
+      storageMoving: string
+      storagePickerTitle: string
+      storageUpdated: (path: string) => string
+      storageUpdateFailed: string
       modelsTitle: string
       recommended: string
       /** Recommended-badge tooltip by resolver branch; unknown keys (newer

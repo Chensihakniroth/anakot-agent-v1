@@ -2,9 +2,6 @@ import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
-import { NEW_CHAT_ROUTE } from '@/app/routes'
-import { Button } from '@/components/ui/button'
-import { Tip } from '@/components/ui/tooltip'
 import {
   activateLocalModel,
   deleteLocalModel,
@@ -19,10 +16,15 @@ import {
   listHFRepoFiles,
   quickstartLocalModels,
   searchHFModels,
+  setLocalModelsLocation,
   setLocalServer,
   sideloadLocalModel
 } from '@/anakot'
+import { NEW_CHAT_ROUTE } from '@/app/routes'
+import { Button } from '@/components/ui/button'
+import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
+import { selectDesktopPaths } from '@/lib/desktop-fs'
 import {
   Check,
   CheckCircle2,
@@ -96,6 +98,7 @@ export function LocalModelsSettings() {
   const [catalog, setCatalog] = useState<LocalCatalogModel[] | null>(null)
   const [deleting, setDeleting] = useState<null | string>(null)
   const [serverBusy, setServerBusy] = useState(false)
+  const [locationBusy, setLocationBusy] = useState(false)
   // Quickstart escape hatch: true once the user asks for the full pane
   // (model list, HF browser) instead of the one-button setup card.
   const [configure, setConfigure] = useState(() => $localRuntimeInstallStarting.get())
@@ -230,6 +233,38 @@ export function LocalModelsSettings() {
       notifyError(err, action === 'stop' ? copy.serverStopFailed : copy.serverStartFailed)
     } finally {
       setServerBusy(false)
+    }
+  }
+
+  async function handleChooseLocation() {
+    setLocationBusy(true)
+
+    try {
+      const paths = await selectDesktopPaths({
+        defaultPath: status?.models_dir,
+        directories: true,
+        multiple: false,
+        title: copy.storagePickerTitle
+      })
+
+      const selected = paths[0]
+
+      if (!selected) {
+        return
+      }
+
+      const result = await setLocalModelsLocation(selected)
+      notify({
+        durationMs: 4_000,
+        kind: 'success',
+        message: copy.storageUpdated(result.models_dir),
+        title: copy.title
+      })
+      refresh()
+    } catch (err) {
+      notifyError(err, copy.storageUpdateFailed)
+    } finally {
+      setLocationBusy(false)
     }
   }
 
@@ -547,6 +582,20 @@ export function LocalModelsSettings() {
             {copy.hardwareLoading}
           </p>
         )}
+      </SettingsSection>
+
+      {/* ── Model storage ── */}
+      <SettingsSection icon={FolderOpen} title={copy.storageTitle}>
+        <ListRow
+          action={
+            <Button disabled={locationBusy} onClick={() => void handleChooseLocation()} size="sm" variant="outline">
+              {locationBusy ? <Loader2 className="animate-spin" /> : <FolderOpen />}
+              {locationBusy ? copy.storageMoving : copy.storageChoose}
+            </Button>
+          }
+          description={copy.storageDetail}
+          title={<span className="break-all font-mono text-[0.78rem]">{status.models_dir}</span>}
+        />
       </SettingsSection>
 
       {/* ── Models ── */}

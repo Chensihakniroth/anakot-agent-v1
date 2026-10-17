@@ -8,10 +8,12 @@ import-light: callers gate on config before importing so disabled sessions never
 from __future__ import annotations
 
 from contextlib import suppress
+import json
 import logging
 import os
 import signal
 import subprocess
+import threading
 import time
 from pathlib import Path
 
@@ -21,6 +23,8 @@ from anakot_cli.local_runtime.gguf import SPLIT_PART_RE, model_id_from_stem
 logger = logging.getLogger(__name__)
 
 _SUPERVISOR = None  # process-wide singleton; one router per Anakot process
+_MODEL_LOCATION_LOCK = threading.RLock()
+_MODEL_LOCATION_FILE = "models-location.json"
 
 
 def _detect_gpu_vendor() -> str | None:
@@ -41,12 +45,81 @@ def _detect_gpu_vendor() -> str | None:
     return None
 
 
-def models_dir() -> Path:
-    """Machine-scoped, deliberately NOT profile-scoped: a 20 GB GGUF is a machine asset, and every
-    profile shares the one managed server that serves it (same rule as runtimes_root())."""
+def default_models_dir() -> Path:
+    """The original machine-scoped model location under the Anakot data root."""
     from anakot_constants import get_default_anakot_root
 
     return get_default_anakot_root() / "models"
+
+
+def _models_location_path() -> Path:
+    """Machine-scoped pointer for a user-selected model directory.
+
+    This deliberately lives beside the shared runtime root rather than in a profile's
+    ``config.yaml``. The llama-server and its model library are shared by every profile;
+    storing the pointer in a profile would make switching profiles silently point the
+    same server at a different drive.
+    """
+    from anakot_constants import get_default_anakot_root
+
+    return get_default_anakot_root() / _MODEL_LOCATION_FILE
+
+
+def _normalize_models_dir(value: str | Path | None) -> Path:
+    """Resolve a user-selected model directory without requiring it to exist yet."""
+    if value is None or not str(value).strip():
+        return default_models_dir()
+    raw = os.path.expandvars(os.path.expanduser(str(value).strip()))
+    candidate = Path(raw)
+    if not candidate.is_absolute():
+        raise ValueError("Model storage location must be an absolute path")
+    try:
+        return candidate.resolve(strict=False)
+    except OSError:
+        return Path(os.path.abspath(candidate))
+
+
+def models_dir() -> Path:
+    """Machine-scoped model directory shared by every profile and managed server.
+
+    Existing installations keep using ``<Anakot root>/models`` until the user chooses
+    another directory in Local Models. A corrupt or unreadable pointer fails closed to
+    that original location rather than making the runtime disappear.
+    """
+    default = default_models_dir()
+    with _MODEL_LOCATION_LOCK:
+        try:
+            data = json.loads(_models_location_path().read_text(encoding="utf-8"))
+            configured = data.get("models_dir") if isinstance(data, dict) else None
+            return _normalize_models_dir(configured) if configured else default
+        except (OSError, ValueError, TypeError, json.JSONDecodeError):
+            return default
+
+
+def set_models_dir(value: str | Path | None) -> Path:
+    """Persist the shared model location and create the destination directory.
+
+    ``None``/empty resets to the historical default. The caller owns any migration of
+    already-staged files; this function only changes the machine-wide pointer.
+    """
+    target = _normalize_models_dir(value)
+    try:
+        target.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        raise ValueError(f"Could not create model storage directory: {target}") from exc
+    if not target.is_dir():
+        raise ValueError(f"Model storage path is not a directory: {target}")
+
+    location = _models_location_path()
+    with _MODEL_LOCATION_LOCK:
+        location.parent.mkdir(parents=True, exist_ok=True)
+        if target == default_models_dir():
+            location.unlink(missing_ok=True)
+        else:
+            from utils import atomic_json_write
+
+            atomic_json_write(location, {"models_dir": str(target)}, indent=2, sort_keys=True)
+    return target
 
 
 def assets_dir() -> Path:

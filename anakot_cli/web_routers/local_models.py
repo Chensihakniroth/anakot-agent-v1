@@ -43,6 +43,7 @@ router = APIRouter()
 
 _JOBS: Dict[str, Dict[str, Any]] = {}
 _JOBS_LOCK = threading.Lock()
+_MODEL_LOCATION_MUTATION_LOCK = threading.Lock()
 # One quickstart at a time: the job sequences installs, downloads, a server bounce and a config write — two
 # racing runs would interleave all four. Held for the job's lifetime, released in the worker.
 _QUICKSTART_LOCK = threading.Lock()
@@ -85,6 +86,10 @@ class BrowsedDownloadBody(BaseModel):
 
 class SideloadBody(BaseModel):
     path: str                   # absolute path to a .gguf on this machine
+
+
+class ModelLocationBody(BaseModel):
+    path: str                   # absolute directory for managed GGUF downloads
 
 
 def _human_gb(n: int | float) -> str:
@@ -298,6 +303,65 @@ def _variant_files_on_disk(model_id: str) -> "list[Path]":
     return files
 
 
+def _same_or_nested(path: Path, root: Path) -> bool:
+    """Whether *path* is *root* or sits below it, using resolved paths when possible."""
+    try:
+        path.resolve(strict=False).relative_to(root.resolve(strict=False))
+        return True
+    except (ValueError, OSError):
+        return False
+
+
+def _model_storage_files(root: Path) -> list[Path]:
+    """Files managed by the model library and safe to migrate between locations."""
+    if not root.is_dir():
+        return []
+    files = [p for pattern in ("*.gguf", "*.part") for p in root.glob(pattern) if p.is_file()]
+    assets = root / "assets"
+    if assets.is_dir():
+        files.extend(p for p in assets.rglob("*") if p.is_file())
+    return sorted(files)
+
+
+def _move_model_storage(source: Path, target: Path) -> int:
+    """Move staged model files, rolling back already-moved files on failure."""
+    if source == target:
+        return 0
+    if _same_or_nested(target, source) or _same_or_nested(source, target):
+        raise ValueError("Model storage directories cannot contain one another")
+
+    files = _model_storage_files(source)
+    target.mkdir(parents=True, exist_ok=True)
+    moves: list[tuple[Path, Path]] = []
+    for src in files:
+        dest = target / src.relative_to(source)
+        if dest.exists():
+            raise FileExistsError(f"Model storage already contains {dest.name}")
+        moves.append((src, dest))
+
+    moved: list[tuple[Path, Path]] = []
+    try:
+        for src, dest in moves:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(str(src), str(dest))
+            moved.append((src, dest))
+    except Exception:
+        for src, dest in reversed(moved):
+            with contextlib.suppress(OSError):
+                src.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(dest), str(src))
+        raise
+    return len(moved)
+
+
+def _storage_jobs_running() -> bool:
+    with _JOBS_LOCK:
+        return any(
+            job["status"] == "running" and job["kind"] in {"model-download", "quickstart"}
+            for job in _JOBS.values()
+        )
+
+
 def _probe_range_support(url: str) -> int:
     """Total size when the server honors Range requests, else 0. 401/403 = gated repo or wrong catalog
     repo — raise a plain-language message, not a bare status."""
@@ -489,6 +553,83 @@ def local_models_status():
         "models": [_staged_row(gguf) for gguf in bootstrap.staged_models()] if mdir.exists() else [],
         "models_dir": str(mdir),
     }
+
+
+@router.post("/api/local-models/location")
+def local_models_location(body: ModelLocationBody):
+    """Change the machine-wide model directory and migrate staged model files safely.
+
+    The model directory is shared by all profiles. Existing GGUFs move with the
+    setting, so changing drives does not make a user's library disappear. A running
+    server owned by another Anakot process is left untouched and the change is
+    rejected rather than moving files out from under it.
+    """
+    if _storage_jobs_running():
+        raise HTTPException(status_code=409, detail="Wait for the current model download to finish")
+    if not _MODEL_LOCATION_MUTATION_LOCK.acquire(blocking=False):
+        raise HTTPException(status_code=409, detail="Model storage is already being changed")
+
+    source = bootstrap.models_dir()
+    was_running = bootstrap.get_supervisor() is not None
+    adopted = _state_endpoint() if not was_running else None
+    if adopted is not None:
+        _MODEL_LOCATION_MUTATION_LOCK.release()
+        raise HTTPException(
+            status_code=409,
+            detail="Stop the local server before changing model storage — another Anakot process owns it",
+        )
+
+    try:
+        try:
+            target = bootstrap._normalize_models_dir(body.path)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        if target == source:
+            return {"ok": True, "models_dir": str(source), "moved_files": 0, "server_restarted": was_running}
+
+        if was_running:
+            bootstrap.shutdown_local_runtime()
+
+        try:
+            moved = _move_model_storage(source, target)
+        except FileExistsError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail=f"The selected folder already contains a model file ({exc})",
+            ) from exc
+        except (OSError, ValueError) as exc:
+            raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+        try:
+            bootstrap.set_models_dir(target)
+        except Exception:
+            # The pointer write is normally atomic. If the destination cannot be
+            # persisted after the files moved, put the library back where it was.
+            with contextlib.suppress(Exception):
+                _move_model_storage(target, source)
+            raise
+
+        restarted = False
+        if was_running:
+            restarted = bootstrap.ensure_local_runtime(_load_config()) is not None
+            restarted = restarted or _state_endpoint() is not None
+        return {
+            "ok": True,
+            "models_dir": str(target),
+            "moved_files": moved,
+            "server_restarted": restarted,
+        }
+    except HTTPException:
+        if was_running and bootstrap.get_supervisor() is None:
+            _quiet(lambda: bootstrap.ensure_local_runtime(_load_config()), debug="model storage rollback restart skipped")
+        raise
+    except Exception as exc:  # noqa: BLE001 — surface a useful settings error, never a traceback
+        if was_running and bootstrap.get_supervisor() is None:
+            _quiet(lambda: bootstrap.ensure_local_runtime(_load_config()), debug="model storage restart skipped")
+        raise HTTPException(status_code=502, detail=f"Could not change model storage: {exc}") from exc
+    finally:
+        _MODEL_LOCATION_MUTATION_LOCK.release()
 
 
 # ── hardware: what this machine can do ───────────────────────

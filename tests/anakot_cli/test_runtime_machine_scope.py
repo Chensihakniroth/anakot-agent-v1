@@ -80,3 +80,18 @@ def test_default_profile_paths_unchanged(tmp_path, monkeypatch):
         assert binaries.runtimes_root() == root / "runtimes" / "llamacpp"
     finally:
         importlib.reload(anakot_constants)
+
+
+def test_custom_models_location_stays_shared_across_profiles(profile_home, tmp_path, monkeypatch):
+    """A selected model drive is machine state, not a profile preference."""
+    root, profile = profile_home
+    import anakot_cli.local_runtime.bootstrap as bootstrap
+
+    selected = tmp_path / "D-drive" / "anakot-models"
+    assert bootstrap.set_models_dir(selected) == selected.resolve()
+    assert bootstrap.models_dir() == selected.resolve()
+
+    other = root / "profiles" / "writer"
+    other.mkdir(parents=True)
+    monkeypatch.setenv("ANAKOT_HOME", str(other))
+    assert bootstrap.models_dir() == selected.resolve()

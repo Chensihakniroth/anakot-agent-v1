@@ -21,8 +21,11 @@ after a model is downloaded.
 2. Click **Install runtime**. Anakot downloads the official llama.cpp
    build for your hardware (a few hundred MB), verifies it, and keeps it
    updated.
-3. Pick a model from the catalog and click **Download**.
-4. Click **Use**. New chats now run on the local model.
+3. Under **Model storage**, click **Change location** if you want model
+   files on another drive. Anakot moves any managed models already present
+   and uses the selected folder for future downloads.
+4. Pick a model from the catalog and click **Download**.
+5. Click **Use**. New chats now run on the local model.
 
 That's the whole flow. The server starts and stops with Anakot, restarts
 survive app restarts, and switching back to a cloud provider is one click
@@ -125,10 +128,13 @@ local_runtime:
                      # each release after re-validation
 ```
 
-Models and runtime builds live under the Anakot home directory
-(`models/` and `runtimes/llamacpp/`). Selecting a local model as your
-main model uses the standard `model.provider: llamacpp` +
-`model.default` settings — the same shape as every other provider.
+Runtime builds remain under the Anakot home directory (`runtimes/llamacpp/`).
+Model files default to the Anakot `models/` directory, but **Model storage**
+in the Local Models settings can move them to any absolute folder on another
+drive. The storage choice is machine-wide and shared by all profiles, just
+like the managed llama.cpp server. Selecting a local model as your main model
+uses the standard `model.provider: llamacpp` + `model.default` settings — the
+same shape as every other provider.
 
 ## Requirements and limits
 

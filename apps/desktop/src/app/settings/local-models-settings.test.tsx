@@ -29,6 +29,7 @@ vi.mock('@/anakot', () => ({
   quickstartLocalModels: vi.fn(),
   searchHFModels: vi.fn(),
   setApiRequestProfile: vi.fn(),
+  setLocalModelsLocation: vi.fn(),
   sideloadLocalModel: vi.fn()
 }))
 
@@ -349,6 +350,14 @@ describe('LocalModelsSettings', () => {
     expect(await screen.findByText('NVIDIA GeForce RTX 5090')).toBeTruthy()
     expect(screen.getByText(/32\.0 GB GPU memory/)).toBeTruthy()
     expect(screen.getByText(/256\.0 GB RAM/)).toBeTruthy()
+  })
+
+  it('shows the model storage location and a drive-change action', async () => {
+    await renderFullPane()
+
+    expect(await screen.findByText('Model storage')).toBeTruthy()
+    expect(screen.getByText('C:/somewhere/models')).toBeTruthy()
+    expect(screen.getByRole('button', { name: /change location/i })).toBeTruthy()
   })
 
   it('tracks a download job to completion and refreshes', async () => {

@@ -12,6 +12,17 @@ export function getLocalModelsStatus(): Promise<LocalModelsStatus> {
   })
 }
 
+export function setLocalModelsLocation(
+  path: string
+): Promise<{ models_dir: string; moved_files: number; ok: boolean; server_restarted: boolean }> {
+  return anakotApi<{ models_dir: string; moved_files: number; ok: boolean; server_restarted: boolean }>({
+    ...profileScoped(),
+    body: { path },
+    method: 'POST',
+    path: '/api/local-models/location'
+  })
+}
+
 export function getLocalHardware(): Promise<LocalHardware> {
   return anakotApi<LocalHardware>({
     ...profileScoped(),

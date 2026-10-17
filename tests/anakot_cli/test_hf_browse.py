@@ -98,9 +98,13 @@ def test_search_route_requires_query_and_maps_errors(client, monkeypatch):
 
 
 def test_browsed_download_stages_and_bounces(client, tmp_path, monkeypatch):
-    """A browsed download must land in the machine-scoped models dir and
-    bounce the router — the seam that makes it a NORMAL model."""
+    """A browsed download follows the selected machine-scoped models dir and
+    bounces the router — the seam that makes it a NORMAL model."""
     body = b"GGUF" + b"\x00" * 60
+    selected_dir = tmp_path / "other-drive" / "anakot-models"
+    from anakot_cli.local_runtime.bootstrap import set_models_dir
+
+    set_models_dir(selected_dir)
 
     class FakeResponse:
         headers = {"Content-Length": str(len(body))}
@@ -142,9 +146,7 @@ def test_browsed_download_stages_and_bounces(client, tmp_path, monkeypatch):
         _time.sleep(0.05)
     assert status["status"] == "done", status.get("error")
 
-    from anakot_cli.local_runtime.bootstrap import models_dir
-
-    assert (models_dir() / "Some-Model-Q4_K_M.gguf").exists()
+    assert (selected_dir / "Some-Model-Q4_K_M.gguf").exists()
     assert bounced.get("yes") is True
 
 

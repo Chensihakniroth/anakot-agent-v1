@@ -78,6 +78,38 @@ def test_status_lists_staged_models_with_labels(client, tmp_path):
     assert row["size_label"].endswith("GB")
 
 
+def test_model_location_moves_staged_files_and_updates_status(client, tmp_path):
+    """Changing drives must keep the existing model library usable instead of
+    silently hiding files in the old default directory."""
+    from anakot_cli.local_runtime import bootstrap
+
+    old_dir = bootstrap.models_dir()
+    _write_fake_gguf(old_dir / "Moved-Model.gguf", size=2048)
+    (old_dir / "assets").mkdir(parents=True, exist_ok=True)
+    (old_dir / "assets" / "mmproj.gguf").write_bytes(b"GGUF")
+    target = tmp_path / "other-drive" / "anakot-models"
+
+    response = client.post("/api/local-models/location", json={"path": str(target)})
+    assert response.status_code == 200, response.text
+    data = response.json()
+    assert data["ok"] is True
+    assert data["moved_files"] == 2
+    assert data["models_dir"] == str(target.resolve())
+    assert (target / "Moved-Model.gguf").exists()
+    assert (target / "assets" / "mmproj.gguf").exists()
+    assert not (old_dir / "Moved-Model.gguf").exists()
+
+    status = client.get("/api/local-models/status").json()
+    assert status["models_dir"] == str(target.resolve())
+    assert "Moved-Model" in {row["id"] for row in status["models"]}
+
+
+def test_model_location_rejects_relative_paths(client):
+    response = client.post("/api/local-models/location", json={"path": "models"})
+    assert response.status_code == 422
+    assert "absolute" in response.json()["detail"].lower()
+
+
 def test_status_tracks_preset_spill_and_restored_window(client, tmp_path, monkeypatch):
     from dataclasses import replace
     from types import SimpleNamespace
