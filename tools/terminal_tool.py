@@ -780,8 +780,8 @@ def _command_requires_pipe_stdin(command: str) -> bool:
 
 
 from tools.terminal_tool_guards import (
-    _foreground_background_guidance, _safe_command_preview, _validate_workdir,
-    gateway_lifecycle_block, self_repo_block,
+    _contains_untracked_backgrounding, _foreground_background_guidance, _safe_command_preview,
+    _validate_workdir, gateway_lifecycle_block, self_repo_block, trailing_amp_background_command,
 )
 from tools.terminal_tool_background import _YIELDED_NOTE, spawn_background_process, yield_to_background_handler
 from tools.terminal_tool_result import finalize_foreground_result
@@ -930,6 +930,9 @@ class _ExecPlan:
     # Set when a foreground call asked for more than FOREGROUND_MAX_TIMEOUT and was promoted to a
     # tracked background process instead of being refused (the requested seconds, for the note).
     promoted_from_foreground_timeout: Optional[int] = None
+    # Set when a foreground command has one unambiguous trailing `&` and is converted into a
+    # tracked background process rather than refused.
+    auto_background_command: Optional[str] = None
 
 
 _PROMOTED_NOTE = (
@@ -1002,24 +1005,26 @@ def _plan_execution(
     if timeout is not None and timeout <= 0:
         raise _Rejected(tool_error(f"timeout must be a positive number of seconds (got {timeout})."))
     promoted = None
-    if not background:
+    auto_bg = trailing_amp_background_command(command)
+    if auto_bg is None and not background:
         # An over-cap foreground timeout is a bounded job the caller wants to wait for (test suites,
         # builds). Refusing it only bought a mechanical retry: 454 refusals in one run, every one
         # re-sent lower/split/background. Promote to a tracked background process instead; the
-        # caller is told in the result. The `&`/nohup/server guidance below stays a refusal: those
-        # need the command itself rewritten, which the tool cannot do safely.
-        # The detachment guidance applies whether or not the call is promoted: a promoted `cmd &`
-        # would start a tracked shell that exits at once while its payload runs untracked.
+        # caller is told in the result. The `&`/nohup/server guidance below stays a refusal.
         guidance = _foreground_background_guidance(command)
         if guidance:
             raise _Rejected(_error_json(guidance, status="error"))
         if timeout and timeout > FOREGROUND_MAX_TIMEOUT:
             promoted = timeout
+    elif auto_bg is None and _contains_untracked_backgrounding(command):
+        guidance = _foreground_background_guidance(command)
+        if guidance:
+            raise _Rejected(_error_json(guidance, status="error"))
 
     return _ExecPlan(
         config=config, env_type=env_type, effective_task_id=effective_task_id,
         image=image, cwd=cwd, host_cwd=host_cwd, effective_timeout=timeout or config["timeout"],
-        promoted_from_foreground_timeout=promoted,
+        promoted_from_foreground_timeout=promoted, auto_background_command=auto_bg,
     )
 
 
@@ -1251,6 +1256,10 @@ def terminal_tool(
         plan = _plan_execution(
             command, task_id=task_id, timeout=timeout, background=background, _host_local=_host_local,
         )
+        auto_bg = getattr(plan, "auto_background_command", None)
+        if auto_bg is not None:
+            # Every guard below sees the command that will actually run.
+            command, background = auto_bg, True
         env = _acquire_env(plan, task_id)
         env_type, cwd, effective_task_id = plan.env_type, plan.cwd, plan.effective_task_id
 
@@ -1308,6 +1317,7 @@ def terminal_tool(
                 effective_pty=pty and not pty_disabled, notify_on_complete=notify_on_complete,
                 watch_patterns=watch_patterns, approval_note=verdict.note,
                 pty_disabled_reason=_PTY_DISABLED_REASON if pty_disabled else None,
+                auto_backgrounded=auto_bg is not None,
             )
             if plan.promoted_from_foreground_timeout is not None:
                 result = _with_promoted_note(result, plan.promoted_from_foreground_timeout)

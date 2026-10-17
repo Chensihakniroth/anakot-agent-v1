@@ -68,7 +68,7 @@ _SHELL_LEVEL_BACKGROUND_RE = re.compile(
     r"(?:^|[;&|]\s*|&&\s*|\|\|\s*|\$\(\s*)(?:nohup|disown|setsid)\b", re.IGNORECASE | re.MULTILINE
 )
 _INLINE_BACKGROUND_AMP_RE = re.compile(r"\s&\s")
-_TRAILING_BACKGROUND_AMP_RE = re.compile(r"\s&\s*(?:#.*)?$")
+_TRAILING_BACKGROUND_AMP_RE = re.compile(r"&\s*(?:#.*)?$")
 
 
 def _strip_quotes(command: str) -> str:
@@ -84,6 +84,30 @@ def _strip_quotes(command: str) -> str:
     result = re.sub(r"'[^']*'", "''", result)
     result = re.sub(r'"(?:[^"\\]|\\.)*"', '""', result)
     return re.sub(r"`[^`]*`", "``", result)
+
+
+_SHELL_CARRIER_RE = re.compile(
+    r"(?:^|[;&|]\s*)(?:[^\s;&|]+\s+)*"
+    r"(?:[^\s;&|]+/)?(?:bash|sh|zsh|dash|ksh)(?:\.exe)?\b"
+    r"(?:\s+[^\s;&|]+)*\s+-[A-Za-z0-9_-]*c(?=\s|['\"]|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+_SHELL_CARRIER_QUOTED_RE = re.compile(
+    r"(?:^|[;&|]\s*)(?:[^\s;&|]+\s+)*"
+    r"(?:'[^']*(?:bash|sh|zsh|dash|ksh)(?:\.exe)?[^']*'|"
+    r"\"[^\"]*(?:bash|sh|zsh|dash|ksh)(?:\.exe)?[^\"]*\"|"
+    r"['\"]?(?:\$\{[A-Za-z_][A-Za-z0-9_]*\}|\$[A-Za-z_][A-Za-z0-9_]*)['\"]?)"
+    r"(?:\s+[^\s;&|]+)*\s+-[A-Za-z0-9_-]*c(?=\s|['\"]|$)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _shell_carrier_has_background(command: str) -> bool:
+    """Fail closed for any shell carrier that also contains an ampersand."""
+    carrier = _SHELL_CARRIER_RE.search(command) or _SHELL_CARRIER_QUOTED_RE.search(command)
+    return bool(carrier and "&" in command)
 
 
 _LONG_LIVED_FOREGROUND_PATTERNS = tuple(re.compile(p, re.IGNORECASE) for p in (
@@ -132,13 +156,146 @@ def _looks_like_help_or_version_command(command: str) -> bool:
     )
 
 
+# `&` spellings that are not backgrounding: and-lists, fd redirects (`2>&1`, `>&2`, `&>`, `&>>`,
+# `<&3`) and the stderr pipe `|&`.
+_NON_BACKGROUND_AMP_RE = re.compile(r"&&|\d*[<>]&(?:\d+|-)?|&>>?|\|&")
+_TRAILING_AMP_ONLY_RE = re.compile(r"&\s*$")
+# Executable substitutions run code the quote-masking cannot see into (`"$(sleep 9 & echo $!)"`
+# hides a second, untracked background job), so any spelling of one refuses the conversion.
+_EXECUTABLE_SUBSTITUTION_MARKERS = ("$(", "`", "<(", ">(")
+
+
+def _mask_escaped_ampersands(text: str) -> str:
+    chars = list(text)
+    for index, char in enumerate(chars):
+        if char != "&":
+            continue
+        backslashes = 0
+        cursor = index - 1
+        while cursor >= 0 and chars[cursor] == "\\":
+            backslashes += 1
+            cursor -= 1
+        if backslashes % 2:
+            chars[index] = " "
+    return "".join(chars)
+
+
+def _contains_untracked_backgrounding(command: str) -> bool:
+    """True when shell syntax would leave a child outside the process registry."""
+    unquoted = _mask_escaped_ampersands(_strip_quotes(command))
+    return bool(
+        _shell_carrier_has_background(command)
+        or (any(marker in command for marker in _EXECUTABLE_SUBSTITUTION_MARKERS) and "&" in command)
+        or _SHELL_LEVEL_BACKGROUND_RE.search(unquoted)
+        or "&" in _NON_BACKGROUND_AMP_RE.sub("", unquoted)
+    )
+
+
+def _strip_trailing_amp(command: str) -> str:
+    """Remove the final `&` and only unescaped whitespace before it."""
+    body = command.rstrip()[:-1]
+    end = len(body)
+    while end and body[end - 1].isspace():
+        backslashes = len(body[:end - 1]) - len(body[:end - 1].rstrip("\\"))
+        if backslashes % 2:
+            break
+        end -= 1
+    return body[:end]
+
+
+def _approval_identity(command: str) -> tuple:
+    """Return every local approval identity component used by the guard chain."""
+    from tools.approval import (
+        _check_sudo_stdin_guard,
+        _command_matches_permanent_allowlist,
+        _floor_block,
+        _match_user_deny_rule,
+        _tirith_scan,
+        detect_dangerous_command,
+        detect_hardline_command,
+    )
+    tirith = _tirith_scan(command)
+    tirith_identity = (
+        tirith.get("action"),
+        tuple(
+            (
+                finding.get("rule_id"),
+                finding.get("severity"),
+                finding.get("title"),
+                finding.get("description"),
+            )
+            for finding in tirith.get("findings") or ()
+        ),
+    )
+    return (
+        tuple(detect_hardline_command(command)),
+        tuple(detect_dangerous_command(command)),
+        tuple(_check_sudo_stdin_guard(command)),
+        tirith_identity,
+        bool(_floor_block(command, sudo_guard=True)),
+        _match_user_deny_rule(command),
+        bool(_command_matches_permanent_allowlist(command)),
+    )
+
+
+def trailing_amp_background_command(command: str) -> str | None:
+    """Return the command without a sole trailing background operator, else ``None``.
+
+    Ambiguous commands keep the existing refusal: inline background jobs, command
+    substitutions, shell wrappers, separators and approval-identity changes are
+    not safe to rewrite into a tracked process.
+    """
+    if not isinstance(command, str):
+        return None
+    if _shell_carrier_has_background(command):
+        return None
+    if any(marker in command for marker in _EXECUTABLE_SUBSTITUTION_MARKERS):
+        return None
+    trailing = command.rstrip()
+    backslashes = 0
+    index = len(trailing) - 2
+    while index >= 0 and trailing[index] == "\\":
+        backslashes += 1
+        index -= 1
+    if backslashes % 2:
+        return None
+    unquoted = _mask_escaped_ampersands(_strip_quotes(command))
+    if not _TRAILING_AMP_ONLY_RE.search(unquoted) or not trailing.endswith("&"):
+        return None
+    body = unquoted.rstrip()[:-1]
+    if body.rstrip().endswith("&"):
+        return None
+    if "\n" in body or "\r" in body or ";" in body or "#" in body or _SHELL_LEVEL_BACKGROUND_RE.search(body):
+        return None
+    if "&" in _NON_BACKGROUND_AMP_RE.sub("", body):
+        return None
+    stripped = _strip_trailing_amp(command)
+    if not stripped.strip() or _approval_identity(command) != _approval_identity(stripped):
+        return None
+    return stripped
+
+
 def _foreground_background_guidance(command: str) -> str | None:
     """Guidance text when a foreground command looks long-lived or uses shell
     backgrounding (it should be a managed background session), else None."""
-    if _looks_like_help_or_version_command(command):
+    if _shell_carrier_has_background(command):
+        return (
+            "Foreground shell carrier contains an inner '&' background job. Remove the inner "
+            "backgrounding and run the carrier with terminal(background=true) so Anakot tracks "
+            "the actual process."
+        )
+    unquoted = _mask_escaped_ampersands(_strip_quotes(command))
+    if _looks_like_help_or_version_command(command) and not _contains_untracked_backgrounding(command):
         return None
-    unquoted = _strip_quotes(command)
-    return next((msg for hit, msg in _FOREGROUND_GUIDANCE if hit(unquoted)), None)
+    guidance = next((msg for hit, msg in _FOREGROUND_GUIDANCE if hit(unquoted)), None)
+    if guidance:
+        return guidance
+    if _contains_untracked_backgrounding(command):
+        return (
+            "Foreground command uses '&' backgrounding. Re-send without the background operator "
+            "as terminal(command=\"<cmd>\", background=true) so Anakot tracks the process."
+        )
+    return None
 
 
 def _read_script_for_guard(env: Any, guard_cwd: str, script_path: str, max_bytes: int) -> Optional[str]:

@@ -54,14 +54,25 @@ class TestForegroundTimeoutCap:
             time.sleep(0.05)
         assert marker.read_text().count("x") == 1  # ran exactly once, in the background
 
-    def test_shell_backgrounding_is_still_refused(self):
-        """`&`/nohup need the command rewritten; the tool cannot do that safely, so it still refuses."""
+    def test_shell_backgrounding_is_converted_to_tracked_background(self):
+        """A sole trailing ampersand is converted instead of forcing a model retry."""
         from tools.terminal_tool import terminal_tool
 
+        spawn_result = json.dumps({
+            "output": "Background process started",
+            "session_id": "proc_test",
+            "pid": 1,
+            "exit_code": 0,
+            "error": None,
+            "auto_backgrounded": "converted",
+        })
         with patch("tools.terminal_tool._get_env_config", return_value=_make_env_config()), \
-             patch("tools.terminal_tool._start_cleanup_thread"):
+             patch("tools.terminal_tool._start_cleanup_thread"), \
+             patch("tools.terminal_tool.spawn_background_process", return_value=spawn_result):
             result = json.loads(terminal_tool(command="sleep 5 &"))
-        assert "'&' backgrounding" in result["error"]
+        assert result["session_id"] == "proc_test"
+        assert "auto_backgrounded" in result
+        assert "hint" not in result
 
     def test_zero_timeout_rejected(self):
         """timeout=0 must be rejected, not silently coerced to the default."""
@@ -173,16 +184,25 @@ class TestForegroundMaxTimeoutConstant:
 
 
 class TestPromotionKeepsTheDetachmentGuard:
-    def test_over_cap_timeout_with_shell_backgrounding_is_still_refused(self):
-        """Independent-review witness: a promoted `cmd &` started a tracked shell that exited at once
-        while the payload ran untracked, defeating the guidance the refusal exists for."""
+    def test_over_cap_timeout_converts_only_the_unambiguous_trailing_amp(self):
+        """Trailing `&` converts; shell wrappers remain refused."""
         from tools.terminal_tool import terminal_tool
 
+        spawn_result = json.dumps({
+            "output": "Background process started",
+            "session_id": "proc_test",
+            "pid": 1,
+            "exit_code": 0,
+            "error": None,
+            "auto_backgrounded": "converted",
+        })
         with patch("tools.terminal_tool._get_env_config", return_value=_make_env_config()), \
-             patch("tools.terminal_tool._start_cleanup_thread"):
+             patch("tools.terminal_tool._start_cleanup_thread"), \
+             patch("tools.terminal_tool.spawn_background_process", return_value=spawn_result):
             result = json.loads(terminal_tool(command="sleep 5 &", timeout=9999))
             result2 = json.loads(terminal_tool(command="nohup make test", timeout=9999))
-        assert "'&' backgrounding" in result["error"]
+        assert result["session_id"] == "proc_test"
+        assert "auto_backgrounded" in result
         assert "nohup" in result2["error"]
 
     def test_note_does_not_promise_a_notification_the_session_cannot_receive(self):

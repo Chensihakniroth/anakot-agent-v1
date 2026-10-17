@@ -231,6 +231,13 @@ process(action="write", session_id="proc_abc123", data="y")  # Send input
 
 PTY mode (`pty=true`) enables interactive CLI tools like Codex and Claude Code.
 
+A foreground command whose only backgrounding is a trailing `&` runs as a tracked
+background process with the `&` removed. The result carries an `auto_backgrounded`
+note with the `session_id` and uses the same approval checks as any background
+command. Ambiguous shapes—inline background jobs, `;` sequences, multi-line
+scripts, `nohup`/`disown`/`setsid`, command substitutions, or an approval identity
+that changes when `&` is removed—remain refused with guidance.
+
 Completed background commands retain their exit status and captured output in the
 active profile. Resume the conversation that launched the command (or its
 compressed continuation), then use the original `session_id` with

@@ -25,6 +25,11 @@ _SILENT_BACKGROUND_HINT = (
     'daemons).'
 )
 
+_AUTO_BACKGROUND_NOTE = (
+    "Ran in the background (the trailing & was converted to background=true; Anakot tracks the "
+    "process). Do NOT re-run it. Use process_manage (poll/log/wait/kill, session_id above) to check it."
+)
+
 # Homebrewed CI pollers built on `gh pr view --json statusCheckRollup` or
 # `gh pr checks | jq` fail silently in known ways (block-buffered stdout never
 # reaches capture, jq null-key edge cases exit the loop, conclusion-vs-status
@@ -142,9 +147,12 @@ def spawn_background_process(
     *, command: str, env: Any, env_type: str, effective_task_id: str, task_id: Optional[str],
     session_key: str, workdir: Optional[str], cwd: str, effective_pty: bool,
     notify_on_complete: bool, watch_patterns: Optional[List[str]], approval_note: Optional[str],
-    pty_disabled_reason: Optional[str],
+    pty_disabled_reason: Optional[str], auto_backgrounded: bool = False,
 ) -> str:
     """Spawn *command* as a tracked background process and return the JSON result.
+
+    ``auto_backgrounded`` marks a safe trailing-``&`` conversion and suppresses
+    the silent-background relaunch hint so the model cannot start a duplicate.
 
     Never inline-polls ``is_interrupted()``: the spawn detaches and returns
     exit_code 0 immediately, so the stale-interrupt kill cannot occur here.
@@ -169,12 +177,17 @@ def spawn_background_process(
             result_data["approval"] = approval_note
         if pty_disabled_reason:
             result_data["pty_note"] = pty_disabled_reason
-        if not notify_on_complete and not watch_patterns:
+        if auto_backgrounded:
+            result_data["auto_backgrounded"] = _AUTO_BACKGROUND_NOTE
+        elif not notify_on_complete and not watch_patterns:
             result_data["hint"] = _SILENT_BACKGROUND_HINT
         if command and _looks_like_homebrew_ci_poller(command):
-            existing = result_data.get("hint", "")
-            result_data["hint"] = (existing + "\n\n" + _HOMEBREW_CI_POLLER_HINT if existing
-                                   else _HOMEBREW_CI_POLLER_HINT)
+            if auto_backgrounded:
+                result_data["diagnostic"] = _HOMEBREW_CI_POLLER_HINT
+            else:
+                existing = result_data.get("hint", "")
+                result_data["hint"] = (existing + "\n\n" + _HOMEBREW_CI_POLLER_HINT if existing
+                                       else _HOMEBREW_CI_POLLER_HINT)
 
         notify_on_complete, watch_patterns = _apply_async_support(
             proc_session, result_data, notify_on_complete, watch_patterns)
