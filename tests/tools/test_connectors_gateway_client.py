@@ -204,6 +204,36 @@ def test_401_raises_auth_error_and_missing_token_fails_fast():
     assert no_token.requests == []
 
 
+def test_list_connectors_parses_paginated_camelcase_response():
+    transport = FakeTransport(
+        FakeResponse(
+            200,
+            {
+                "items": [{
+                    "connector": "gmail",
+                    "connected": True,
+                    "connectionStatus": "active",
+                    "disabledTools": ["GMAIL_DELETE_EMAIL"],
+                }],
+                "nextCursor": "page-2",
+            },
+        ),
+        FakeResponse(
+            200,
+            {"items": [{"connector": "notion", "connected": False}]},
+        ),
+    )
+
+    items = make_client(transport).list_connectors()
+
+    assert [item["connector"] for item in items] == ["gmail", "notion"]
+    assert items[0]["disabledTools"] == ["GMAIL_DELETE_EMAIL"]
+    assert [request["url"] for request in transport.requests] == [
+        "https://tool-gateway.test/v1/connectors?limit=50",
+        "https://tool-gateway.test/v1/connectors?limit=50&cursor=page-2",
+    ]
+
+
 def test_connection_required_stays_inside_the_200_envelope():
     transport = FakeTransport(
         FakeResponse(

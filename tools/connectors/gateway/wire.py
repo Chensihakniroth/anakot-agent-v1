@@ -189,6 +189,11 @@ class ConnectorListItem(_Wire):
     disabled_tools: list[str] = Field(default_factory=list, alias="disabledTools")
 
 
+class ConnectorListResponse(_Wire):
+    items: list[ConnectorListItem]
+    next_cursor: Optional[str] = Field(default=None, alias="nextCursor")
+
+
 class ConnectorConnectionsSummary(_Wire):
     total: int = 0
     active: int = 0
