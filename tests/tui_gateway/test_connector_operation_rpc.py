@@ -98,11 +98,55 @@ def _connect_rpc(client, **params):
     raise AssertionError("no reply")
 
 
+def _account_rpc(client, method, **params):
+    before = len(client.frames)
+    response = server.dispatch({"jsonrpc": "2.0", "id": 7, "method": method,
+                                "params": {"owner": {"type": "account"}, **params}}, client.transport)
+    if response is not None:
+        return response
+    deadline = time.time() + 2
+    while time.time() < deadline:
+        replies = [frame for frame in list(client.frames)[before:] if frame.get("id") == 7]
+        if replies:
+            return replies[-1]
+        time.sleep(0.01)
+    raise AssertionError("no reply")
+
+
 def _open_op():
     operation = ConnectionOperation([Target("gmail", "connector", "connect"), Target("notion", "connector", "connect")],
                                     session_key=SID)
     live.open(operation)
     return operation
+
+
+def test_account_connect_starts_and_watches_an_operation(owned, monkeypatch):
+    owner, _, _ = owned
+
+    class Client:
+        def connections(self, names, *, reinitiate=False, **_):
+            return {"results": [{
+                "connector": name,
+                "connection_id": f"account-{name}",
+                "status": "initiated",
+                "connect_url": f"https://connect.example/{name}",
+                "reinitiated": reinitiate,
+            } for name in names]}
+
+        def account_status(self, connection_id, *, timeout):
+            return {"connectionId": connection_id, "status": "active"}
+
+    monkeypatch.setattr("tools.connectors.managed.managed_client", lambda: Client())
+    monkeypatch.setattr("tools.connectors.connectors_available", lambda: True)
+
+    reply = _account_rpc(owner, "connectors.connect", connectors=["gmail"])
+    assert "result" in reply, reply
+    assert reply["result"]["targets"][0]["name"] == "gmail"
+
+    deadline = time.time() + 2
+    while time.time() < deadline and live.get_by_op_id(reply["result"]["op_id"]) is not None:
+        time.sleep(0.01)
+    assert live.get_by_op_id(reply["result"]["op_id"]) is None
 
 
 def test_operation_status_returns_the_live_snapshot_with_the_server_deadline(owned):

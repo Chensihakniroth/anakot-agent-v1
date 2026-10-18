@@ -410,6 +410,10 @@ for c in json.load(sys.stdin):
 - Verification: 29 focused Vitest tests passed, desktop typecheck (renderer/Electron/E2E) passed, ESLint passed, production desktop build passed, and 47 connector lifecycle/RPC tests passed across the managed, MCP, operation-RPC, and operation-E2E suites. The E2E fixtures now follow the gateway's asynchronous long-handler responses and account-scoped watcher contract.
 - Remaining for this upstream cluster: bundled-MCP `connector:` dedup/local-server merge, the full upstream account/dialog polish, and Ink `connectionSetupOverlay`.
 
+### 2026-10-18 — Repaired connector authorization runtime (`70f5dc5f`)
+- Restored the ported `tools/connectors/account.py` operation bridge that the Desktop account-owned `connectors.connect` RPC imports; without it, every authorization attempt collapsed to the generic `CONNECTOR_REQUEST_FAILED` response.
+- Added an account-owned RPC regression covering operation start, gateway mint, watcher settlement, and live-operation cleanup. The live managed install was updated and the repaired RPC returned 53 connector rows before this authorization fix.
+
 ### 2026-10-17 — Current-head refresh and reliability ports (`18c525b669b`)
 - Refreshed the official `upstream/main`; the head advanced from `605e4045934` to `18c525b669b`. The new window is dominated by Windows ACL/update work, session-store repair, clarify lifecycle, skills watching, gateway secret binding, and catalog churn.
 - Closed the linked spillover cluster: structured/NUL-prefixed and Windows pointers now share the `instr()` reference filter, and `state_meta` retirement candidates are captured before message-bearing deletes and collected after commit. The retention test also now ages its default-window fixture beyond the configured 90-day session policy.
