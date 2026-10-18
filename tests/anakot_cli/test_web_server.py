@@ -610,11 +610,10 @@ class TestWebServerEndpoints:
     def test_heal_gives_up_when_reconcile_cannot_fix_the_store(self, monkeypatch):
         """A probe failure reconciliation can't cure must not retry forever.
 
-        The writable heal is a full SessionDB init against a possibly-live
-        DB. If the store is STILL behind the probe afterwards (schema problem
-        ADD COLUMN can't express), retrying that init on every sidebar poll
-        would hammer the DB for nothing: serve reads probe-less instead, warn
-        once, and never pay the writable open for that store again.
+        A caller-specific probe can name a column outside SCHEMA_SQL. Browse
+        must not escalate that unknown shape to a second writer: serve reads
+        probe-less instead, warn once, and never pay a writable open for that
+        store.
         """
         from anakot_cli import web_server
         from anakot_constants import get_anakot_home
@@ -652,14 +651,15 @@ class TestWebServerEndpoints:
         # the class on anakot_state covers every open the helper makes.
         monkeypatch.setattr(anakot_state.SessionDB, "__init__", counting_init)
 
-        # First open: probe fails -> one writable heal -> re-probe fails ->
-        # exhausted. Still returns a usable read-only handle.
+        # First open: the caller-specific probe fails, but the canonical schema
+        # is clean, so no writable heal is attempted. Still return a usable
+        # read-only handle.
         db = _web_server_sessions._open_session_db_for_profile(None, read_only=True)
         try:
             assert db.list_sessions_rich(limit=10, compact_rows=True)
         finally:
             db.close()
-        assert len(writable_opens) == 1
+        assert len(writable_opens) == 0
         assert str(db_path) in _web_server_sessions._session_db_heal_exhausted
 
         # Second open: probe skipped, NO further writable opens.
@@ -668,7 +668,7 @@ class TestWebServerEndpoints:
             assert db.list_sessions_rich(limit=10, compact_rows=True)
         finally:
             db.close()
-        assert len(writable_opens) == 1
+        assert len(writable_opens) == 0
 
     def test_generic_corruption_does_not_trigger_writable_heal(
         self, tmp_path, monkeypatch
@@ -694,35 +694,28 @@ class TestWebServerEndpoints:
 
         assert opens == [True]
 
-    def test_decode_error_triggers_writable_heal(self, tmp_path, monkeypatch):
+    def test_decode_error_does_not_trigger_writable_heal(self, tmp_path, monkeypatch):
         """UnicodeDecodeError — pysqlite failing to decode SQLite's own error
-        message over corrupt file bytes (#98924) — must route through the
-        same one-writable-open heal as malformed schema."""
+        message over corrupt file bytes (#98924) — is not additive schema drift
+        and must not trigger a second writer beside the gateway."""
         import anakot_state
-        from anakot_cli import web_server
 
         db_path = tmp_path / "state.db"
         db_path.write_bytes(b"not-empty")
         opens = []
 
-        class _OkDB:
-            _conn = None
-
-            def close(self):
-                pass
-
         def scripted_open(*_args, **kwargs):
             opens.append(kwargs.get("read_only", False))
             if opens == [True]:
                 raise UnicodeDecodeError("utf-8", b"\x81", 0, 1, "invalid start byte")
-            return _OkDB()
+            raise AssertionError("a decode error must not trigger a writable retry")
 
         monkeypatch.setattr(anakot_state, "SessionDB", scripted_open)
 
-        db = _web_server_sessions._open_session_db_at_path(db_path, read_only=True)
+        with pytest.raises(UnicodeDecodeError):
+            _web_server_sessions._open_session_db_at_path(db_path, read_only=True)
 
-        assert isinstance(db, _OkDB)
-        assert opens == [True, False, True]
+        assert opens == [True]
 
     def test_get_sessions_zero_byte_store_returns_empty_list(self):
         from anakot_constants import get_anakot_home

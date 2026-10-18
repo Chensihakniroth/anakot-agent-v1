@@ -219,6 +219,8 @@ for c in json.load(sys.stdin):
 | 49b42a8b | 2026-10-17 | fix(sessions): reconcile declarative drift during explicit repair | PORTED | Added `anakot_state_reconcile.py`: explicit repair probes declared tables/columns, repairs an isolated snapshot, preserves history-table loss, and routes `anakot sessions repair` to the additive path; 7 focused tests pass |
 | af586e5a | 2026-10-17 | fix(sessions): reconcile columns before dependent indexes on repair snapshots | PORTED | Reuses Anakot's `SessionSchemaMixin._reconcile_columns()` before canonical DDL so a missing indexed column is restored before its index; covered by the declarative-repair regression |
 | f4c559e3 | 2026-10-17 | fix(sessions): verify history tables on the guarded repair snapshot | PORTED | Validates `sessions` and `messages` both before repair and inside the staged snapshot, refusing promotion when canonical history is missing |
+| 1eda335a | 2026-10-17 | fix(sessions): catch a lagging state.db up once on browse instead of 503 | PORTED | Read-only dashboard opens now reconcile declared drift once only when the profile `gateway.lock` is free; owned stores return a restart 503, while unowned stores reopen read-only after transactional additive DDL |
+| 42a94335 | 2026-10-17 | fix(sessions): never write browse DDL into a corrupt lagging store | PORTED | Read-only `PRAGMA integrity_check` plus FTS probes run while the profile locks are held; corrupt stores and missing canonical history tables are refused without modifying the database; browse/state regression suites pass |
 
 ---
 
