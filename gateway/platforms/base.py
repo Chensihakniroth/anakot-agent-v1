@@ -2148,10 +2148,25 @@ class BasePlatformAdapter(ABC):
         holder is replaced only when the runner armed this adapter for its initial
         ``--replace`` connect (the status module validates ownership and terminates)."""
         from gateway.status import (
-            acquire_scoped_lock, scoped_lock_owner_label, take_over_scoped_lock_holder)
+            ScopedLockDirUnusable, acquire_scoped_lock, scoped_lock_owner_label, take_over_scoped_lock_holder,
+            unusable_dir_remedy)
         self._platform_lock_scope, self._platform_lock_identity = scope, identity
         lock_meta = {"platform": self.platform.value}
-        acquired, existing = acquire_scoped_lock(scope, identity, metadata=lock_meta)
+        try:
+            acquired, existing = acquire_scoped_lock(scope, identity, metadata=lock_meta)
+        except ScopedLockDirUnusable as exc:
+            # The directory is shared by every token-locked adapter. Keep this retryable: a
+            # non-retryable park here can make a token-only gateway exit and take cron/Desktop
+            # attach down with it. The status module logs the directory once per process.
+            self._platform_lock_identity = None
+            self._set_fatal_error(
+                "lock_dir_unusable",
+                f"{resource_desc} lock cannot be taken: the gateway lock directory {exc.filename} is not "
+                f"usable by this user. Repair with {unusable_dir_remedy(exc.filename)}; the gateway retries "
+                "on its own.",
+                retryable=True,
+            )
+            return False
         if acquired:
             return True
         if (self._platform_lock_takeover_allowed and not self._platform_lock_takeover_attempted
@@ -2164,7 +2179,18 @@ class BasePlatformAdapter(ABC):
                 logger.warning(
                     "[%s] %s was held by gateway PID %d — explicit --replace handoff completed",
                     self.name, resource_desc, owner_pid)
-                acquired, existing = acquire_scoped_lock(scope, identity, metadata=lock_meta)
+                try:
+                    acquired, existing = acquire_scoped_lock(scope, identity, metadata=lock_meta)
+                except ScopedLockDirUnusable as exc:
+                    self._platform_lock_identity = None
+                    self._set_fatal_error(
+                        "lock_dir_unusable",
+                        f"{resource_desc} lock cannot be taken: the gateway lock directory {exc.filename} is not "
+                        f"usable by this user. Repair with {unusable_dir_remedy(exc.filename)}; the gateway retries "
+                        "on its own.",
+                        retryable=True,
+                    )
+                    return False
                 if acquired:
                     logger.info("[%s] Acquired %s after taking over PID %d", self.name, resource_desc, owner_pid)
                     return True

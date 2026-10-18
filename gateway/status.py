@@ -287,6 +287,43 @@ def _scope_hash(identity: str) -> str:
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 
 
+class ScopedLockDirUnusable(PermissionError):
+    """The current user cannot use the shared token-lock directory.
+
+    Windows can leave ``gateway-locks`` owned by an elevated process. Retrying the same
+    mkdir/read/write operation cannot repair that ACL, but the adapter must report the
+    directory and stay retryable so the operator can repair it without restarting the gateway.
+    """
+
+
+_warned_unusable_lock_dirs: set[Path] = set()
+
+
+def unusable_dir_remedy(path: str | Path) -> str:
+    """Return the platform-specific repair command for an unusable private state directory."""
+    if os.name == "nt":
+        return f'from an elevated prompt run: icacls "{path}" /reset /t'
+    return f'run: sudo chown -R "$(id -un)" "{path}"'
+
+
+def _unusable_lock_dir(lock_dir: Path, exc: PermissionError) -> ScopedLockDirUnusable:
+    lock_dir = Path(lock_dir)
+    level = logging.DEBUG if lock_dir in _warned_unusable_lock_dirs else logging.WARNING
+    _warned_unusable_lock_dirs.add(lock_dir)
+    logger.log(
+        level,
+        "Gateway lock directory %s is not usable by this process (%s); repair with %s",
+        lock_dir,
+        exc,
+        unusable_dir_remedy(lock_dir),
+    )
+    return ScopedLockDirUnusable(
+        getattr(exc, "errno", None),
+        f"gateway lock directory is not usable: {exc}",
+        str(lock_dir),
+    )
+
+
 def _get_scope_lock_path(scope: str, identity: str) -> Path:
     return _get_lock_dir() / f"{scope}-{_scope_hash(identity)}.lock"
 
@@ -1224,9 +1261,32 @@ def _process_is_stopped(pid: int) -> bool:
 def acquire_scoped_lock(
     scope: str, identity: str, metadata: Optional[dict[str, Any]] = None
 ) -> tuple[bool, Optional[dict[str, Any]]]:
-    """Acquire a machine-local lock keyed by scope + identity (one Telegram token across homes)."""
+    """Acquire a machine-local lock keyed by scope + identity (one Telegram token across homes).
+
+    ``ScopedLockDirUnusable`` is raised when the process cannot use the shared directory at all;
+    callers can then park the adapter with an actionable repair while retaining retryability.
+    """
     lock_path = _get_scope_lock_path(scope, identity)
+    try:
+        acquired, existing = _acquire_scoped_lock_at(lock_path, scope, identity, metadata)
+    except ScopedLockDirUnusable:
+        raise
+    except PermissionError as exc:
+        raise _unusable_lock_dir(lock_path.parent, exc) from exc
+    _warned_unusable_lock_dirs.discard(lock_path.parent)
+    return acquired, existing
+
+
+def _acquire_scoped_lock_at(
+    lock_path: Path, scope: str, identity: str, metadata: Optional[dict[str, Any]]
+) -> tuple[bool, Optional[dict[str, Any]]]:
     lock_path.parent.mkdir(parents=True, exist_ok=True)
+    # ``_read_json_file`` intentionally treats EACCES as an ordinary missing record for most
+    # status files. A token lock is different: treating an unreadable stale record as missing
+    # turns an ACL problem into a misleading holder conflict or a retry loop.
+    if lock_path.exists():
+        with lock_path.open("rb") as handle:
+            handle.read(1)
     record = {
         **_build_pid_record(), "scope": scope, "identity_hash": _scope_hash(identity),
         "metadata": metadata or {}, "updated_at": _utc_now_iso(),

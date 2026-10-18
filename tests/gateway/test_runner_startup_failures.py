@@ -576,3 +576,36 @@ async def test_token_lock_plus_retryable_peer_stays_alive(monkeypatch, tmp_path)
         assert state["platforms"]["discord"]["state"] == "retrying"
     finally:
         await runner.stop()
+
+
+@pytest.mark.asyncio
+async def test_unusable_token_lock_at_startup_keeps_token_only_gateway_alive(monkeypatch, tmp_path):
+    """An ACL failure in the shared token-lock directory is retryable, not a startup config exit."""
+    from gateway.status import ScopedLockDirUnusable
+
+    monkeypatch.setenv("ANAKOT_HOME", str(tmp_path))
+    monkeypatch.setenv("ANAKOT_GATEWAY_LOCK_DIR", str(tmp_path / "locks"))
+    lock_error = ScopedLockDirUnusable(13, "gateway lock directory is not usable", str(tmp_path / "locks"))
+
+    def raise_lock_dir_error(*args, **kwargs):
+        raise lock_error
+
+    monkeypatch.setattr("gateway.status.acquire_scoped_lock", raise_lock_dir_error)
+    config = GatewayConfig(
+        platforms={Platform.TELEGRAM: PlatformConfig(enabled=True, token="***")},
+        sessions_dir=tmp_path / "sessions",
+    )
+    runner = GatewayRunner(config)
+    monkeypatch.setattr(runner, "_create_adapter", lambda platform, platform_config: _ForeignTokenLockAdapter())
+
+    ok = await runner.start()
+    try:
+        assert ok is True
+        assert runner.should_exit_cleanly is False
+        assert runner.exit_code is None
+        assert runner._failed_platforms
+        state = read_runtime_status()
+        assert state["gateway_state"] == "running"
+        assert state["platforms"]["telegram"]["error_code"] == "lock_dir_unusable"
+    finally:
+        await runner.stop()
