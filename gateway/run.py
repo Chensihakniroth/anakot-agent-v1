@@ -5041,20 +5041,65 @@ def _start_gateway_make_shutdown_signal_handler(runner, _signal_initiated_shutdo
     return shutdown_signal_handler
 
 
+_BROWSE_RECONCILE_GATEWAY_WAIT_S = 5.0
+
+
+def _wait_for_browse_reconcile_lock(
+    lock_path: Path,
+    state_path: Path,
+    *,
+    wait_s: float = _BROWSE_RECONCILE_GATEWAY_WAIT_S,
+) -> bool:
+    """Wait for a browse-owned lock handoff, never for a positively identified gateway."""
+    import sqlite3
+
+    from gateway.status import (
+        _is_gateway_runtime_lock_active_strict,
+        _live_pid_from_record,
+        _read_gateway_lock_record,
+        acquire_gateway_runtime_lock,
+    )
+
+    try:
+        if not _is_gateway_runtime_lock_active_strict(lock_path):
+            return False
+        from anakot_state_reconcile import schema_drift_reason
+
+        if schema_drift_reason(state_path) is None:
+            return False
+    except (OSError, RuntimeError, sqlite3.Error):
+        return False
+    deadline = time.monotonic() + wait_s
+    while time.monotonic() < deadline:
+        try:
+            record = _read_gateway_lock_record(lock_path)
+            if _live_pid_from_record(record) is not None and not (record or {}).get("purpose"):
+                return False
+        except (OSError, RuntimeError, TypeError, ValueError):
+            return False
+        time.sleep(0.1)
+        if acquire_gateway_runtime_lock():
+            return True
+    return False
+
+
 def _start_gateway_claim_pid_file() -> bool:
     """Claim the runtime lock + PID file (O_EXCL winner is the authoritative gateway). False = lost."""
     import atexit
     from gateway.status import (
-        acquire_gateway_runtime_lock, get_running_pid, release_gateway_runtime_lock,
-        remove_pid_file, write_pid_file)
+        _get_gateway_lock_path, _get_process_anakot_home, acquire_gateway_runtime_lock, get_running_pid,
+        release_gateway_runtime_lock, remove_pid_file, write_pid_file)
     _current_pid = get_running_pid()
     if _current_pid is not None and _current_pid != os.getpid():
         logger.error("Another gateway instance (PID %d) started during our startup. "
                      "Exiting to avoid double-running.", _current_pid)
         return False
     if not acquire_gateway_runtime_lock():
-        logger.error("Gateway runtime lock is already held by another instance. Exiting.")
-        return False
+        if not _wait_for_browse_reconcile_lock(
+            _get_gateway_lock_path(), _get_process_anakot_home() / "state.db"
+        ):
+            logger.error("Gateway runtime lock is already held by another instance. Exiting.")
+            return False
     try:
         write_pid_file()
     except FileExistsError:

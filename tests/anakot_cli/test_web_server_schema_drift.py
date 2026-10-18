@@ -51,6 +51,7 @@ def test_owned_lagging_store_is_not_written_and_names_restart(monkeypatch, tmp_p
         "gateway.status._is_gateway_runtime_lock_active_strict",
         lambda lock_path: True,
     )
+    monkeypatch.setattr("gateway.status._live_pid_from_record", lambda record: 12345)
     before = path.read_bytes()
 
     with pytest.raises(HTTPException) as caught:
@@ -73,7 +74,7 @@ def test_lock_claim_losing_race_refuses_the_browse_write(monkeypatch, tmp_path):
         _open_session_db_at_path(path, read_only=True)
 
     assert caught.value.status_code == 503
-    assert "gateway lock is busy" in str(caught.value.detail)
+    assert "another process" in str(caught.value.detail)
     assert path.read_bytes() == before
 
 
@@ -94,6 +95,36 @@ def test_named_profile_served_by_multiplexer_is_owned(monkeypatch, tmp_path):
     assert caught.value.status_code == 503
     assert "running gateway owns it" in str(caught.value.detail)
     assert path.read_bytes() == before
+
+
+def test_concurrent_browses_wait_for_one_reconcile(tmp_path, monkeypatch):
+    import threading
+
+    path = _lagging_store(tmp_path)
+    monkeypatch.setenv("ANAKOT_HOME", str(tmp_path))
+    barrier = threading.Barrier(6)
+    results = []
+    result_lock = threading.Lock()
+
+    def browse():
+        barrier.wait()
+        try:
+            db = _open_session_db_at_path(path, read_only=True)
+            db.close()
+            result = "200"
+        except HTTPException as exc:
+            result = f"{exc.status_code} {exc.detail}"
+        with result_lock:
+            results.append(result)
+
+    threads = [threading.Thread(target=browse) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert all(not thread.is_alive() for thread in threads)
+    assert results == ["200"] * 6
 
 
 def test_missing_history_tables_are_not_recreated(tmp_path):

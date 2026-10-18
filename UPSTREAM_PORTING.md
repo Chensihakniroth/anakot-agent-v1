@@ -221,6 +221,9 @@ for c in json.load(sys.stdin):
 | f4c559e3 | 2026-10-17 | fix(sessions): verify history tables on the guarded repair snapshot | PORTED | Validates `sessions` and `messages` both before repair and inside the staged snapshot, refusing promotion when canonical history is missing |
 | 1eda335a | 2026-10-17 | fix(sessions): catch a lagging state.db up once on browse instead of 503 | PORTED | Read-only dashboard opens now reconcile declared drift once only when the profile `gateway.lock` is free; owned stores return a restart 503, while unowned stores reopen read-only after transactional additive DDL |
 | 42a94335 | 2026-10-17 | fix(sessions): never write browse DDL into a corrupt lagging store | PORTED | Read-only `PRAGMA integrity_check` plus FTS probes run while the profile locks are held; corrupt stores and missing canonical history tables are refused without modifying the database; browse/state regression suites pass |
+| 66906f5a | 2026-10-17 | fix(sessions): sibling browses wait for each other instead of naming a gateway | PORTED | Browse lock contention now waits for the schema to become current, distinguishes live unmarked gateway records from empty/torn maintenance windows, and covers six concurrent browses |
+| 1e23addf | 2026-10-17 | fix(gateway): boot waits out a browse schema catch-up instead of exiting | PORTED | Gateway PID/lock claim retries for a bounded interval when an unowned stale `state.db` is being reconciled, while positively identified gateway owners still refuse immediately; startup handoff tests cover success and owner refusal |
+| 515212f4 | 2026-10-17 | fix(gateway): boot waits while a lock holder has not published its record | PORTED | Startup tolerates the lock-held/record-unpublished window and retries boundedly; handoff tests cover success, timeout, and malformed/unpublished-record behavior |
 
 ---
 

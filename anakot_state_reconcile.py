@@ -159,6 +159,8 @@ def _profile_gateway_owned(path: Path) -> bool:
     from gateway.status import (
         _get_gateway_lock_path,
         _is_gateway_runtime_lock_active_strict,
+        _live_pid_from_record,
+        _read_gateway_lock_record,
         owns_gateway_runtime_lock,
     )
 
@@ -172,12 +174,43 @@ def _profile_gateway_owned(path: Path) -> bool:
     if owns_gateway_runtime_lock() and lock_path.resolve() == _get_gateway_lock_path().resolve():
         return True
     try:
-        return _is_gateway_runtime_lock_active_strict(lock_path)
+        if not _is_gateway_runtime_lock_active_strict(lock_path):
+            return False
+        # A sibling browse holds the OS lock but does not publish a gateway
+        # record. A live, unmarked record is the positive runtime-owner proof;
+        # empty/torn records stay in the bounded handoff path below.
+        record = _read_gateway_lock_record(lock_path)
+        return _live_pid_from_record(record) is not None and not (record or {}).get("purpose")
     except RuntimeError as exc:
         raise DeclarativeDriftError(
             f"could not inspect the profile gateway lock at {lock_path}; refusing to write the session store: {exc}",
             owned=True,
         ) from exc
+
+
+_BROWSE_SIBLING_POLL_S = 0.1
+
+
+def _wait_for_sibling_reconcile(path: Path, reason: str, label: str, remedy: str) -> bool:
+    """Wait for another browse to publish a current schema, or classify a real owner."""
+    import time
+
+    deadline = time.monotonic() + 2.0
+    while True:
+        if schema_drift_reason(path) is None:
+            return True
+        if _profile_gateway_owned(path):
+            raise DeclarativeDriftError(
+                f"Session store for profile '{label}' is behind this Anakot version ({reason}), and a running "
+                f"gateway owns it, so browsing will not write to it. Restart that gateway (`{remedy}`) to catch it up.",
+                owned=True,
+            )
+        if time.monotonic() >= deadline:
+            raise DeclarativeDriftError(
+                f"Session store for profile '{label}' is being brought up to date by another process ({reason}). "
+                "Retry in a moment; the session list was not cleared."
+            )
+        time.sleep(_BROWSE_SIBLING_POLL_S)
 
 
 def _profile_lock_paths(path: Path) -> tuple[Path, ...]:
@@ -211,6 +244,11 @@ def _hold_profile_gateway_locks(path: Path):
                 raise
             if not acquired:
                 handle.close()
+                for held_handle in reversed(handles):
+                    _release_file_lock(held_handle)
+                    with contextlib.suppress(OSError):
+                        held_handle.close()
+                handles.clear()
                 yield False
                 return
             handles.append(handle)
@@ -313,11 +351,7 @@ def reconcile_drift_for_browse(path: Path) -> bool:
     try:
         with _hold_profile_gateway_locks(path) as held:
             if not held:
-                raise DeclarativeDriftError(
-                    f"Session store for profile '{label}' is behind this Anakot version ({reason}), but its "
-                    f"gateway lock is busy. Restart that gateway (`{remedy}`) and retry browsing.",
-                    owned=True,
-                )
+                return _wait_for_sibling_reconcile(path, reason, label, remedy)
             if problem := _integrity_problem(path):
                 raise CorruptStoreError(problem)
             _apply_additive_schema(path)
