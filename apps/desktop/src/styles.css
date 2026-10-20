@@ -614,16 +614,17 @@
 
      The boot script in index.html pins an opaque inline background on <html>
      before first paint; it has to go transparent here or it sits behind the
-     translucent <body> and blocks the material. The terminal surface is
-     pinned back to the opaque chrome mix: xterm resolves its surface var to a
-     concrete color for its canvas (see right-sidebar/terminal/selection.ts),
-     which does not composite page alpha. */
+     translucent <body> and blocks the material. The terminal surface goes
+     transparent too: xterm paints its own canvas, so it cannot inherit this
+     alpha from CSS — the terminal hooks hand it the tint at alpha 0 instead
+     (terminalSurface in right-sidebar/terminal/selection.ts keeps the tint's
+     RGB as the contrast reference and lets the canvas clear see-through). */
   :root[data-anakot-glass] {
     background-color: transparent !important;
     --ui-chat-surface-background: transparent;
     --ui-sidebar-surface-background: transparent;
     --ui-editor-surface-background: transparent;
-    --ui-terminal-surface-background: var(--ui-bg-chrome);
+    --ui-terminal-surface-background: transparent;
   }
 
   :root[data-anakot-glass] body {

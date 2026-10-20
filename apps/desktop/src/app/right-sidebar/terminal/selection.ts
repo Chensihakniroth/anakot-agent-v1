@@ -79,23 +79,81 @@ export function terminalTheme(mode: 'light' | 'dark', palette?: DesktopTerminalP
   return overlay as ITheme
 }
 
-// Resolve --ui-terminal-surface-background (a color-mix on the skin seed) to a
-// concrete color for the WebGL renderer + contrast clamp. Custom props don't
-// resolve via getComputedStyle, so probe a real background-color. Read AFTER
-// applyTheme repaints (mount / rAF post-change) or it lags a frame behind.
-export function resolveSurfaceColor(fallback: string): string {
+// Resolve a CSS custom property (or any background color) to a concrete color
+// for the WebGL renderer + contrast clamp. Custom props don't resolve via
+// getComputedStyle, so probe a real background-color. Read AFTER applyTheme
+// repaints (mount / rAF post-change) or it lags a frame behind.
+function probeBackgroundColor(variable: string, fallback: string): string {
   if (typeof document === 'undefined' || !document.body) {
     return fallback
   }
 
   const probe = document.createElement('span')
-  probe.style.cssText =
-    'position:absolute;visibility:hidden;pointer-events:none;background-color:var(--ui-terminal-surface-background)'
+  probe.style.cssText = `position:absolute;visibility:hidden;pointer-events:none;background-color:var(${variable})`
   document.body.appendChild(probe)
   const resolved = getComputedStyle(probe).backgroundColor
   probe.remove()
 
-  return resolved && resolved !== 'rgba(0, 0, 0, 0)' ? resolved : fallback
+  // A pre-paint frame (and jsdom) hands back the unresolved `var(...)` text or
+  // an empty string instead of a color; only take a real rgb/hex value. A token
+  // that resolves to transparent falls back too — callers need the palette's
+  // own background as the contrast reference.
+  return /^(?:#[\da-f]{3,8}|rgba?\()/i.test(resolved) && resolved !== 'rgba(0, 0, 0, 0)' ? resolved : fallback
+}
+
+function resolveSurfaceColor(fallback: string): string {
+  return probeBackgroundColor('--ui-terminal-surface-background', fallback)
+}
+
+/**
+ * The same color with its alpha dropped to zero — xterm's canvas keeps the RGB
+ * (its contrast clamp and block cursor read the channels) while the pixels stop
+ * hiding whatever composites underneath.
+ */
+export function transparentColor(color: string): string {
+  const value = color.trim()
+  const hex = /^#([\da-f]{3,8})$/i.exec(value)
+
+  if (hex) {
+    const digits = hex[1]
+
+    const channel = (index: number) =>
+      parseInt(digits.length <= 4 ? digits[index].repeat(2) : digits.slice(index * 2, index * 2 + 2), 16)
+
+    return `rgba(${channel(0)}, ${channel(1)}, ${channel(2)}, 0)`
+  }
+
+  const rgb = /^rgba?\(([^)]+)\)$/i.exec(value)
+
+  if (!rgb) {
+    return 'rgba(0, 0, 0, 0)'
+  }
+
+  const [r, g, b] = rgb[1].split(/[\s,/]+/).filter(Boolean)
+
+  return `rgba(${Number(r) || 0}, ${Number(g) || 0}, ${Number(b) || 0}, 0)`
+}
+
+/**
+ * The pair xterm needs to sit on the page: the color its canvas paints, and the
+ * opaque color behind it (block cursor + contrast reference).
+ *
+ * Opaque surfaces take the terminal token as-is. Under window glass the page is
+ * transparent but xterm paints its own canvas, so a CSS alpha on the pane never
+ * reaches the cells — hand it the tint at alpha 0 instead, keeping the tint's
+ * RGB as the contrast reference so ANSI colors stay clamped to the surface the
+ * user actually sees.
+ */
+export function terminalSurface(fallback: string, glass: boolean): { accent: string; background: string } {
+  if (!glass) {
+    const surface = resolveSurfaceColor(fallback)
+
+    return { accent: surface, background: surface }
+  }
+
+  const tint = probeBackgroundColor('--ui-bg-chrome', fallback)
+
+  return { accent: tint, background: transparentColor(tint) }
 }
 
 export { isMacPlatform }

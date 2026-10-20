@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 import { FitAddon } from '@xterm/addon-fit'
 import { SerializeAddon } from '@xterm/addon-serialize'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
@@ -11,6 +12,7 @@ import { markRightPanePerf } from '@/debug/right-pane-events'
 import { triggerHaptic } from '@/lib/haptics'
 import { isComposerChord } from '@/lib/keybinds/chords'
 import { $previewTarget } from '@/store/preview'
+import { $translucency, isGlassLive } from '@/store/translucency'
 import { useTheme } from '@/themes/context'
 
 import { $terminalInjection } from '../store'
@@ -21,9 +23,9 @@ import { mirrorSelection, terminalClipboardIntent } from './clipboard'
 import { terminalLinkHandler, terminalWebLinksAddon } from './links'
 import {
   isMacPlatform,
-  resolveSurfaceColor,
   terminalSelectionAnchor,
   terminalSelectionLabel,
+  terminalSurface,
   terminalTheme
 } from './selection'
 import { registerTerminalContextMenu } from './terminal-context-menu'
@@ -284,11 +286,13 @@ export function parseOscCwd(code: 7 | 9, payload: string): string | null {
 }
 
 // Bind the palette to the live skin surface so the terminal blends with the app
-// (and the contrast clamp has a real background to work against).
-function withSurface(theme: ReturnType<typeof terminalTheme>) {
-  const surface = resolveSurfaceColor(theme.background ?? '#ffffff')
+// (and the contrast clamp has a real background to work against). Under glass
+// the surface is handed over transparent, so the material shows through the
+// canvas like it does through the transcript.
+function withSurface(theme: ReturnType<typeof terminalTheme>, glass: boolean) {
+  const { accent, background } = terminalSurface(theme.background ?? '#ffffff', glass)
 
-  return { ...theme, background: surface, cursorAccent: surface }
+  return { ...theme, background, cursorAccent: accent }
 }
 
 function transferHasDropCandidates(t: DataTransfer): boolean {
@@ -399,6 +403,14 @@ export function useTerminalSession({
   // never touches transparency.
   const ansiPalette = renderedMode === 'dark' ? (theme.darkTerminal ?? theme.terminal) : theme.terminal
   const activeTheme = useMemo(() => terminalTheme(renderedMode, ansiPalette), [renderedMode, ansiPalette])
+  // Glass thins the page surfaces to transparent, but xterm paints its own
+  // canvas, so it needs the tint handed to it (see terminalSurface).
+  const translucency = useStore($translucency)
+  const glass = isGlassLive(translucency)
+  // Construct-time value: allowTransparency must be decided when the Terminal is
+  // created (the WebGL atlas bakes it), so capture the mount-time answer. Later
+  // flips are pushed through term.options in the theme effect below.
+  const initialGlassRef = useRef(glass)
   const initialThemeRef = useRef(activeTheme)
   const hostRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -514,9 +526,10 @@ export function useTerminalSession({
       altClickMovesCursor: false,
       // Opaque canvas = WebGL's crisp fast-path. allowTransparency instead bakes
       // glyphs as grayscale-alpha for compositing over a see-through canvas, which
-      // reads soft on every platform; VS Code keeps it off and our surface
-      // (--ui-bg-chrome) is opaque anyway, so withSurface paints it solid.
-      allowTransparency: false,
+      // reads soft on every platform; VS Code keeps it off, and our surface
+      // (--ui-bg-chrome) is opaque unless the window is in Glass — so only glass
+      // pays that price, and it's the only way the material can reach the cells.
+      allowTransparency: initialGlassRef.current,
       convertEol: true,
       cursorBlink: true,
       fontFamily: latestFontFamilyRef.current,
@@ -543,7 +556,7 @@ export function useTerminalSession({
       // at render time, matching the muted ink-like look of their terminal.
       minimumContrastRatio: 4.5,
       scrollback: 1000,
-      theme: withSurface(initialThemeRef.current)
+      theme: withSurface(initialThemeRef.current, initialGlassRef.current)
     })
 
     const fit = new FitAddon()
@@ -987,7 +1000,14 @@ export function useTerminalSession({
     // CSS vars in a sibling effect that runs after this one, so reading now
     // would lag a mode behind. By the next frame the vars are current.
     const raf = requestAnimationFrame(() => {
-      term.options.theme = withSurface(activeTheme)
+      // Glass flips the renderer between the crisp opaque canvas and the
+      // alpha-composited one; xterm rebuilds its glyph atlas on the option
+      // change, so set it before the theme that depends on it.
+      if (term.options.allowTransparency !== glass) {
+        term.options.allowTransparency = glass
+      }
+
+      term.options.theme = withSurface(activeTheme, glass)
       // The WebGL renderer caches glyph colors in a texture atlas, so a
       // light/dark switch leaves already-drawn cells stale until the atlas is
       // cleared. No-op for the DOM fallback.
@@ -995,7 +1015,7 @@ export function useTerminalSession({
     })
 
     return () => cancelAnimationFrame(raf)
-  }, [activeTheme, themeName])
+  }, [activeTheme, glass, themeName])
 
   // Expose this terminal's buffer to the agent's `read_terminal` tool, keyed by
   // id. The tab selection (setActiveTerminalId) decides which one it reads, so

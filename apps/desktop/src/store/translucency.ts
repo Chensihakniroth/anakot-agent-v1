@@ -25,6 +25,7 @@ import {
   defaultTranslucencyValues,
   GLASS_MATERIALS,
   GLASS_SCOPES,
+  glassActive,
   type GlassMaterial,
   glassMaterialForPicker,
   glassMaterialsFor,
@@ -160,6 +161,15 @@ export const isChatWindow = (search = typeof window === 'undefined' ? '' : windo
     return false
   }
 }
+
+/**
+ * Whether THIS window's field surfaces are thinned for glass — the same answer
+ * `applyGlassSurfaces` publishes as `data-anakot-glass`, exposed for surfaces
+ * that cannot read it from CSS (xterm paints its own canvas; see
+ * right-sidebar/terminal/selection.ts).
+ */
+export const isGlassLive = (state: TranslucencyState = $translucency.get()): boolean =>
+  glassActive(state) && GLASS_SUPPORTED && isChatWindow()
 
 /* Sidebar scope needs the rail's visual edge published on :root so <body>
    can split its paint there (glass left of the seam, opaque chrome right of
@@ -298,14 +308,16 @@ export function pulseTranslucencyPeek(ms = 900): void {
   window.setTimeout(endTranslucencyPeek, ms)
 }
 
-const applyGlassSurfaces = ({ intensity, mode, scope }: TranslucencyState): void => {
+const applyGlassSurfaces = (state: TranslucencyState): void => {
+  const { intensity, mode, scope } = state
+
   if (typeof document === 'undefined') {
     return
   }
 
   const root = document.documentElement
   // Is the user's Glass setting live at all — the same answer in every window.
-  const glassLive = mode === 'glass' && intensity > 0 && GLASS_SUPPORTED
+  const glassLive = glassActive(state) && GLASS_SUPPORTED
   // ...and may THIS window's field surfaces be rewritten for it. Only real
   // chat windows: the HUD, pet overlay, quick entry and wake indicator are
   // transparent windows that own their backgrounds, and the surface rewrite

@@ -1,3 +1,4 @@
+import { useStore } from '@nanostores/react'
 import { FitAddon } from '@xterm/addon-fit'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
@@ -7,6 +8,7 @@ import { useEffect, useRef } from 'react'
 import { writeClipboardText } from '@/components/ui/copy-button'
 import { markRightPanePerf } from '@/debug/right-pane-events'
 import { triggerHaptic } from '@/lib/haptics'
+import { $translucency, isGlassLive } from '@/store/translucency'
 import { useTheme } from '@/themes/context'
 
 import { observeActiveTerminalResize } from './active-resize'
@@ -14,7 +16,7 @@ import { registerAgentTerminalWriter } from './agent-terminal-stream'
 import { makeTerminalReader, registerTerminalReader } from './buffer'
 import { mirrorSelection, terminalClipboardIntent } from './clipboard'
 import { terminalLinkHandler, terminalWebLinksAddon } from './links'
-import { isMacPlatform, resolveSurfaceColor, terminalTheme } from './selection'
+import { isMacPlatform, terminalSurface, terminalTheme } from './selection'
 import { registerTerminalContextMenu } from './terminal-context-menu'
 import { prepareTerminalFontFamily } from './terminal-font'
 import { useTerminalFontController } from './use-terminal-font'
@@ -24,6 +26,10 @@ import { useTerminalFontController } from './use-terminal-font'
 // the user terminal's look so the two read as one surface.
 export function useAgentTerminal({ active, id, procId }: { active: boolean; id: string; procId: string }) {
   const { renderedMode, theme, themeName } = useTheme()
+  // Same glass contract as the live terminal (use-terminal-session): the mirror
+  // must read as the same surface, so it goes transparent with the window.
+  const glass = isGlassLive(useStore($translucency))
+  const initialGlassRef = useRef(glass)
   const hostRef = useRef<HTMLDivElement | null>(null)
   const termRef = useRef<Terminal | null>(null)
   const webglRef = useRef<WebglAddon | null>(null)
@@ -37,9 +43,9 @@ export function useAgentTerminal({ active, id, procId }: { active: boolean; id: 
     // Fall back to the palette's own background, not white — a hardcoded
     // '#ffffff' flashes a white slab in dark mode whenever the probe can't read
     // the token (pre-paint mount). Same contract as the user terminal.
-    const surface = resolveSurfaceColor(base.background ?? '#ffffff')
+    const { accent, background } = terminalSurface(base.background ?? '#ffffff', glass)
 
-    return { ...base, background: surface, cursorAccent: surface }
+    return { ...base, background, cursorAccent: accent }
   }
 
   // eslint-disable-next-line no-restricted-syntax -- legitimate non-atom ref write (see eslint rule comment)
@@ -58,7 +64,7 @@ export function useAgentTerminal({ active, id, procId }: { active: boolean; id: 
 
     const term = new Terminal({
       allowProposedApi: true,
-      allowTransparency: false,
+      allowTransparency: initialGlassRef.current,
       convertEol: true,
       cursorBlink: false,
       disableStdin: true,
@@ -188,13 +194,17 @@ export function useAgentTerminal({ active, id, procId }: { active: boolean; id: 
     }
 
     const raf = requestAnimationFrame(() => {
+      if (term.options.allowTransparency !== glass) {
+        term.options.allowTransparency = glass
+      }
+
       term.options.theme = surfaceTheme()
       webglRef.current?.clearTextureAtlas()
     })
 
     return () => cancelAnimationFrame(raf)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [renderedMode, themeName])
+  }, [glass, renderedMode, themeName])
 
   // Keep inactive agent terminals mounted for their backlog, but do not observe
   // or fit them until they become the visible tab.
