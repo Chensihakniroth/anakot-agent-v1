@@ -25,6 +25,8 @@ export interface CachedUpdateCheck {
   fetchedAt: number
   currentSha: string
   branch: string
+  /** Build identity for packaged Desktop clients; changes when the bundle is rebuilt. */
+  bundleKey?: string
   status: Record<string, unknown> & { error?: string }
 }
 
@@ -46,15 +48,21 @@ export function compareApiUrl(slug: string, currentSha: string, targetSha: strin
 
 /**
  * Whether a cached result still answers a passive check. The cache is keyed on
- * the local HEAD and branch: applying an update or switching branches changes
- * HEAD and invalidates it immediately, so a 24h TTL never shows a stale
- * "update available" after the user just updated.
+ * the local HEAD and branch; packaged clients also key it on the build identity
+ * so rebuilding the renderer invalidates a stale "update available" result.
+ * Applying an update or switching branches changes one of those keys immediately,
+ * so a 24h TTL never shows a stale "update available" after the user just updated.
  */
 export function cacheIsFresh(
   cached: CachedUpdateCheck | null | undefined,
-  { branch, currentSha, now }: { branch: string; currentSha: string; now: number }
+  { branch, bundleKey, currentSha, now }: { branch: string; bundleKey?: string; currentSha: string; now: number }
 ): boolean {
-  if (!cached || cached.branch !== branch || cached.currentSha !== currentSha) {
+  if (
+    !cached ||
+    cached.branch !== branch ||
+    cached.currentSha !== currentSha ||
+    (bundleKey !== undefined && cached.bundleKey !== bundleKey)
+  ) {
     return false
   }
 
@@ -108,6 +116,44 @@ export function parseCompare(payload: unknown): { behind: number; commits: Compa
     : []
 
   return { behind: ahead, commits }
+}
+
+export interface BundleSkewStatus {
+  desktopCommitsBehind: null | number
+  outOfSync: boolean
+}
+
+interface BundleSkewUpdateFields {
+  bundleCommitsBehind: null | number
+  bundleOutOfSync: boolean
+}
+
+interface UpdateStatusShape {
+  error?: string
+  updateAvailable?: boolean
+}
+
+/**
+ * Keep the Desktop update affordance alive when the source checkout is current
+ * but the packaged renderer was built from an older commit. The normal update
+ * pipeline rebuilds the packaged app after it runs, so this is a real update,
+ * not merely an informational warning. A network error still wins: without a
+ * target SHA the UI cannot offer a truthful install action.
+ */
+export function markBundleSkewUpdate<T extends UpdateStatusShape>(
+  status: T,
+  skew: BundleSkewStatus
+): T & Partial<BundleSkewUpdateFields> {
+  if (!skew.outOfSync) {
+    return status
+  }
+
+  return {
+    ...status,
+    bundleCommitsBehind: skew.desktopCommitsBehind,
+    bundleOutOfSync: true,
+    ...(status.error ? {} : { updateAvailable: true })
+  }
 }
 
 /** GitHub's rate-limit headers off a failed response, when it carried them. */

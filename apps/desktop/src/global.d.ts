@@ -714,6 +714,10 @@ export interface DesktopUpdateCommit {
 export interface DesktopUpdateStatus {
   supported: boolean
   updateAvailable?: boolean
+  /** True when the packaged Desktop bundle predates desktop changes in the checkout. */
+  bundleOutOfSync?: boolean
+  /** Desktop commits missing from the running packaged bundle; null when unknown. */
+  bundleCommitsBehind?: null | number
   branch?: string
   currentBranch?: string
   reason?: string

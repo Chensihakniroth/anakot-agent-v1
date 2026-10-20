@@ -427,6 +427,7 @@ import {
   compareApiUrl,
   describeUpdateCheckFailure,
   githubRepoSlug,
+  markBundleSkewUpdate,
   parseCompare,
   rateLimitFromHeaders
 } from './update-api-check'
@@ -3294,8 +3295,9 @@ async function checkUpdates({ force = false }: { force?: boolean } = {}) {
 
   const cached = readUpdateCheckCache()
   const now = Date.now()
+  const bundleKey = installStampCacheKey()
 
-  if (!force && cacheIsFresh(cached, { branch, currentSha, now })) {
+  if (!force && cacheIsFresh(cached, { branch, bundleKey, currentSha, now })) {
     return { ...cached.status, dirty: dirtyStr.length > 0, currentBranch }
   }
 
@@ -3306,6 +3308,10 @@ async function checkUpdates({ force = false }: { force?: boolean } = {}) {
     ? await checkUpdatesViaApi({ slug, branch, currentSha })
     : await checkUpdatesViaLsRemote({ updateRoot, branch, currentSha })
 
+  const bundleAwareStatus = !status.error && IS_PACKAGED
+    ? markBundleSkewUpdate(status, await detectRendererSkew())
+    : status
+
   const result = {
     supported: true,
     branch,
@@ -3314,12 +3320,20 @@ async function checkUpdates({ force = false }: { force?: boolean } = {}) {
     dirty: dirtyStr.length > 0,
     anakotRoot: updateRoot,
     fetchedAt: now,
-    ...status
+    ...bundleAwareStatus
   }
 
-  writeUpdateCheckCache({ fetchedAt: now, currentSha, branch, status: result })
+  writeUpdateCheckCache({ bundleKey, fetchedAt: now, currentSha, branch, status: result })
 
   return result
+}
+
+function installStampCacheKey() {
+  if (!IS_PACKAGED || !INSTALL_STAMP) {
+    return ''
+  }
+
+  return [INSTALL_STAMP.commit, INSTALL_STAMP.builtAt || '', INSTALL_STAMP.dirty ? 'dirty' : 'clean'].join(':')
 }
 
 function readUpdateCheckCache() {

@@ -18,6 +18,7 @@ import {
   cacheIsFresh,
   describeUpdateCheckFailure,
   githubRepoSlug,
+  markBundleSkewUpdate,
   parseCompare,
   rateLimitFromHeaders,
   UPDATE_CHECK_FAILURE_TTL_MS,
@@ -28,7 +29,7 @@ const SHA_A = 'a'.repeat(40)
 const SHA_B = 'b'.repeat(40)
 const HOUR = 60 * 60 * 1000
 
-test('cache serves a passive check for 24h, but not once HEAD or the branch changes', () => {
+test('cache serves a passive check for 24h, but not once HEAD, branch, or bundle changes', () => {
   const cached = { fetchedAt: 0, currentSha: SHA_A, branch: 'main', status: { behind: 0 } }
 
   assert.equal(cacheIsFresh(cached, { branch: 'main', currentSha: SHA_A, now: UPDATE_CHECK_TTL_MS - 1 }), true)
@@ -36,6 +37,16 @@ test('cache serves a passive check for 24h, but not once HEAD or the branch chan
   // Applying an update moves HEAD: a stale "update available" must never survive it.
   assert.equal(cacheIsFresh(cached, { branch: 'main', currentSha: SHA_B, now: 1 }), false)
   assert.equal(cacheIsFresh(cached, { branch: 'bb/gui', currentSha: SHA_A, now: 1 }), false)
+
+  const bundled = { ...cached, bundleKey: 'commit-a:build-1' }
+  assert.equal(
+    cacheIsFresh(bundled, { branch: 'main', bundleKey: 'commit-a:build-1', currentSha: SHA_A, now: 1 }),
+    true
+  )
+  assert.equal(
+    cacheIsFresh(bundled, { branch: 'main', bundleKey: 'commit-a:build-2', currentSha: SHA_A, now: 1 }),
+    false
+  )
 
   // Failures retry sooner than successes, but still not on every tick.
   const failed = { ...cached, status: { error: 'fetch-failed' } }
@@ -80,6 +91,26 @@ test('compare payload maps to the behind count and a newest-first commit list; m
     branchTipApiUrl('nousresearch/anakot-agent', 'bb/gui'),
     'https://api.github.com/repos/nousresearch/hermes-agent/commits/bb%2Fgui'
   )
+})
+
+test('packaged bundle skew exposes an update when the source checkout is current', () => {
+  const current = { behind: 0, targetSha: SHA_B, updateAvailable: false }
+  const skew = { desktopCommitsBehind: 1, outOfSync: true }
+
+  assert.deepEqual(markBundleSkewUpdate(current, skew), {
+    behind: 0,
+    bundleCommitsBehind: 1,
+    bundleOutOfSync: true,
+    targetSha: SHA_B,
+    updateAvailable: true
+  })
+  assert.deepEqual(markBundleSkewUpdate({ ...current, error: 'fetch-failed' }, skew), {
+    ...current,
+    bundleCommitsBehind: 1,
+    bundleOutOfSync: true,
+    error: 'fetch-failed'
+  })
+  assert.deepEqual(markBundleSkewUpdate(current, { ...skew, outOfSync: false }), current)
 })
 
 // #112615: behind a shared exit IP the anonymous 60/hour budget is spent by
