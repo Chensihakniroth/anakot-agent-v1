@@ -1,9 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { approvePairing, getMessagingPlatforms } from './api/messaging'
-import { getAuxiliaryModels, getGlobalModelInfo } from './api/models'
-import { getOfficialSkills, getSkillHubSources } from './api/skills'
-import { getToolsetConfig } from './api/toolsets'
 import {
   getAnakotConfigRecord,
   getMcpCatalog,
@@ -19,6 +15,10 @@ import {
   setSkillEnabled,
   setToolsetEnabled
 } from './anakot'
+import { approvePairing, getMessagingPlatforms } from './api/messaging'
+import { getAuxiliaryModels, getGlobalModelInfo } from './api/models'
+import { getOfficialSkills, getSkillHubSources } from './api/skills'
+import { getToolsetConfig } from './api/toolsets'
 
 // Contract: the Capabilities surface (skills / toolsets / MCP / hub / config)
 // can be scoped to a (connection, profile) pair — a profile belongs to ONE

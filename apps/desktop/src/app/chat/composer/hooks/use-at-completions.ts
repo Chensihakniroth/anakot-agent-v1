@@ -1,9 +1,9 @@
 import type { Unstable_TriggerAdapter, Unstable_TriggerItem } from '@assistant-ui/core'
 import { useCallback } from 'react'
 
+import type { AnakotGateway } from '@/anakot'
 import { refChipLabel } from '@/components/assistant-ui/directive-text'
 import { useContributions } from '@/contrib/react/use-contributions'
-import type { AnakotGateway } from '@/anakot'
 import { cachedPathCompletion, hasCachedPathCompletion } from '@/lib/slash-completion-cache'
 import { normalize } from '@/lib/text'
 

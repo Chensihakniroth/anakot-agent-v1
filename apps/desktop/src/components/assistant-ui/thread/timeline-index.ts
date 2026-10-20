@@ -1,4 +1,4 @@
-import { capabilityScoped, anakotApi, type ProfileScope } from '@/api/client'
+import { anakotApi, capabilityScoped, type ProfileScope } from '@/api/client'
 
 import type { TimelineEntry } from './timeline-data'
 

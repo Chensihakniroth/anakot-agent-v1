@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { AnakotReadDirResult } from '@/global'
 import type * as AnakotModule from '@/anakot'
+import type { AnakotReadDirResult } from '@/global'
 
 import { emitGatewayEvent } from './events'
 import { $pluginRecords, publishPlugin, setPluginEnabled } from './plugins-store'
