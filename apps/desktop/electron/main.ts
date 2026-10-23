@@ -46,6 +46,7 @@ import {
   stopBackendTreesForUpdate,
   waitForBackendExit as waitForBackendExitImpl
 } from './backend-child'
+import { createOpenCode2ApiLifecycle } from './opencode2api-child'
 import {
   type BackendOutputTail,
   claimDecision,
@@ -12628,9 +12629,15 @@ async function stopAllPoolBackends() {
   entries.forEach(releaseLocalBackendSlot)
 }
 
+const openCode2ApiLifecycle = createOpenCode2ApiLifecycle({
+  forceKillProcessTree,
+  log: message => rememberLog(message)
+})
+
 const backendShutdown = createBackendShutdownCoordinator(async () => {
   const localShutdown = localBackendLifecycle.shutdown()
   const primary = backendConnectionState.invalidate()
+  const openCode2ApiStop = openCode2ApiLifecycle.stop()
 
   stopBackendChild(primary)
   const pooledStops = stopAllPoolBackends()
@@ -12640,7 +12647,7 @@ const backendShutdown = createBackendShutdownCoordinator(async () => {
     poolIdleReaper = null
   }
 
-  await waitForTeardown([localShutdown, waitForBackendExit(primary), pooledStops], 7_000)
+  await waitForTeardown([localShutdown, waitForBackendExit(primary), pooledStops, openCode2ApiStop], 7_000)
 })
 
 const quitTeardown = createQuitTeardownCoordinator(() => app.quit())
@@ -18085,7 +18092,7 @@ app.on('open-url', (event, url) => {
   handleDeepLink(url)
 })
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   // Warm the login-shell PATH resolution immediately so it usually completes
   // before the backend start path awaits the same single-flight promise.
   void ensureLoginShellPath()
@@ -18178,6 +18185,13 @@ app.whenReady().then(() => {
   // its worker waits for the install marker to clear, then reopens every scope
   // captured by the original transaction before removing the journal entry.
   void resumeManagedSshRecoveries()
+
+  try {
+    await openCode2ApiLifecycle.start()
+  } catch (error) {
+    rememberLog(`[opencode2api] startup failed: ${error instanceof Error ? error.message : String(error)}`)
+  }
+
   createWindow()
 
   // Win/Linux cold start: the launching anakot:// URL is in our own argv.
