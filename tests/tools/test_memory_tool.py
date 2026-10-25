@@ -110,6 +110,7 @@ def store(tmp_path, monkeypatch):
     return s
 
 
+@pytest.mark.linux_only
 class TestMemoryFileLockPermissions:
     def test_new_lock_file_is_owner_only_under_permissive_umask(self, tmp_path):
         memory_path = tmp_path / "MEMORY.md"
@@ -784,19 +785,37 @@ class TestBatchRefusesToEmptyNonEmptyStore:
         ("target", "seed"),
         [("user", "Name: Alice"), ("memory", "fact A")],
     )
-    def test_batch_removing_last_entry_is_refused_and_preserves_disk(
+    def test_multi_op_batch_removing_last_entries_is_refused_and_preserves_disk(
         self, store, target, seed
     ):
         assert store.add(target, seed)["success"] is True
+        assert store.add(target, "second entry here")["success"] is True
         path = store._path_for(target)
         before = path.read_text(encoding="utf-8")
 
-        result = store.apply_batch(target, [{"action": "remove", "old_text": seed}])
+        result = store.apply_batch(target, [
+            {"action": "remove", "old_text": seed},
+            {"action": "remove", "old_text": "second entry here"},
+        ])
 
         assert result["success"] is False
         assert "current_entries" in result  # actionable, counts toward degrade budget
-        assert "remove" in result["error"]  # points at the deliberate-wipe path
+        assert "one-item" in result["error"]  # points at the deliberate-wipe path
         assert path.read_text(encoding="utf-8") == before  # nothing written
+
+    @pytest.mark.parametrize(
+        ("target", "seed"),
+        [("user", "Name: Alice"), ("memory", "fact A")],
+    )
+    def test_one_item_remove_may_delete_the_last_entry(self, store, target, seed):
+        """operations[] is the only advertised shape, so a one-item remove is the deliberate
+        single delete and may empty the store (#103419 targets multi-op consolidation)."""
+        assert store.add(target, seed)["success"] is True
+
+        result = store.apply_batch(target, [{"action": "remove", "old_text": seed}])
+
+        assert result["success"] is True
+        assert store._entries_for(target) == []
 
     @pytest.mark.parametrize(
         ("target", "seed"),

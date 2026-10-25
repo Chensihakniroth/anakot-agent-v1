@@ -65,6 +65,34 @@ def _find_unique_match(entries: List[str], old_text: str) -> Tuple[Optional[int]
     return (matches[0] if matches else None), False
 
 
+# Patch content cannot be empty, and 'remove' would drop the sibling facts in the entry.
+PATCH_DROP_HINT = "To drop text inside an entry, patch a longer span that contains it; 'remove' deletes the whole entry."
+
+
+def _repeated_span_message(old_text: str, count: int) -> str:
+    return (f"'{old_text}' appears {count} times in the matched entry, and patch edits one span. "
+            f"Include more surrounding text so old_text occurs once.")
+
+
+def _span_occurrences(text: str, span: str) -> int:
+    """Occurrences of *span* in *text*, overlapping ones included: '00' occurs twice in '1000'."""
+    return sum(text.startswith(span, i) for i in range(len(text) - len(span) + 1))
+
+
+def _patch_entry(entry: str, old_text: str, new_text: str) -> Tuple[Optional[str], str]:
+    """``(patched entry, "")``, or ``(None, error)`` when the span occurs more than once in the
+    entry, the edit changes nothing, or the patched entry fails the threat scan. Single and
+    batch patches both go through here, so they share one rule."""
+    if (count := _span_occurrences(entry, old_text)) > 1:
+        return None, _repeated_span_message(old_text, count)
+    patched = entry.replace(old_text, new_text, 1)
+    if patched == entry:
+        return None, f"Patch is a no-op: '{old_text}' -> '{new_text}' leaves the entry unchanged."
+    if scan_error := _scan_memory_content(patched):
+        return None, scan_error
+    return patched, ""
+
+
 class MemoryStore:
     """Bounded curated memory with file persistence; one instance per AIAgent.
     ``_system_prompt_snapshot`` is frozen at load time (prefix-cache stable);
@@ -280,6 +308,42 @@ class MemoryStore:
             return _error(scan_error)
         return self._edit(target, old_text.strip(), new_content)
 
+    def patch(self, target: str, old_text: str, new_text: str) -> Dict[str, Any]:
+        """Find the entry containing *old_text* and replace that one span with *new_text*;
+        the rest of the entry is preserved verbatim. This is the partial-edit shape that
+        ``replace`` deliberately is not (replace overwrites the WHOLE entry). A span that
+        occurs more than once in the entry is rejected rather than edited everywhere."""
+        if not (old_text or "").strip():
+            return _error("old_text cannot be empty.")
+        if new_text is None or not str(new_text).strip():
+            return _error(f"new_text cannot be empty. {PATCH_DROP_HINT}")
+        return self._patch(target, old_text, str(new_text))
+
+    def _patch(self, target: str, old_text: str, new_text: str) -> Dict[str, Any]:
+        """Locked find-and-splice inside the matched entry (partial edit)."""
+        def _apply(entries, limit):
+            idx, ambiguous = _find_unique_match(entries, old_text)
+            if ambiguous:
+                return _error(f"Multiple entries matched '{old_text}'. Be more specific.",
+                              matches=[e[:80] + ("..." if len(e) > 80 else "") for e in entries if old_text in e])
+            if idx is None:
+                return self._consolidation_failure(_error(
+                    f"No entry matched '{old_text}'. Check current_entries below and retry with text "
+                    f"from the entry you want to patch.", current_entries=entries))
+            before = entries[idx]
+            after, message = _patch_entry(before, old_text, new_text)
+            if after is None:
+                return _error(message)
+            patched = entries[:idx] + [after] + entries[idx + 1:]
+            new_total = len(ENTRY_DELIMITER.join(patched))
+            if new_total > limit:
+                return self._failure_with_entries(target, (
+                    f"Patch would put memory at {new_total:,}/{limit:,} chars. Shorten the new "
+                    f"text, or 'remove' other stale or less important entries to make room "
+                    f"(see current_entries below), then retry — all in this turn."))
+            return patched, "Entry patched."
+        return self._mutate(target, _apply)
+
     def remove(self, target: str, old_text: str) -> Dict[str, Any]:
         """Remove the entry containing old_text substring."""
         if not old_text.strip():
@@ -318,18 +382,24 @@ class MemoryStore:
             if content not in working:  # idempotent -- skip duplicate, don't fail the batch
                 working.append(content)
             return None
-        if act not in ("replace", "remove"):
-            return f"{pos}: unknown action. Use add, replace, or remove."
+        if act not in ("replace", "patch", "remove"):
+            return f"{pos}: unknown action. Use add, replace, patch, or remove."
         if not old_text:
             return f"{pos}: old_text is required."
-        if act == "replace" and not content:
+        if act in ("replace", "patch") and not content:
             return f"{pos}: content is required (use action='remove' to delete)."
         idx, ambiguous = _find_unique_match(working, old_text)
         if ambiguous:
             return f"{pos}: '{old_text}' matched multiple distinct entries -- be more specific."
         if idx is None:
             return f"{pos}: no entry matched '{old_text}'."
-        working[idx:idx + 1] = [content] if act == "replace" else []
+        if act == "patch":
+            after, message = _patch_entry(working[idx], old_text, content)
+            if after is None:
+                return f"{pos}: {message}"
+            working[idx] = after
+        else:
+            working[idx:idx + 1] = [content] if act == "replace" else []
         return None
 
     def apply_batch(self, target: str, operations: List[Dict[str, Any]]) -> Dict[str, Any]:
@@ -341,7 +411,7 @@ class MemoryStore:
         ops = [op or {} for op in operations]
         # Scan every add/replace content BEFORE touching disk -- one poisoned op rejects the batch.
         for i, op in enumerate(ops):
-            scan_error = op.get("action") in {"add", "replace"} and op.get("content") and _scan_memory_content(op["content"])
+            scan_error = op.get("action") in {"add", "replace", "patch"} and op.get("content") and _scan_memory_content(op["content"])
             if scan_error:
                 return _error(f"Operation {i + 1}: {scan_error}")
 

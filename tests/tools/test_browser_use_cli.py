@@ -930,7 +930,8 @@ class TestHeaderVariants:
             "tools.vision_tools._should_use_native_vision_fast_path", lambda: False
         )
         header = bu_cli._description_header()
-        assert "cannot view images" in header
+        assert "not attached to this tool's results" in header
+        assert "Work text-first" in header
         assert "page_info()" in header
 
 

@@ -19,10 +19,11 @@ backends reject.
 
 import json
 
-from tools.memory_tool import MEMORY_SCHEMA
+from tools.memory_tool import MEMORY_SCHEMA, MemoryStore
+from tools.registry import registry
 
 
-_FORBIDDEN_TOP_LEVEL_KEYS = ("allOf", "anyOf", "oneOf", "enum", "not")
+_FORBIDDEN_TOP_LEVEL_KEYS = ("allOf", "anyOf", "oneOf", "not")
 
 
 def test_memory_schema_has_no_forbidden_top_level_combinators():
@@ -38,3 +39,43 @@ def test_memory_schema_has_no_forbidden_top_level_combinators():
 
 def test_memory_schema_is_json_serializable():
     json.dumps(MEMORY_SCHEMA)
+
+
+def test_each_memory_field_is_advertised_once_and_legacy_shapes_still_write(tmp_path, monkeypatch):
+    """The schema advertises one shape (target + operations[]) with no alias; the handler still
+    accepts the top-level single-op shape and the new_text alias models and transcripts send."""
+    params = MEMORY_SCHEMA["parameters"]
+    assert set(params["properties"]) == {"target", "operations"}
+    assert "new_text" not in json.dumps(params)
+
+    monkeypatch.setattr("tools.memory_tool.get_memory_dir", lambda: tmp_path)
+    store = MemoryStore(memory_char_limit=500, user_char_limit=300)
+    store.load_from_disk()
+    handler = registry.get_entry("memory").handler
+    assert json.loads(handler({"action": "add", "target": "memory", "new_text": "alpha fact"}, store=store))["success"]
+    batch = {"target": "memory", "operations": [{"action": "patch", "old_text": "alpha", "new_text": "beta"}]}
+    assert json.loads(handler(batch, store=store))["success"]
+    assert store.memory_entries == ["beta fact"]
+
+
+def test_patch_edits_one_span_and_keeps_sibling_facts(tmp_path, monkeypatch):
+    """A partial edit must not eat the rest of a packed multi-fact entry (#124582)."""
+    monkeypatch.setattr("tools.memory_tool.get_memory_dir", lambda: tmp_path)
+    store = MemoryStore(memory_char_limit=500, user_char_limit=300)
+    store.load_from_disk()
+    store.add("memory", "tea in the morning; coffee after lunch; water all day")
+    result = store.patch("memory", "coffee", "espresso")
+    assert result["success"] is True
+    assert store.memory_entries == ["tea in the morning; espresso after lunch; water all day"]
+
+
+def test_patch_rejects_span_that_occurs_more_than_once(tmp_path, monkeypatch):
+    """patch edits one span; an ambiguous span is refused instead of edited everywhere."""
+    monkeypatch.setattr("tools.memory_tool.get_memory_dir", lambda: tmp_path)
+    store = MemoryStore(memory_char_limit=500, user_char_limit=300)
+    store.load_from_disk()
+    store.add("memory", "note: alpha and again alpha")
+    result = store.patch("memory", "alpha", "beta")
+    assert result["success"] is False
+    assert "2 times" in result["error"]
+    assert store.memory_entries == ["note: alpha and again alpha"]

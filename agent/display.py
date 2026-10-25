@@ -432,6 +432,9 @@ def _preview_memory(args: dict, _max_len: int) -> str:
         return f"+{target}: \"{_clip(_oneline(op.get('content') or op.get('new_text') or ''), 25)}\"{more}"
     if action in ("replace", "patch", "remove"):
         old = _oneline(op.get("old_text") or "") or "<missing old_text>"
+        if action == "patch":
+            new = _oneline(op.get("content") or op.get("new_text") or "")
+            return f"~{target}: \"{old[:20]}\" → \"{new[:20]}\"{more}"
         return f"{'~' if action == 'replace' else '-'}{target}: \"{old[:20]}\"{more}"
     return action
 
@@ -1015,6 +1018,9 @@ def _cute_memory(a: dict, _r) -> str:
         return f"┊ 🧠 memory    +{target}: \"{_cute_trunc(content)}\"{more}"
     if action in ("replace", "patch", "remove"):
         old = op.get("old_text") or "<missing old_text>"
+        if action == "patch":
+            new = op.get("content") or op.get("new_text") or ""
+            return f"┊ 🧠 memory    ~{target}: \"{_cute_trunc(old)}\" → \"{_cute_trunc(new)}\"{more}"
         return f"┊ 🧠 memory    {'~' if action == 'replace' else '-'}{target}: \"{_cute_trunc(old)}\"{more}"
     return f"┊ 🧠 memory    {action}"
 
