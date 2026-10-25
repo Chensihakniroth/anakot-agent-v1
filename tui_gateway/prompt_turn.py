@@ -779,6 +779,13 @@ def _complete_turn_payload(session: dict, st: _TurnRun, status_note: str | None,
         payload["failure_reason"] = result.get("failure_reason")
     if rendered := render_message(raw, cols):
         payload["rendered"] = rendered
+    if result.get("response_transformed"):
+        payload["response_transformed"] = True
+        # The stream carried the raw reply and the turn counts as delivered
+        # (``raw``/``response`` is None / empty): this frame is the only
+        # carrier of the rewrite the session stored.
+        if not raw and (final := result.get("final_response")):
+            payload["text"] = payload["content"] = final
     error_value = result.get("error")
     with session["history_lock"]:
         if status == "error":

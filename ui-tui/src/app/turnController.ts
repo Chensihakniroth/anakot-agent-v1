@@ -98,6 +98,13 @@ const finalTail = (finalText: string, segments: Msg[]) => {
   return tail
 }
 
+// Whether the streamed tail is a segment of its own: only when the gateway's final text does not
+// already carry it — otherwise the tail IS the answer and flushing would move the tool shelf/trail
+// under it. Never without a final text (`rawText` is then the buffer, #16391), nor when a
+// transform_llm_output plugin rewrote the reply: the tail is the raw text the rewrite replaces.
+const keepsStreamedTail = (tail: string, completionText: null | string | undefined, transformed?: boolean | null) =>
+  Boolean(tail && completionText != null && !transformed && !completionText.includes(tail))
+
 export interface InterruptDeps {
   appendMessage: (msg: Msg) => void
   gw: { request: <T = unknown>(method: string, params?: Record<string, unknown>) => Promise<T> }

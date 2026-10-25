@@ -181,6 +181,7 @@ class MessageCompletePayload(Payload):
     billing: BillingBlock | None = None
     failure_reason: str | None = None
     rendered: str | None = None
+    response_transformed: bool | None = None
     error: str | None = None
     recoverable: bool | None = None
     error_surface: ErrorSurface | None = None
