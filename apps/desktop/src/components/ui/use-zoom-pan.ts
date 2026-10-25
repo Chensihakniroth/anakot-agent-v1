@@ -42,10 +42,12 @@ export function useZoomPan<T extends HTMLElement = HTMLElement>(options: UseZoom
   const clamp = useCallback((scale: number) => Math.min(maxScale, Math.max(minScale, scale)), [minScale, maxScale])
   const ref = useRef<T>(null)
   const [node, setNode] = useState<T | null>(null)
+
   const refCallback = useCallback((instance: T | null) => {
     ref.current = instance
     setNode(instance)
   }, [])
+
   const [transform, setTransform] = useState<Transform>({ scale: 1, x: 0, y: 0 })
   const [panning, setPanning] = useState(false)
   const [moved, setMoved] = useState(false)
@@ -85,6 +87,7 @@ export function useZoomPan<T extends HTMLElement = HTMLElement>(options: UseZoom
   }, [clamp, contentEl, node])
 
   const fittedRef = useRef(true)
+
   const fitIfFitted = useCallback(() => {
     if (fittedRef.current) {
       fit()
@@ -138,6 +141,7 @@ export function useZoomPan<T extends HTMLElement = HTMLElement>(options: UseZoom
 
       if (isSmartZoomWheel(event)) {
         reset()
+
         return
       }
 
@@ -149,6 +153,7 @@ export function useZoomPan<T extends HTMLElement = HTMLElement>(options: UseZoom
     }
 
     node.addEventListener('wheel', onWheel, { passive: false })
+
     return () => node.removeEventListener('wheel', onWheel)
   }, [enabled, node, reset, zoomAt])
 
@@ -217,6 +222,7 @@ export function useZoomPan<T extends HTMLElement = HTMLElement>(options: UseZoom
         pinch.current = { dist, midX, midY }
         setMoved(true)
         setPanning(true)
+
         return
       }
 

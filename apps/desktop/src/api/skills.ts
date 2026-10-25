@@ -9,7 +9,7 @@ import type {
 } from '@/types/anakot'
 import type { ActionResponse } from '@/types/anakot'
 
-import { capabilityScoped, anakotApi, type ProfileScope, profileScoped } from './client'
+import { anakotApi, capabilityScoped, type ProfileScope, profileScoped } from './client'
 
 export function getSkills(profile?: ProfileScope): Promise<SkillInfo[]> {
   return window.anakotDesktop.api<SkillInfo[]>({

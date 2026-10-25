@@ -2,11 +2,6 @@ import type { ModelOptionProvider } from '@anakot/shared'
 import { DEFAULT_REASONING_EFFORT, REASONING_EFFORT_VALUES } from '@anakot/shared'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import {
   getAuxiliaryModels,
   getGlobalModelInfo,
@@ -25,6 +20,11 @@ import type {
   MoaModelSlot,
   StaleAuxAssignment
 } from '@/anakot'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Switch } from '@/components/ui/switch'
 import { useI18n } from '@/i18n'
 import { isCodeSkewRestartRequired } from '@/lib/code-skew-error'
 import { AlertTriangle, Cpu, Loader2 } from '@/lib/icons'

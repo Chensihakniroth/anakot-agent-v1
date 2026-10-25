@@ -1,3 +1,4 @@
+import { anakotApi } from '@/anakot'
 import type {
   AnakotGitBaseBranch,
   AnakotGitBranch,
@@ -7,7 +8,6 @@ import type {
   AnakotReviewList,
   AnakotReviewShipInfo
 } from '@/global'
-import { anakotApi } from '@/anakot'
 
 import { desktopFsProfile, isDesktopFsRemoteMode } from './desktop-fs'
 
