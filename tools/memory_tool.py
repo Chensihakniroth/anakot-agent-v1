@@ -195,6 +195,12 @@ def memory_tool(action: str = None, target: str = "memory", content: str = None,
         if gate_result is not None:
             return gate_result
         return json.dumps(store.apply_batch(target, operations), ensure_ascii=False)
+    if not action:
+        return tool_error(
+            "Missing required parameter: 'operations', a list of {action: add/patch/remove, "
+            "content?, old_text?} changes; a single change is a one-item list.",
+            success=False,
+        )
     if action not in _STORE_ACTIONS:
         return tool_error(f"Unknown action '{action}'. Use: add, replace, remove", success=False)
     invalid = (_validate_single_op(store, action, target, content, old_text)

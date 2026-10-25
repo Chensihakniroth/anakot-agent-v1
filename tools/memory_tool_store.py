@@ -42,8 +42,9 @@ def _drift_error(path: Path, bak_path: str) -> Dict[str, Any]:
         f"either rewrite the file as a clean §-delimited list of entries, or move the extra "
         f"content out — then retry. This guard exists to prevent silent data loss (issue #26045)."
     ), drift_backup=bak_path, remediation=(
-        "Open the .bak file, integrate the missing entries into the memory tool one at a time via "
-        "memory(action=add, content=...), then remove or rewrite the original file to a clean state."))
+        "Open the .bak file, integrate the missing entries into the memory tool with one add op per entry via "
+        "memory(target='{_store_target(path.name)}', operations=[{action: 'add', content: ...}]), then remove or "
+        "rewrite the original file to a clean state."))
 
 
 def _read_failed_error(path: Path) -> Dict[str, Any]:
@@ -209,6 +210,16 @@ class MemoryStore:
         limit = self._char_limit(target)
         return f"{min(100, int((current / limit) * 100)) if limit > 0 else 0}% — {current:,}/{limit:,} chars"
 
+    def _add_overflow(self, target: str, content: str, limit: int) -> Dict[str, Any]:
+        """A lone add over budget, legacy or one-item batch: the model has not consolidated yet,
+        so the live entries come back (its prompt snapshot may predate other sessions' writes)."""
+        over = len(ENTRY_DELIMITER.join(self._entries_for(target) + [content])) - limit
+        return self._failure_with_entries(target, (
+            f"Memory at {self._char_count(target):,}/{limit:,} chars; adding this entry ({len(content)} chars) "
+            f"would exceed the limit by {over:,} chars. Retry as ONE 'operations' batch that "
+            f"removes or shortens (patch) stale entries from current_entries below to free at least "
+            f"{over:,} chars AND adds this entry — the limit is checked only on the batch result."))
+
     def _failure_with_entries(self, target: str, message: str) -> Dict[str, Any]:
         """Consolidation failure carrying the live entries so the model can consolidate."""
         return self._consolidation_failure(
@@ -252,11 +263,7 @@ class MemoryStore:
             if content in entries:
                 return self._success_response(target, "Entry already exists (no duplicate added).")
             if len(ENTRY_DELIMITER.join(entries + [content])) > limit:
-                return self._failure_with_entries(target, (
-                    f"Memory at {self._char_count(target):,}/{limit:,} chars. Adding this entry "
-                    f"({len(content)} chars) would exceed the limit. Consolidate now: use 'replace' to merge "
-                    f"overlapping entries into shorter ones or 'remove' stale or less important entries (see "
-                    f"current_entries below), then retry this add — all in this turn."))
+                return self._add_overflow(target, content, limit)
             return entries + [content], "Entry added."
         # Append-only: skip the drift guard (appending never clobbers foreign
         # content) but still refuse a failed read — add rewrites the WHOLE file.
@@ -362,6 +369,8 @@ class MemoryStore:
             # remove/add it is not refused for excess left by a lowered cap.
             grows = not (len(ops) == 1 and (ops[0].get("action") == "remove" or working == entries))
             if grows and new_total > limit:
+                if len(ops) == 1 and ops[0].get("action") == "add":  # the advertised single add
+                    return self._add_overflow(target, (ops[0].get("content") or ops[0].get("new_text") or "").strip(), limit)
                 return self._failure_with_entries(target, (
                     f"After applying all {len(operations)} operations, memory would be at "
                     f"{new_total:,}/{limit:,} chars -- over the limit. Remove or shorten more "
