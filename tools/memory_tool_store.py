@@ -358,7 +358,10 @@ class MemoryStore:
                     f"of removing the last one (see current_entries below). To delete the final entry "
                     f"deliberately, use single remove() calls."))
             new_total = len(ENTRY_DELIMITER.join(working))  # budget check against the FINAL state only
-            if new_total > limit:
+            # A one-item remove or duplicate add never grows the store, so like the legacy
+            # remove/add it is not refused for excess left by a lowered cap.
+            grows = not (len(ops) == 1 and (ops[0].get("action") == "remove" or working == entries))
+            if grows and new_total > limit:
                 return self._failure_with_entries(target, (
                     f"After applying all {len(operations)} operations, memory would be at "
                     f"{new_total:,}/{limit:,} chars -- over the limit. Remove or shorten more "

@@ -216,7 +216,11 @@ def _run_sync_with_note(batch: _Batch, reason: str) -> str:
         result["note"] = _SYNC_FALLBACK_NOTES[reason]
     return json.dumps(result, ensure_ascii=False)
 
-def _resolve_async_wake_sid(origin_wake_sid: str, origin_session_history_delivery: bool = False) -> Optional[str]:
+def _resolve_async_wake_sid(
+    origin_wake_sid: str,
+    origin_session_history_delivery: bool = False,
+    oneshot_session: bool = False,
+) -> Optional[str]:
     """Detached result target: empty for push, a resumable API id, or None for inline.
 
     API completion only persists a row; this does not authorize a model wake. The
@@ -226,7 +230,7 @@ def _resolve_async_wake_sid(origin_wake_sid: str, origin_session_history_deliver
     # Finite chat owns no later turn to consume a detached result. Reuse its
     # approval/lifecycle marker without disabling terminal notify completions:
     # those have their own bounded exit linger and durable result receipts.
-    if get_session_env("ANAKOT_SINGLE_QUERY_SESSION") == "1":
+    if oneshot_session or get_session_env("ANAKOT_SINGLE_QUERY_SESSION") == "1":
         return None
 
     try:
@@ -393,7 +397,12 @@ def _dispatch_background(batch: _Batch) -> str:
     running synchronously (with an explanatory ``note``) when the session cannot receive detached completions or the
     async pool is at capacity."""
     from tools.delegate_tool import _get_max_async_children
-    wake_sid = _resolve_async_wake_sid(batch.origin_wake_sid, batch.origin_session_history_delivery)
+    from agent.oneshot_footprint import agent_is_oneshot
+    wake_sid = _resolve_async_wake_sid(
+        batch.origin_wake_sid,
+        batch.origin_session_history_delivery,
+        oneshot_session=agent_is_oneshot(batch.parent_agent),
+    )
     if wake_sid is None:
         logger.info("delegate_task: async delivery unsupported on this session runtime; running the batch synchronously instead.")
         return _run_sync_with_note(batch, "no_async")
