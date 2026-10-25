@@ -93,7 +93,7 @@ def build_api_request(
     agent: Any, *, api_messages: Any, _moa_prepared_request: Any, tools_for_api: Any,
     system_message: Any, messages: Any, original_user_message: Any, approx_tokens: Any,
     total_chars: Any, retry_count: Any, api_call_count: Any, api_request_id: Any,
-    api_start_time: Any, effective_task_id: Any, turn_id: Any,
+    api_start_time: Any, effective_task_id: Any, turn_id: Any, skip_turn_hooks: bool = False,
 ) -> ApiRequestBuild:
     """Assemble the attempt's request in the original order (every mutation happens BEFORE
     middleware/hooks/debug dumps observe the payload)."""
@@ -151,13 +151,14 @@ def build_api_request(
         _original_api_kwargs = dict(api_kwargs)
         _llm_middleware_trace = []
 
-    _fire_pre_api_request_hook(
-        agent, api_kwargs, api_messages, _llm_middleware_trace, messages=messages,
-        original_user_message=original_user_message, approx_tokens=approx_tokens,
-        total_chars=total_chars, retry_count=retry_count, api_call_count=api_call_count,
-        api_request_id=api_request_id, api_start_time=api_start_time,
-        effective_task_id=effective_task_id, turn_id=turn_id,
-    )
+    if not skip_turn_hooks:
+        _fire_pre_api_request_hook(
+            agent, api_kwargs, api_messages, _llm_middleware_trace, messages=messages,
+            original_user_message=original_user_message, approx_tokens=approx_tokens,
+            total_chars=total_chars, retry_count=retry_count, api_call_count=api_call_count,
+            api_request_id=api_request_id, api_start_time=api_start_time,
+            effective_task_id=effective_task_id, turn_id=turn_id,
+        )
 
     if env_var_enabled("ANAKOT_DUMP_REQUESTS"):
         agent._dump_api_request_debug(api_kwargs, reason="preflight")

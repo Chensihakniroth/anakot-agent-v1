@@ -42,6 +42,9 @@ _CAPABILITY_ROWS = (
     ("llm.task_override", ("llm", "allow_task_override"),
      "Route its LLM calls through the host's built-in auxiliary "
      "task lanes"),
+    ("llm.side_question", (),
+     "Ask your agent a short question after a turn using the "
+     "session's main model and token budget"),
     ("gateway.platform_actions", ("allow_platform_actions",),
      "Act on connected chat platforms as the gateway bot "
      "(add reactions, rename threads) via ctx.platform_actions"))
@@ -119,6 +122,8 @@ def granted_capabilities(plugin_id: str, config: Optional[Mapping[str, Any]] = N
 
 def _legacy_gate_set(entry: Mapping[str, Any], spec: CapabilitySpec) -> bool:
     """True when the deprecated ``allow_*`` key for *spec* is truthy."""
+    if not spec.legacy_path:
+        return False
     node: Any = entry
     for part in spec.legacy_path:
         if not isinstance(node, Mapping):
@@ -174,7 +179,10 @@ def record_consent(plugin_id: str, granted: Iterable[str], declared: Iterable[st
     }
     # Bridge: mirror each grant into its legacy gate (enforcement sites still read allow_*).
     for cap in entry[GRANTED_KEY]:
-        *parents, leaf = CAPABILITY_REGISTRY[cap].legacy_path
+        legacy_path = CAPABILITY_REGISTRY[cap].legacy_path
+        if not legacy_path:
+            continue
+        *parents, leaf = legacy_path
         node = entry
         for part in parents:
             node = _child_dict(node, part)

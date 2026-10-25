@@ -12,10 +12,10 @@ Each plugin directory contains:
   - ``plugin.yaml`` — manifest (name, kind: model-provider, version, description)
 
 Discovery is lazy: the first call to ``get_provider_profile()`` or
-``list_providers()`` scans both locations and imports every plugin. User
-plugins override bundled plugins on name collision (last-writer-wins), so
-third parties can monkey-patch or replace any built-in profile without
-editing the repo.
+``list_providers()`` imports bundled profiles once and loads user plugins into
+the layer for the currently bound ``ANAKOT_HOME``. User plugins override
+bundled plugins on name collision only for that profile, so a multiplexed
+process cannot leak one home's provider into another.
 
 For backward compatibility, ``providers/*.py`` files (other than ``base.py``
 and ``__init__.py``) are still discovered via ``pkgutil.iter_modules``.
@@ -32,10 +32,15 @@ Usage::
 
 from __future__ import annotations
 
+import hashlib
 import importlib
 import importlib.util
 import logging
 import sys
+import threading
+import time
+from contextvars import ContextVar
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from providers.base import ProviderProfile
@@ -46,6 +51,26 @@ _REGISTRY: dict[str, ProviderProfile] = {}
 _ALIASES: dict[str, str] = {}
 _PROVIDER_LIST_CACHE: list[ProviderProfile] | None = None
 _discovered = False
+_PLUGIN_DIR_STAMP_TTL_SECONDS = 1.0
+
+
+@dataclass
+class _HomeLayer:
+    """User-installed provider profiles for one bound Anakot home."""
+
+    registry: dict[str, ProviderProfile] = field(default_factory=dict)
+    aliases: dict[str, str] = field(default_factory=dict)
+    stamps: tuple = ()
+    stamp_checked_at: float | None = None
+
+
+_HOME_LAYERS: dict[str, _HomeLayer] = {}
+_HOME_LAYERS_LOCK = threading.Lock()
+# User plugin imports register into this layer. Context-local state prevents two
+# profile-scoped discovery calls from crossing when their turns run concurrently.
+_REGISTRATION_TARGET: ContextVar[_HomeLayer | None] = ContextVar(
+    "_provider_registration_target", default=None
+)
 
 # Repo-root ``plugins/model-providers/`` — populated at discovery time.
 _BUNDLED_PLUGINS_DIR = (
@@ -61,6 +86,12 @@ def register_provider(profile: ProviderProfile) -> None:
     bundled profiles without editing repo code.
     """
     global _PROVIDER_LIST_CACHE
+    layer = _REGISTRATION_TARGET.get()
+    if layer is not None:
+        layer.registry[profile.name] = profile
+        for alias in profile.aliases:
+            layer.aliases[alias] = profile.name
+        return
     _REGISTRY[profile.name] = profile
     for alias in profile.aliases:
         _ALIASES[alias] = profile.name
@@ -74,12 +105,18 @@ def get_provider_profile(name: str) -> ProviderProfile | None:
     """
     if not _discovered:
         _discover_providers()
-    canonical = _ALIASES.get(name, name)
-    profile = _REGISTRY.get(canonical)
+    layer, home, key = _bound_home_layer()
+    _refresh_home_layer(layer, home, key)
+
+    def lookup(candidate: str) -> ProviderProfile | None:
+        canonical = layer.aliases.get(candidate) or _ALIASES.get(candidate, candidate)
+        return layer.registry.get(canonical) or _REGISTRY.get(canonical)
+
+    profile = lookup(name)
     # Named custom routes share the generic wire policy unless a plugin
     # explicitly registered that route. Other names retain exact lookup.
     if profile is None and isinstance(name, str) and name.lower().startswith("custom:"):
-        profile = _REGISTRY.get("custom")
+        profile = lookup("custom")
     return profile
 
 
@@ -115,8 +152,12 @@ def list_providers() -> list[ProviderProfile]:
     global _PROVIDER_LIST_CACHE
     if not _discovered:
         _discover_providers()
+    layer, home, key = _bound_home_layer()
+    _refresh_home_layer(layer, home, key)
     if _PROVIDER_LIST_CACHE is not None:
-        return list(_PROVIDER_LIST_CACHE)
+        result = [p for p in _PROVIDER_LIST_CACHE if p.name not in layer.registry]
+        result.extend({id(p): p for p in layer.registry.values()}.values())
+        return result
     # Deduplicate: _REGISTRY has canonical names; _ALIASES points to same objects
     seen: set[int] = set()
     result: list[ProviderProfile] = []
@@ -126,7 +167,76 @@ def list_providers() -> list[ProviderProfile]:
             seen.add(pid)
             result.append(profile)
     _PROVIDER_LIST_CACHE = result
-    return list(result)
+    result = [p for p in _PROVIDER_LIST_CACHE if p.name not in layer.registry]
+    result.extend({id(p): p for p in layer.registry.values()}.values())
+    return result
+
+
+def _bound_home_layer() -> tuple[_HomeLayer, Path, str]:
+    """Return the provider layer for the home bound to the current context."""
+    try:
+        from anakot_constants import anakot_home_key, get_anakot_home
+
+        home = get_anakot_home()
+        key = anakot_home_key(home)
+    except Exception:
+        home = Path.cwd()
+        key = str(home.resolve())
+    with _HOME_LAYERS_LOCK:
+        layer = _HOME_LAYERS.get(key)
+        if layer is None:
+            layer = _HOME_LAYERS[key] = _HomeLayer()
+    return layer, home, key
+
+
+def _plugin_dir_stamps(home: Path) -> tuple:
+    """Return cheap directory stamps used to notice newly installed providers."""
+    def stamp(path: Path):
+        try:
+            return path.stat().st_mtime_ns
+        except OSError:
+            return None
+
+    return (stamp(home / "plugins"), stamp(home / "plugins" / "model-providers"))
+
+
+def _refresh_home_layer(layer: _HomeLayer, home: Path, key: str, *, force: bool = False) -> bool:
+    """Load a profile's user providers when its plugin directories change."""
+    now = time.monotonic()
+    if not force and layer.stamp_checked_at is not None and now - layer.stamp_checked_at < _PLUGIN_DIR_STAMP_TTL_SECONDS:
+        return False
+    stamps = _plugin_dir_stamps(home)
+    changed = stamps != layer.stamps
+    if changed:
+        _scan_home_layer(layer, key)
+        layer.stamps = stamps
+    layer.stamp_checked_at = now
+    return changed
+
+
+def _user_module_name(plugin_dir: Path, home_key: str) -> str:
+    digest = hashlib.sha1(home_key.encode("utf-8")).hexdigest()[:10]
+    return f"_anakot_user_provider_{digest}_{plugin_dir.name.replace('-', '_')}"
+
+
+def _scan_home_layer(layer: _HomeLayer, home_key: str) -> None:
+    """Import only model-provider plugins belonging to the bound home."""
+    token = _REGISTRATION_TARGET.set(layer)
+    try:
+        user_dir = _user_plugins_dir()
+        if user_dir is not None:
+            for child in sorted(user_dir.iterdir()):
+                if child.is_dir() and not child.name.startswith(("_", ".")):
+                    _import_plugin_dir(child, "user", home_key=home_key)
+        installed_dir = _installed_plugins_dir()
+        if installed_dir is not None:
+            for child in sorted(installed_dir.iterdir()):
+                if not child.is_dir() or child.name.startswith(("_", ".")) or child.name == "model-providers":
+                    continue
+                if _declares_model_provider_kind(child):
+                    _import_plugin_dir(child, "user", home_key=home_key)
+    finally:
+        _REGISTRATION_TARGET.reset(token)
 
 
 def _user_plugins_dir() -> Path | None:
@@ -191,7 +301,7 @@ def _declares_model_provider_kind(plugin_dir: Path) -> bool:
     return False
 
 
-def _import_plugin_dir(plugin_dir: Path, source: str) -> None:
+def _import_plugin_dir(plugin_dir: Path, source: str, *, home_key: str = "") -> None:
     """Import a single plugin directory so it self-registers.
 
     ``source`` is "bundled" or "user", used only for log messages.
@@ -208,7 +318,7 @@ def _import_plugin_dir(plugin_dir: Path, source: str) -> None:
     if source == "bundled":
         module_name = f"plugins.model_providers.{safe_name}"
     else:
-        module_name = f"_anakot_user_provider_{safe_name}"
+        module_name = _user_module_name(plugin_dir, home_key)
 
     if module_name in sys.modules:
         return  # already imported
@@ -355,11 +465,13 @@ def _discover_providers() -> None:
     """Populate the registry by importing every provider plugin.
 
     Order:
-      1. Bundled plugins at ``<repo>/plugins/model-providers/<name>/``
-      2. User plugins at ``$ANAKOT_HOME/plugins/model-providers/<name>/``
-      2b. Plugins installed by ``anakot plugins install`` at
-          ``$ANAKOT_HOME/plugins/<name>/`` that declare ``kind: model-provider``
+      1. Pip entry points
+      2. Bundled plugins at ``<repo>/plugins/model-providers/<name>/``
       3. Legacy per-file modules at ``providers/<name>.py`` (back-compat)
+
+    User plugins are loaded separately into a layer keyed by the currently
+    bound ``ANAKOT_HOME`` so a multiplexed process cannot leak one profile's
+    provider override into another.
 
     Each step imports its plugins, which call ``register_provider()`` at
     module-level. Later steps win on name collision.
@@ -391,35 +503,6 @@ def _discover_providers() -> None:
             if not child.is_dir() or child.name.startswith(("_", ".")):
                 continue
             _import_plugin_dir(child, "bundled")
-
-    # 2. User plugins — under $ANAKOT_HOME/plugins/model-providers/<name>/.
-    #    These can override any bundled profile of the same name (last-writer-wins
-    #    in register_provider()).
-    user_dir = _user_plugins_dir()
-    if user_dir is not None:
-        for child in sorted(user_dir.iterdir()):
-            if not child.is_dir() or child.name.startswith(("_", ".")):
-                continue
-            _import_plugin_dir(child, "user")
-
-    # 2b. Plugins installed by ``anakot plugins install`` / the plugin index.
-    #     Those clone into $ANAKOT_HOME/plugins/<name>/ — flat, NOT under
-    #     model-providers/ — so step 2 never sees them. PluginManager does not
-    #     import them either: it classifies ``kind: model-provider`` and routes
-    #     it here on purpose. Without this step the documented install path
-    #     silently half-works — the CLI reports success and the provider does
-    #     not exist. Only manifests declaring that kind are imported; every
-    #     other plugin in this directory belongs to PluginManager.
-    installed_dir = _installed_plugins_dir()
-    if installed_dir is not None:
-        for child in sorted(installed_dir.iterdir()):
-            if not child.is_dir() or child.name.startswith(("_", ".")):
-                continue
-            if child.name == "model-providers":
-                continue  # handled by step 2
-            if not _declares_model_provider_kind(child):
-                continue
-            _import_plugin_dir(child, "user")
 
     # 3. Legacy single-file profiles at providers/<name>.py. Kept for
     #    back-compat — if someone drops a ``providers/foo.py`` into an

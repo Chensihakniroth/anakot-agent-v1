@@ -32,6 +32,18 @@
   }
 }
 
+/* Blanket reduced-transparency gate: disable frost when the OS accessibility
+   setting requests it. Frost is decorative; the existing alpha-mixed fills
+   remain the legibility layer. */
+@media (prefers-reduced-transparency: reduce) {
+  *,
+  *::before,
+  *::after {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+
 /* Pause continuous animations only when the window is hidden/minimized, not
    merely unfocused. main.tsx owns this attribute for the primary window;
    wake/pet overlays retain their purpose-built visibility behavior. */
@@ -479,11 +491,16 @@
 
     --composer-shell-pad-block-end: 0.625rem;
     --message-text-indent: 0.75rem;
-    --conversation-text-font-size: 0.8125rem;
-    --conversation-tool-font-size: 0.6875rem;
-    --conversation-caption-font-size: 0.75rem;
-    --conversation-line-height: 1.125rem;
-    --conversation-caption-line-height: 1rem;
+    --conversation-text-base-size: 0.8125rem;
+    --conversation-tool-base-size: 0.6875rem;
+    --conversation-caption-base-size: 0.75rem;
+    --conversation-base-line-height: 1.125rem;
+    --conversation-caption-base-line-height: 1rem;
+    --conversation-text-font-size: var(--conversation-text-base-size);
+    --conversation-tool-font-size: var(--conversation-tool-base-size);
+    --conversation-caption-font-size: var(--conversation-caption-base-size);
+    --conversation-line-height: var(--conversation-base-line-height);
+    --conversation-caption-line-height: var(--conversation-caption-base-line-height);
     --conversation-turn-gap: 0.375rem;
     /* Gap between top-level turn blocks (prose ↔ tools ↔ thinking) — enough air
        that scaffolding reads as separate from the reply, not crammed into it. */
@@ -524,8 +541,10 @@
       calc(100% - var(--composer-measured-height) + var(--composer-surface-measured-height))
     );
     --vsq: min(0.5vh, 0.5vw);
-    --image-preview-max-width: 34rem;
-    --image-preview-height: clamp(16.25rem, calc(var(--vsq) * 100), 26.25rem);
+    /* The inline image preview envelope: keep landscape generated images
+       readable in the chat while the actual lightbox remains full-resolution. */
+    --image-preview-max-width: 40rem;
+    --image-preview-height: clamp(26.25rem, calc(var(--vsq) * 140), 40rem);
 
     --sidebar-width: 14.8125rem;
     --chat-min-width: 28rem;
@@ -1060,6 +1079,53 @@
   }
 }
 
+/* Pure-CSS edge fade for FadeScroll. The scroller's scroll position drives
+   registered numeric progress values, so fitting lists and unsupported browsers
+   remain fully opaque without a React scroll/resize listener. */
+@property --scroll-fade-top {
+  syntax: '<number>';
+  initial-value: 0;
+  inherits: false;
+}
+
+@property --scroll-fade-bottom {
+  syntax: '<number>';
+  initial-value: 0;
+  inherits: false;
+}
+
+@keyframes scroll-fade-top {
+  to {
+    --scroll-fade-top: 1;
+  }
+}
+
+@keyframes scroll-fade-bottom {
+  from {
+    --scroll-fade-bottom: 1;
+  }
+}
+
+@utility scroll-fade-y {
+  --scroll-fade-size: 1.25rem;
+  --scroll-fade-pad: 0px;
+
+  mask-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--scroll-fade-pad) * var(--scroll-fade-top)),
+    #000 calc((var(--scroll-fade-pad) + var(--scroll-fade-size)) * var(--scroll-fade-top)),
+    #000 calc(100% - (var(--scroll-fade-pad) + var(--scroll-fade-size)) * var(--scroll-fade-bottom)),
+    transparent calc(100% - var(--scroll-fade-pad) * var(--scroll-fade-bottom))
+  );
+  animation:
+    scroll-fade-top linear both,
+    scroll-fade-bottom linear both;
+  animation-timeline: scroll(self y), scroll(self y);
+  animation-range:
+    0 calc(var(--scroll-fade-pad) + var(--scroll-fade-size)),
+    calc(100% - var(--scroll-fade-pad) - var(--scroll-fade-size)) 100%;
+}
+
 /* The guided-onboarding thread is marked with [data-thread-type='onboarding']
    — the hook for onboarding-only transcript styling. */
 
@@ -1282,6 +1348,14 @@ button {
   box-shadow: var(--shadow-md);
   backdrop-filter: blur(0.75rem) saturate(1.08);
   -webkit-backdrop-filter: blur(0.75rem) saturate(1.08);
+}
+
+/* The image lightbox is an invisible shell around a moving media surface. */
+[data-slot='dialog-content'][data-variant='media-lightbox'] {
+  background: transparent;
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
 }
 
 [data-slot='dropdown-menu-item']:focus,
@@ -1566,8 +1640,16 @@ body.guest-pointer-lock :is(webview, iframe) {
   pointer-events: none;
 }
 
-/* Bottom clearance lives on [data-slot='aui_composer-clearance'] —
-   virtualized items unmount, so :nth-last-child can't fire reliably. */
+/* Scope typography, not zoom: pane geometry and surrounding chrome stay put. */
+[data-slot='aui_thread-content'],
+[data-slot='composer-rich-input'] {
+  --conversation-text-scale: var(--chat-text-scale, 1);
+  --conversation-text-font-size: calc(var(--conversation-text-base-size) * var(--chat-text-scale, 1));
+  --conversation-tool-font-size: calc(var(--conversation-tool-base-size) * var(--chat-text-scale, 1));
+  --conversation-caption-font-size: calc(var(--conversation-caption-base-size) * var(--chat-text-scale, 1));
+  --conversation-line-height: calc(var(--conversation-base-line-height) * var(--chat-text-scale, 1));
+  --conversation-caption-line-height: calc(var(--conversation-caption-base-line-height) * var(--chat-text-scale, 1));
+}
 
 [data-slot='aui_assistant-message-content'] {
   padding-left: var(--message-text-indent);

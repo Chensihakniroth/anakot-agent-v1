@@ -24,6 +24,12 @@ from agent.auxiliary_client import (
 )
 from agent.context_engine import ContextEngine, sanitize_memory_context
 from agent.context_compressor_summary import SummaryDispatchMixin
+from agent.context_compressor_tail import (
+    demote_stale_tail_tools,
+    lean_tail_budget,
+    with_pruned_row_skill_safety_rule,
+    with_skill_safety_rule,
+)
 from agent.error_classifier import FailoverReason, classify_api_error
 from agent.micro_compaction import MicroCompactionMixin
 from agent.prompt_builder import STEER_DISPLAY_KIND
@@ -806,14 +812,9 @@ def _reinject_pruned_skill_markers(summary: str, skill_names: list[str]) -> str:
     missing = [_skill_pruned_marker(name) for name in skill_names if _skill_pruned_marker(name) not in summary]
     if not missing:
         return summary
-    block = (
-        "\n\n" + _PRUNED_SKILLS_SECTION_HEADING + "\n"
-        + "\n".join(missing)
-        + "\n(The listed skills' instructions were pruned during context "
-        "compression. Reload with the skill_view call in each marker before "
-        "relying on that skill; one reload per skill is enough — ignore any "
-        "older markers for the same skill.)"
-    )
+    # The compaction handoff carries the response rule separately; do not repeat
+    # it in the marker block or pay for the same guidance twice.
+    block = "\n\n" + _PRUNED_SKILLS_SECTION_HEADING + "\n" + "\n".join(missing)
     return summary + _redact_compaction_text(block)
 
 
@@ -2040,7 +2041,7 @@ class ContextCompressor(SummaryDispatchMixin, MicroCompactionMixin, ContextEngin
         if self._tail_token_budget is None:
             if getattr(self, "tail_mode", "lean") == "lean":
                 # Lean mode: tail is a small clamped recency window; the summary carries continuity.
-                self._tail_token_budget = max(LEAN_TAIL_FLOOR_TOKENS, min(LEAN_TAIL_CAP_TOKENS, int(self.context_length * 0.025)))
+                self._tail_token_budget = lean_tail_budget(self.context_length, self.threshold_tokens)
             else:
                 self._tail_token_budget = int(self.threshold_tokens * self.summary_target_ratio)
         return self._tail_token_budget
@@ -3148,6 +3149,7 @@ class ContextCompressor(SummaryDispatchMixin, MicroCompactionMixin, ContextEngin
         pruned_msgs, pruned_count = self._prune_old_tool_results(
             messages, protect_tail_count=self.protect_last_n, protect_tail_tokens=None, min_prune_chars=self.proactive_prune_min_result_chars,
         )
+        pruned_msgs = with_pruned_row_skill_safety_rule(messages, pruned_msgs)
         if not pruned_count:
             # No-op contract: return the INPUT object so callers can gate on `result is not input`.
             self._warn_reclamation_no_op("prune:nothing_eligible", current_tokens)
@@ -5143,7 +5145,9 @@ Write only the summary body. Do not include any preamble or prefix."""
         turns_to_summarize = messages[compress_start:compress_end]
         # Lean mode demotes stale tail tool results before summary generation so stubs exist even if it aborts.
         if getattr(self, "tail_mode", "lean") == "lean":
-            messages = self._demote_stale_tail_tools(messages, compress_end)
+            messages, _demoted_tail_count = demote_stale_tail_tools(
+                messages, compress_end, getattr(self, "_session_id", "") or "",
+            )
         scan = self._scan_window_handoffs(messages, compress_start, compress_end, turns_to_summarize)
         turns_to_summarize = scan.turns_to_summarize
         self._record_compression_regions(
@@ -5188,6 +5192,9 @@ Write only the summary body. Do not include any preamble or prefix."""
         """Head + summary row (or merged carrier) + tail, with alternation-safe summary placement."""
         compressed = self._assemble_head(messages, compress_start)
         tail_messages = self._assemble_tail(messages, compress_end, scan.tail_start, scan.summary_indices)
+        summary, compressed, tail_messages = with_skill_safety_rule(
+            summary, compressed, tail_messages,
+        )
         summary_role, merge_into_tail, force_user_leading, first_tail_visible_idx = (
             self._summary_placement(compressed, tail_messages, compress_start)
         )

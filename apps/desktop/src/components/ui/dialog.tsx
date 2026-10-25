@@ -78,12 +78,18 @@ function DialogContent({
   blurBackdrop = true,
   banner,
   bannerTone = 'error',
+  chrome,
+  overlayClassName,
   onOpenAutoFocus,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean
   // Keep the underlying task readable for context-sensitive prompts.
   blurBackdrop?: boolean
+  // Backdrop skin, e.g. a heavier scrim for media viewers.
+  overlayClassName?: string
+  // Controls pinned to the shell rather than the scrolling body.
+  chrome?: React.ReactNode
   // Size the dialog to its content (capped at the viewport) instead of the
   // default fixed `max-w-lg`. For content that has no intrinsic width (grids,
   // full-width inputs) pair it with a `min-w-*` in `className`.
@@ -137,7 +143,7 @@ function DialogContent({
   if (banner) {
     return (
       <DialogPortal>
-        <DialogOverlay blur={blurBackdrop} />
+        <DialogOverlay blur={blurBackdrop} className={overlayClassName} />
         <DialogPrimitive.Content
           className={cn(
             // The same split as the plain variant. The shell must not clip,
@@ -179,6 +185,7 @@ function DialogContent({
             >
               {banner}
             </div>
+            {chrome}
             {closeButton}
           </DialogPortalContainerContext.Provider>
         </DialogPrimitive.Content>
@@ -188,7 +195,7 @@ function DialogContent({
 
   return (
     <DialogPortal>
-      <DialogOverlay blur={blurBackdrop} />
+      <DialogOverlay blur={blurBackdrop} className={overlayClassName} />
       <DialogPrimitive.Content
         className={cn(
           // The SHELL: position, size, and skin. It has no overflow of its own,
@@ -222,6 +229,7 @@ function DialogContent({
           >
             {children}
           </div>
+          {chrome}
           {closeButton}
         </DialogPortalContainerContext.Provider>
       </DialogPrimitive.Content>

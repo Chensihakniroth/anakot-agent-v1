@@ -3859,6 +3859,9 @@ export interface Translations {
     openImage: string
     downloadImage: string
     savingImage: string
+    zoomIn: string
+    zoomOut: string
+    resetZoom: string
     imagePreviewFailed: string
     imageAttach: string
     imageWriteFailed: string

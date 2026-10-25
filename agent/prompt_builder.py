@@ -249,17 +249,11 @@ SESSION_SEARCH_GUIDANCE = (
 # do not need. Bisected against the live API: that sentence alone reproduces the 400 and removing it alone
 # clears it; size and the system[0] identity gate were both ruled out. The reword is empirically validated,
 # not understood — if you rewrite this sentence, re-verify against a subscription OAuth token, not an
-# sk-ant-api… key, which does not hit the filter. Dieted (#95681, maintainer-directed): the record-it /
+# token — sk-ant-api… key, which does not hit the filter. Dieted (#95681, maintainer-directed): the record-it /
 # patch-it coaching that used to open this block duplicated the ## Skills section (which teaches both "offer
-# to save as a skill" and "fix it with skill_manage(action='patch')") and skill_manage's own schema. Only
-# the compaction-pruning contract lives here — nothing else teaches it.
-SKILLS_GUIDANCE = (
-    "When you work out a non-trivial workflow, record it with skill_manage for future reuse.\n\n"
-    "## Skill Safety Rule\n"
-    "A skill placeholder containing `[SKILL_PRUNED]` lost its content in context compression and is inaccessible — "
-    "reload it with skill_view(name='...') before acting on anything that depends on it. After reloading, ignore any "
-    "remaining `[SKILL_PRUNED]` markers for that same skill; they are historical artifacts of earlier compactions."
-)
+# to save as a skill" and "fix it with skill_manage(action='patch')") and skill_manage's own schema. The
+# compaction-only Skill Safety Rule is attached by ``context_compressor_tail`` when a prune marker survives.
+SKILLS_GUIDANCE = "When you work out a non-trivial workflow, record it with skill_manage for future reuse."
 
 KANBAN_GUIDANCE = (
     "# Kanban task execution protocol\n"

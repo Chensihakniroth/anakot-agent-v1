@@ -153,10 +153,8 @@ def _validate_category(category: Optional[str]) -> Optional[str]:
     return _check_identifier(category, "Category", invalid)
 
 
-def _validate_frontmatter(content: str, *, new_skill: bool = False) -> Optional[str]:
-    """Validate frontmatter (name + description) and a non-empty body. ``new_skill`` (create
-    only) also enforces SKILL_PROMPT_DESC_LIMIT so new skills never lose routing signal to
-    index truncation; edit/patch skip it so existing over-limit skills stay maintainable."""
+def _validate_frontmatter(content: str) -> Optional[str]:
+    """Validate frontmatter (name + description) and a non-empty body."""
     if not content.strip():
         return "Content cannot be empty."
     content = content.lstrip("\ufeff")  # tolerate a Windows UTF-8 BOM
@@ -177,16 +175,28 @@ def _validate_frontmatter(content: str, *, new_skill: bool = False) -> Optional[
     desc = str(parsed["description"])
     if len(desc) > MAX_DESCRIPTION_LENGTH:
         return f"Description exceeds {MAX_DESCRIPTION_LENGTH} characters."
-    if new_skill and len(desc.strip().strip("'\"")) > SKILL_PROMPT_DESC_LIMIT:
-        return (
-            f"Description is {len(desc.strip())} chars — new skills must fit the "
-            f"{SKILL_PROMPT_DESC_LIMIT}-char system-prompt budget (one sentence, trigger first, "
-            f"ends with a period). The skill index truncates longer descriptions to "
-            f"{SKILL_PROMPT_DESC_LIMIT - 3} chars + '...', destroying the routing signal. "
-            f"Move detail into the skill body.")
     if not content[end_match.end() + 3:].strip():
         return "SKILL.md must have content after the frontmatter (instructions, procedures, etc.)."
     return None
+
+
+def _description_of(content: Optional[str]) -> Optional[str]:
+    """Return the normalized frontmatter description, or None when it cannot be read."""
+    with suppress(Exception):
+        return str(_parse_frontmatter(content or "")[0]["description"]).strip().strip("'\"")
+    return None
+
+
+def _description_budget_error(content: str, before: Optional[str] = None) -> Optional[str]:
+    """Reject newly written over-budget descriptions while preserving legacy body edits."""
+    desc = _description_of(content) or ""
+    if len(desc) <= SKILL_PROMPT_DESC_LIMIT or (before is not None and desc == _description_of(before)):
+        return None
+    return (
+        f"Description is {len(desc)} chars; a skill description must fit the "
+        f"{SKILL_PROMPT_DESC_LIMIT}-char skill index (one sentence, trigger first, ends with a "
+        f"period, without repeating the category name). The index clips anything longer. "
+        f"Move detail into the skill body.")
 
 
 def _validate_content_size(content: str, label: str = "SKILL.md") -> Optional[str]:
@@ -358,13 +368,14 @@ def _locate_for_write(name: str, action: str, not_found_suffix: str = "", *,
 
 def _guarded_write(name: str, skill_dir: Path, target: Path, action: str, label: str,
                    content: str) -> Optional[Dict[str, Any]]:
-    """Read-before-write guard (existing targets only), atomic write, then the security scan;
-    a blocked scan restores the original (or unlinks a new file). Error dict or None."""
+    """Validate the root description, then atomically write and security-scan the target."""
     original = None
     if target.exists():
         if read_guard := _background_review_read_before_write_guard(name, target, action, label):
             return read_guard
         original = target.read_text(encoding="utf-8")
+    if target == skill_dir / "SKILL.md" and (err := _description_budget_error(content, before=original)):
+        return _err(err)
     from anakot_constants import mkdir_under_anakot_home
     mkdir_under_anakot_home(target.parent)
     atomic_write_text(target, content, preserve_mode=True, create_mode=0o644)
@@ -418,7 +429,8 @@ def _clip(text: str, n: int, ellipsis: str) -> str:
 
 def _create_skill(name: str, content: str, category: str = None) -> Dict[str, Any]:
     if err := (_validate_name(name) or _validate_category(category)
-               or _validate_frontmatter(content, new_skill=True) or _validate_content_size(content)):
+               or _validate_frontmatter(content) or _description_budget_error(content)
+               or _validate_content_size(content)):
         return _err(err)
     if existing := _find_skill(name):
         return _err(f"A skill named '{name}' already exists at {existing['path']}.")

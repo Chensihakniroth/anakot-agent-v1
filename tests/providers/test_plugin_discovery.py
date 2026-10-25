@@ -23,6 +23,7 @@ def _clear_provider_caches():
     _pkg._ALIASES.clear()
     _pkg._PROVIDER_LIST_CACHE = None
     _pkg._discovered = False
+    _pkg._HOME_LAYERS.clear()
     # Evict any cached plugin modules so the next import re-executes.
     for mod in list(sys.modules.keys()):
         if (
@@ -124,3 +125,29 @@ def test_user_plugin_overrides_bundled(tmp_path, monkeypatch):
     # No import means the module must NOT be in the plugins list as a loaded one.
     # We check that the general loader didn't crash and didn't raise from the
     # broken __init__.py.
+
+
+def test_user_provider_layers_are_isolated_across_profiles(tmp_path, monkeypatch):
+    """A multiplexed process must resolve each profile's provider override."""
+    homes = [tmp_path / ".anakot-a", tmp_path / ".anakot-b"]
+    for home, marker in zip(homes, ("A", "B")):
+        plugin = home / "plugins" / "model-providers" / "profile-provider"
+        plugin.mkdir(parents=True)
+        (plugin / "__init__.py").write_text(
+            "from providers import register_provider\n"
+            "from providers.base import ProviderProfile\n"
+            f"register_provider(ProviderProfile(name='profile-provider', base_url='https://{marker}.example/v1'))\n"
+        )
+        (plugin / "plugin.yaml").write_text("name: profile-provider\nkind: model-provider\n")
+
+    _clear_provider_caches()
+    from providers import get_provider_profile, list_providers
+
+    monkeypatch.setenv("ANAKOT_HOME", str(homes[0]))
+    assert get_provider_profile("profile-provider").base_url == "https://A.example/v1"
+    assert next(p for p in list_providers() if p.name == "profile-provider").base_url == "https://A.example/v1"
+    monkeypatch.setenv("ANAKOT_HOME", str(homes[1]))
+    assert get_provider_profile("profile-provider").base_url == "https://B.example/v1"
+    assert next(p for p in list_providers() if p.name == "profile-provider").base_url == "https://B.example/v1"
+    monkeypatch.setenv("ANAKOT_HOME", str(homes[0]))
+    assert get_provider_profile("profile-provider").base_url == "https://A.example/v1"

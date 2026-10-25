@@ -284,15 +284,9 @@ class TestReinjectionBoundsAndRedaction:
 
 
 class TestSkillsGuidanceSafetyRule:
-    def test_safety_rule_present_with_real_newlines(self):
-        """SKILLS_GUIDANCE must teach the [SKILL_PRUNED] contract (reload
-        via skill_view; stale markers are artifacts) under its heading,
-        with real newlines. Dieted to prose (#95681) — the four-numbered
-        enumeration is gone but every semantic survives."""
+    def test_safety_rule_is_compaction_only(self):
+        """Fresh prompts do not pay for the rule; the compaction handoff owns it."""
         from agent.prompt_builder import SKILLS_GUIDANCE
 
-        assert "## Skill Safety Rule" in SKILLS_GUIDANCE
-        assert "[SKILL_PRUNED]" in SKILLS_GUIDANCE
-        assert "skill_view(name=" in SKILLS_GUIDANCE
-        assert "historical artifacts" in SKILLS_GUIDANCE
-        assert chr(10) in SKILLS_GUIDANCE
+        assert "## Skill Safety Rule" not in SKILLS_GUIDANCE
+        assert "[SKILL_PRUNED]" not in SKILLS_GUIDANCE

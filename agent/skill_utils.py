@@ -739,6 +739,8 @@ def resolve_skill_config_values(config_vars: List[Dict[str, Any]]) -> Dict[str, 
 
 
 SKILL_PROMPT_DESC_LIMIT = 60
+_LAST_WHITESPACE_RE = re.compile(r"\s\S*$")
+_CLIP_TRAIL_RE = re.compile(r"[\s.,;:\-\u2013\u2014(/]+$")
 
 
 def _normalize_skill_description(frontmatter: Dict[str, Any]) -> str:
@@ -747,10 +749,21 @@ def _normalize_skill_description(frontmatter: Dict[str, Any]) -> str:
     return str(raw_desc).strip().strip("'\"") if raw_desc else ""
 
 
+def clip_skill_description(desc: str) -> str:
+    """Fit *desc* to the prompt budget without exposing a half word or punctuation tail."""
+    if len(desc) <= SKILL_PROMPT_DESC_LIMIT:
+        return desc
+    head = desc[:SKILL_PROMPT_DESC_LIMIT - 2]
+    boundary = _LAST_WHITESPACE_RE.search(head)
+    if not boundary or boundary.start() == 0:
+        return desc[:SKILL_PROMPT_DESC_LIMIT - 3] + "..."
+    return _CLIP_TRAIL_RE.sub("", head[:boundary.start()]) + "..."
+
+
 def extract_skill_description(frontmatter: Dict[str, Any]) -> str:
     """Extract a system-prompt-length description from parsed frontmatter."""
     desc = _normalize_skill_description(frontmatter)
-    return desc[:SKILL_PROMPT_DESC_LIMIT - 3] + "..." if len(desc) > SKILL_PROMPT_DESC_LIMIT else desc
+    return clip_skill_description(desc)
 
 
 def is_skill_description_truncated_for_prompt(frontmatter: Dict[str, Any]) -> bool:

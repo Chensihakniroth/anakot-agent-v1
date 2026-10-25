@@ -26,6 +26,7 @@ from tools.skill_manager_tool import (
     skill_manage,
 )
 from agent.skill_utils import (
+    clip_skill_description,
     extract_skill_description,
     parse_frontmatter,
     SKILL_PROMPT_DESC_LIMIT,
@@ -150,6 +151,21 @@ class TestValidateFilePath:
 
 
 # ---------------------------------------------------------------------------
+# Description routing budget
+# ---------------------------------------------------------------------------
+
+
+class TestSkillDescription:
+    def test_clip_stops_at_word_boundary_and_removes_punctuation_tail(self):
+        description = "Use\u00a0when investigating complex upstream parity regressions, carefully."
+        clipped = clip_skill_description(description)
+        assert len(clipped) <= SKILL_PROMPT_DESC_LIMIT
+        assert clipped.endswith("...")
+        assert clipped[:-3].rstrip(" .,;:-\u2013\u2014(/") == clipped[:-3]
+        assert "upstream" in clipped
+
+
+# ---------------------------------------------------------------------------
 # CRUD operations
 # ---------------------------------------------------------------------------
 
@@ -181,17 +197,22 @@ class TestCreateSkill:
         assert not (tmp_path / "escape").exists()
 
 
-    def test_edit_long_desc_still_allowed_with_preview(self, tmp_path):
-        """Edit/patch paths stay permissive so existing over-limit skills
-        remain maintainable — they warn via system_prompt_preview instead."""
+    def test_edit_changed_long_desc_is_rejected(self, tmp_path):
         with _skill_dir(tmp_path):
             _create_skill("my-skill", VALID_SKILL_CONTENT)
             result = _edit_skill("my-skill", LONG_DESC_CONTENT)
+        assert result["success"] is False
+        assert "60-char skill index" in result["error"]
+
+    def test_legacy_long_desc_can_still_receive_a_body_edit(self, tmp_path):
+        """A legacy over-limit description remains maintainable when unchanged."""
+        updated = LONG_DESC_CONTENT.replace("Step 1.", "Step 2.")
+        with _skill_dir(tmp_path):
+            _create_skill("my-skill", VALID_SKILL_CONTENT)
+            (tmp_path / "my-skill" / "SKILL.md").write_text(LONG_DESC_CONTENT)
+            result = _edit_skill("my-skill", updated)
         assert result["success"] is True
-        assert "system_prompt_preview" in result
-        assert "System prompt will show" in result["system_prompt_preview"]
-        fm, _ = parse_frontmatter(LONG_DESC_CONTENT)
-        assert extract_skill_description(fm) in result["system_prompt_preview"]
+        assert "Step 2." in (tmp_path / "my-skill" / "SKILL.md").read_text()
 
 
 class TestEditSkill:
@@ -253,6 +274,19 @@ class TestPatchSkill:
         assert result["success"] is True
         content = (tmp_path / "my-skill" / "SKILL.md").read_text()
         assert "Do the new thing." in content
+
+    def test_patch_description_change_over_budget_is_rejected(self, tmp_path):
+        with _skill_dir(tmp_path):
+            _create_skill("my-skill", VALID_SKILL_CONTENT)
+            result = _patch_skill(
+                "my-skill",
+                "description: A test skill for unit testing.",
+                "description: Use when deploying multi-region Kubernetes clusters with custom CNI plugins and service mesh.",
+            )
+            content = (tmp_path / "my-skill" / "SKILL.md").read_text()
+        assert result["success"] is False
+        assert "60-char skill index" in result["error"]
+        assert "A test skill for unit testing." in content
 
 
     def test_patch_ambiguous_match_rejected(self, tmp_path):

@@ -45,12 +45,16 @@ def _read_cfg(home):
 class TestRegistry:
     def test_every_capability_has_legacy_gate(self):
         for spec in CAPABILITY_REGISTRY.values():
-            assert spec.legacy_path, spec.id
+            if spec.id == "llm.side_question":
+                assert spec.legacy_path == ()
+            else:
+                assert spec.legacy_path, spec.id
             assert spec.description
 
     def test_known_ids(self):
         assert "tools.override" in VALID_CAPABILITY_IDS
         assert "llm.model_override" in VALID_CAPABILITY_IDS
+        assert "llm.side_question" in VALID_CAPABILITY_IDS
 
 
 # ── Declaration parsing ──────────────────────────────────────────────────────
@@ -156,6 +160,12 @@ class TestDeclarationParsing:
 
 
 class TestConsentPersistence:
+    def test_side_question_consent_has_no_legacy_gate(self, anakot_home):
+        record_consent("capplug", ["llm.side_question"], ["llm.side_question"])
+        entry = _read_cfg(anakot_home)["plugins"]["entries"]["capplug"]
+        assert entry["granted_capabilities"] == ["llm.side_question"]
+        assert "llm" not in entry
+
     def test_record_consent_persists_grant(self, anakot_home):
         record_consent("capplug", ["tools.override"], ["tools.override"])
         cfg = _read_cfg(anakot_home)

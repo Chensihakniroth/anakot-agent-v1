@@ -69,18 +69,13 @@ class TestBehaviourIsPreserved:
         # block — the ## Skills section and skill_manage's schema teach it.
         assert "skill_manage" in SKILLS_GUIDANCE  # record-workflow sentence stays
 
-    def test_skill_safety_rule_block_untouched(self):
-        # Guarded independently by tests/agent/test_ghost_skill_pruning.py; asserted
-        # here too so a reword of the guidance can't quietly take the block with it.
-        assert "## Skill Safety Rule" in SKILLS_GUIDANCE
-        assert "[SKILL_PRUNED]" in SKILLS_GUIDANCE
-        for phrase in ("skill_view(name=", "historical artifacts"):
-            assert phrase in SKILLS_GUIDANCE
+    def test_skill_safety_rule_is_not_in_fresh_guidance(self):
+        # The marker only exists after compaction; its safety rule is attached
+        # to that handoff rather than paid for in every fresh prompt.
+        assert "## Skill Safety Rule" not in SKILLS_GUIDANCE
+        assert "[SKILL_PRUNED]" not in SKILLS_GUIDANCE
 
-    def test_real_newlines_preserved(self):
-        """The block must contain REAL newlines (not escaped backslash-n
-        literals) so the safety-rule heading renders as a heading."""
-        assert chr(10) in SKILLS_GUIDANCE
+    def test_guidance_has_no_safety_rule_escape_sequence(self):
         assert (chr(92) + 'n') not in SKILLS_GUIDANCE
 
 
