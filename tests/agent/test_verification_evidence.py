@@ -93,6 +93,60 @@ def test_shell_wrappers_match_but_echo_does_not(tmp_path, monkeypatch):
 @pytest.mark.parametrize(
     "command",
     [
+        "bash -s scripts/run_tests.sh",
+        "sh -s scripts/run_tests.sh",
+        "nice --help scripts/run_tests.sh",
+        "timeout --help 300 scripts/run_tests.sh",
+        "nohup --version scripts/run_tests.sh",
+        "stdbuf --help scripts/run_tests.sh",
+    ],
+)
+def test_flag_that_skips_the_script_is_not_evidence(tmp_path, monkeypatch, command):
+    """``bash -s`` reads stdin and ``--help`` exits 0: the script named after it never runs."""
+    monkeypatch.setenv("ANAKOT_HOME", str(tmp_path / ".anakot"))
+    _node_project(tmp_path)
+
+    evidence = classify_verification_command(
+        command,
+        cwd=tmp_path,
+        session_id="s1",
+        exit_code=0,
+    )
+
+    assert evidence is None
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "timeout 300 pytest -q",
+        "nice -n 5 pytest -q",
+        "timeout 5m pytest -q",
+        "timeout -s KILL 300 pytest -q",
+        "timeout --signal=KILL -k 10 5m pytest -q",
+        "stdbuf -oL nohup pytest -q",
+    ],
+)
+def test_status_preserving_wrapper_still_attributes_the_run(tmp_path, monkeypatch, command):
+    """``timeout``/``nice`` return the child's status, so the run proves the verifier's."""
+    monkeypatch.setenv("ANAKOT_HOME", str(tmp_path / ".anakot"))
+    _python_project(tmp_path)
+
+    evidence = classify_verification_command(
+        command,
+        cwd=tmp_path,
+        session_id="s1",
+        exit_code=0,
+    )
+
+    assert evidence is not None
+    assert evidence.canonical_command == "pytest"
+    assert evidence.scope == "full"
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
         "pytest || true",
         "pytest ; true",
         "pytest | tee test.log",
