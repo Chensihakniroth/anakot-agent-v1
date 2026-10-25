@@ -230,13 +230,63 @@ def _canonical_tokens(canonical: str) -> list[str]:
         return []
 
 
+# Status-preserving wrappers -> (options that still run the child, options taking a value).
+# Anything else (``--help``, ``--version``) may exit without running the child: no match.
+_WRAPPER_OPTIONS: dict[str, tuple[frozenset[str], frozenset[str]]] = {
+    "timeout": (frozenset({"-p", "--preserve-status", "-f", "--foreground", "-v", "--verbose"}),
+                frozenset({"-s", "--signal", "-k", "--kill-after"})),
+    "nice": (frozenset(), frozenset({"-n", "--adjustment"})),
+    "nohup": (frozenset(), frozenset()),
+    "stdbuf": (frozenset(), frozenset({"-i", "-o", "-e", "--input", "--output", "--error"})),
+}
+# A ``timeout`` duration: ``300``, ``5m``, ``1.5h``.
+_TIMEOUT_DURATION_RE = re.compile(r"^\d+(?:\.\d+)?[smhd]?$")
+
+
+def _wrapper_option_width(token: str, flags: frozenset[str], valued: frozenset[str]) -> int:
+    """Tokens one wrapper option spans (``-n 5`` 2, ``-n5``/``--signal=KILL`` 1), 0 if unknown."""
+    if token in flags:
+        return 1
+    if token in valued:
+        return 2
+    attached = any(token.startswith(f"{v}=") if v.startswith("--") else token.startswith(v) for v in valued)
+    return 1 if attached else 0
+
+
+def _skip_wrapper(tokens: list[str], i: int) -> Optional[int]:
+    """Index of the child command after the wrapper at ``tokens[i]``, ``None`` unless the
+    wrapper's options and arguments are ones that run the child."""
+    flags, valued = _WRAPPER_OPTIONS[tokens[i]]
+    timeout = tokens[i] == "timeout"
+    i += 1
+    while i < len(tokens) and tokens[i].startswith("-") and tokens[i] != "--":
+        width = _wrapper_option_width(tokens[i], flags, valued)
+        if not width:
+            return None
+        i += width
+    i += int(i < len(tokens) and tokens[i] == "--")
+    if timeout:
+        if i >= len(tokens) or not _TIMEOUT_DURATION_RE.match(tokens[i]):
+            return None
+        i += 1
+    return i
+
+
 def _strip_command_prefix(tokens: list[str]) -> list[str]:
-    """Remove harmless command prefixes (env, VAR=x, command/time/noglob)."""
+    """Remove harmless command prefixes (env, VAR=x, command/time/noglob, status-preserving
+    wrappers with the options and duration that still run the child)."""
     i = 1 if tokens and tokens[0] == "env" else 0
     while i < len(tokens) and "=" in tokens[i] and not tokens[i].startswith("-"):
         i += 1
     while i < len(tokens) and tokens[i] in {"command", "time", "noglob"}:
         i += 1
+    while i < len(tokens):
+        if tokens[i] in {"command", "time", "noglob"}:
+            i += 1
+        elif tokens[i] in _WRAPPER_OPTIONS and (child := _skip_wrapper(tokens, i)) is not None:
+            i = child
+        else:
+            break
     return list(tokens[i:])
 
 

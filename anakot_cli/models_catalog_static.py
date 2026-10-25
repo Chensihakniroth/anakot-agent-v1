@@ -19,6 +19,7 @@ _OPENROUTER_DESCRIPTIONS = {
     "moonshotai/kimi-k3": "recommended",
     "z-ai/glm-5.2": "default",
     "openrouter/pareto-code": "auto-routes to cheapest coder meeting openrouter.min_coding_score",
+    "openrouter/free": "random free model router",
     "openai/gpt-6-astra-fast": "2x price, priority tier",
     "openai/gpt-6-astra-flex": "0.5x price, flex tier",
     "openai/gpt-6-astra-pro-fast": "2x price, priority tier",
@@ -41,7 +42,7 @@ OPENROUTER_MODELS: list[tuple[str, str]] = [
         "z-ai/glm-5.3-flash", "z-ai/glm-5.2", "xiaomi/mimo-v2.5-pro", "tencent/hy4-preview", "tencent/hy3",
         "stepfun/step-3.7-flash", "nvidia/nemotron-3-super-120b-a12b", "meta/muse-spark-1.2",
         "meta/muse-spark-1.2-contributor", "meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor", "sakana/fugu-ultra",
-        "openrouter/pareto-code", "thinkingmachines/inkling:free", "thinkingmachines/inkling-small:free",
+        "openrouter/pareto-code", "openrouter/free", "thinkingmachines/inkling:free", "thinkingmachines/inkling-small:free",
         "minimax/minimax-m3:free", "z-ai/glm-5.2:free", "poolside/laguna-s-2.1:free", "poolside/laguna-xs-2.1:free",
         "nvidia/nemotron-3-super-120b-a12b:free", "nvidia/nemotron-3-ultra-550b-a55b:free",
         "nvidia/nemotron-3.5-lightning:free", "stealth/union-alpha",
@@ -53,7 +54,7 @@ OPENROUTER_MODELS: list[tuple[str, str]] = [
 _OPENROUTER_ONLY = {
     "anthropic/claude-opus-5-fast", "anthropic/claude-opus-4.8-fast", "meta/muse-spark-1.2",
     "meta/muse-spark-1.2-contributor", "meta/muse-spark-1.3", "meta/muse-spark-1.3-contributor", "openrouter/pareto-code",
-    "stealth/union-alpha",
+    "openrouter/free", "stealth/union-alpha",
 }
 
 
