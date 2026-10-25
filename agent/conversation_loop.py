@@ -1355,6 +1355,7 @@ class _LoopState:
     total_chars: Any = None
     thinking_spinner: Any = None
     api_start_time: Any = None
+    skip_turn_hooks: bool = False
     retry_count: int = 0
     max_retries: Any = None
     _retry: Any = None

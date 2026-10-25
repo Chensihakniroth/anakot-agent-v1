@@ -180,3 +180,67 @@ def build_api_request(
         "fallthrough", api_messages, _moa_prepared_request, tools_for_api, api_kwargs,
         _original_api_kwargs, _llm_middleware_trace,
     )
+
+
+def build_request_payload(
+    agent: Any, *, api_messages: Any, _moa_prepared_request: Any, tools_for_api: Any,
+    system_message: Any, api_call_count: Any, api_request_id: Any, effective_task_id: Any,
+    turn_id: Any,
+) -> ApiRequestBuild:
+    """Build the provider payload and middleware trace without firing turn hooks."""
+    from agent.conversation_loop import _redecorate_prompt_cache_for_provider
+
+    agent._reset_stream_delivery_tracking()
+    agent._last_api_first_chunk_at = None
+    agent._reapply_reasoning_echo_for_provider(api_messages)
+    api_messages, _moa_prepared_request, tools_for_api = _redecorate_prompt_cache_for_provider(
+        agent,
+        api_messages,
+        system_message=system_message,
+        moa_prepared=_moa_prepared_request,
+        tools_for_api=tools_for_api,
+    )
+    if tools_for_api == agent.tools:
+        api_kwargs = agent._build_api_kwargs(api_messages)
+    else:
+        api_kwargs = agent._build_api_kwargs(api_messages, tools_for_api=tools_for_api)
+    sanitize_outbound_kwargs(agent, api_kwargs)
+    if agent.api_mode == "codex_responses":
+        api_kwargs = agent._get_transport().preflight_kwargs(
+            api_kwargs,
+            allow_stream=False,
+            is_github_responses=agent._is_copilot_url(),
+            sanitize_harmony_tokens=agent._is_codex_backend(),
+        )
+    if agent._empty_content_retries > 0 and agent._is_openrouter_url():
+        _set_extra_header(api_kwargs, "X-OpenRouter-Cache", "false")
+    if getattr(agent, "_is_user_initiated_turn", False) and agent._is_copilot_url():
+        _set_extra_header(api_kwargs, "x-initiator", "user")
+        agent._is_user_initiated_turn = False
+    try:
+        from anakot_cli.middleware import apply_llm_request_middleware
+
+        middleware = apply_llm_request_middleware(
+            api_kwargs,
+            task_id=effective_task_id,
+            turn_id=turn_id,
+            api_request_id=api_request_id,
+            session_id=agent.session_id or "",
+            platform=agent.platform or "",
+            model=agent.model,
+            provider=agent.provider,
+            base_url=agent.base_url,
+            api_mode=agent.api_mode,
+            api_call_count=api_call_count,
+        )
+        api_kwargs = middleware.payload
+        original = middleware.original_payload
+        trace = middleware.trace
+    except Exception:
+        logger.warning("LLM request middleware failed; sending the request unmodified", exc_info=True)
+        original = dict(api_kwargs)
+        trace = []
+    return ApiRequestBuild(
+        "fallthrough", api_messages, _moa_prepared_request, tools_for_api, api_kwargs,
+        original, trace,
+    )

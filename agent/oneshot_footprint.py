@@ -26,12 +26,32 @@ def is_single_query_session() -> bool:
     return str(get_session_env("ANAKOT_SINGLE_QUERY_SESSION", "") or "") == "1"
 
 
+def agent_is_oneshot(agent: Any) -> bool:
+    """Freeze the one-shot decision on the agent so refreshes stay cache-stable."""
+    cached = getattr(agent, "_oneshot_session", None)
+    if not isinstance(cached, bool):
+        cached = is_single_query_session()
+        agent._oneshot_session = cached
+    return cached
+
+
 def prune_oneshot_tools(tools: Iterable[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """*tools* minus ``ONESHOT_HIDDEN_TOOLS``; identity when the session is not one-shot."""
     tools = list(tools)
     if not is_single_query_session():
         return tools
     return [t for t in tools if (t.get("function") or {}).get("name") not in ONESHOT_HIDDEN_TOOLS]
+
+
+def oneshot_tool_schemas(tools: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Remove one-shot-only live-control parameters from fresh delegate schemas."""
+    from tools.delegate_tool import oneshot_delegate_function
+
+    return [
+        {**tool, "function": oneshot_delegate_function(tool["function"])}
+        if (tool.get("function") or {}).get("name") == "delegate_task" else tool
+        for tool in tools
+    ]
 
 
 ONESHOT_SKILLS_LOAD_GUIDANCE = (

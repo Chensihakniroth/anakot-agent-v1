@@ -240,6 +240,14 @@ TOOLSETS = {
     ),
 }
 
+# Toolset -> the session platforms it exists for. Most Anakot toolsets are
+# configuration-driven; platform-gated entries opt in with a ``platforms``
+# field. Keep this derived so session-only tools are handled consistently by
+# initial builds, refreshes, and prefix restoration.
+TOOLSET_SESSION_PLATFORMS = {
+    name: spec["platforms"] for name, spec in TOOLSETS.items() if "platforms" in spec
+}
+
 
 def _registry():
     """Live tool registry, or None when tools.registry can't be imported."""
@@ -434,6 +442,61 @@ def get_all_toolsets() -> Dict[str, Dict[str, Any]]:
 def get_toolset_names() -> List[str]:
     """Sorted names of all toolsets (static + plugin), excluding aliases."""
     return sorted(set(TOOLSETS.keys()) | set(_plugin_display_names()))
+
+
+def session_platform_tool_drops(platform: Optional[str]) -> frozenset:
+    """Tool names from platform-gated toolsets unavailable to this session."""
+    return frozenset(
+        tool
+        for name, platforms in TOOLSET_SESSION_PLATFORMS.items()
+        if platform not in platforms
+        for tool in resolve_toolset(name)
+    )
+
+
+def session_disabled_toolsets(
+    disabled: Optional[List[str]], platform: Optional[str], *, oneshot: bool = False,
+) -> Optional[List[str]]:
+    """Add session-only and one-shot toolset gates to configured disables.
+
+    ``disabled_toolsets`` is copied onto the agent so tool discovery, the
+    tool-search bridge, refreshes, and delegated children all see the same
+    surface. The one-shot gate is a session fact, not a user config choice.
+    """
+    from agent.oneshot_footprint import ONESHOT_DISABLED_TOOLSETS
+
+    gated = [
+        name for name, platforms in TOOLSET_SESSION_PLATFORMS.items()
+        if platform not in platforms
+    ]
+    if oneshot:
+        gated.extend(ONESHOT_DISABLED_TOOLSETS)
+    gated = [name for name in gated if name not in (disabled or ())]
+    return [*(disabled or ()), *gated] if gated else disabled
+
+
+def agent_tool_drops(agent: Any) -> frozenset:
+    """Tool names this agent must never carry on its session surface."""
+    from tools.connectors.turn import side_agent_tool_drops
+
+    return side_agent_tool_drops(agent) | session_platform_tool_drops(
+        getattr(agent, "platform", None)
+    )
+
+
+def agent_tool_surface(agent: Any, tools: List[dict[str, Any]]) -> List[dict[str, Any]]:
+    """Shape fresh definitions for this agent before cache-prefix merging."""
+    from agent.oneshot_footprint import agent_is_oneshot, oneshot_tool_schemas
+
+    drops = agent_tool_drops(agent)
+    if drops:
+        tools = [
+            tool for tool in tools
+            if (tool.get("function") or {}).get("name") not in drops
+        ]
+    else:
+        tools = list(tools)
+    return oneshot_tool_schemas(tools) if agent_is_oneshot(agent) else tools
 
 
 def validate_toolset(name: str) -> bool:

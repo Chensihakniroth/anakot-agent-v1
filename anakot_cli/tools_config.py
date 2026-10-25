@@ -712,8 +712,14 @@ def _save_platform_tools(config: dict, platform: str, enabled_toolset_keys: Set[
     newly_enabled = enabled_toolset_keys - preserved_entries
     if isinstance(agent_cfg, dict) and agent_cfg.get("disabled_toolsets") and newly_enabled:
         from agent.skill_utils import parse_config_string_list
+        from toolsets import resolve_toolset
         parsed_disabled = parse_config_string_list(agent_cfg["disabled_toolsets"])
-        remaining = [ts for ts in parsed_disabled if ts not in newly_enabled]
+        covered_tools = set().union(*(set(resolve_toolset(ts)) for ts in newly_enabled))
+        remaining = [
+            ts for ts in parsed_disabled
+            if ts not in newly_enabled
+            and not (set(resolve_toolset(ts)) and set(resolve_toolset(ts)) <= covered_tools)
+        ]
         if remaining != parsed_disabled:
             agent_cfg["disabled_toolsets"] = remaining
     save_config(config)

@@ -17,8 +17,9 @@ from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
-PLUGIN_SIDE_QUESTION_TASK = "plugin_side_question"
+PLUGIN_SIDE_QUESTION_TASK = "side_question"
 _CLIENT_TOOL_TYPES = frozenset({"function", "custom"})
+_ROUTING_ONLY_OPENROUTER_PLUGINS = frozenset({"pareto-router"})
 
 
 @dataclass(frozen=True)
@@ -42,6 +43,24 @@ def runtime_key(agent: Any) -> tuple:
         getattr(agent, name, None)
         for name in ("model", "provider", "base_url", "api_mode", "reasoning_config")
     )
+
+
+def _agent_provider_refusal(agent: Any) -> Optional[str]:
+    """Refuse runtimes where the remote provider could execute tools outside our control."""
+    if getattr(agent, "provider", None) == "moa":
+        return "moa"
+    if getattr(agent, "api_mode", None) == "codex_app_server":
+        return "agent_provider"
+    base_url = str(getattr(agent, "base_url", "") or "").lower()
+    if base_url.startswith(("acp://", "acp+tcp://")):
+        return "agent_provider"
+    try:
+        from agent.background_review import _parent_can_emit_tool_calls
+        if not _parent_can_emit_tool_calls(agent):
+            return "agent_provider"
+    except Exception:
+        pass
+    return None
 
 
 def _record_usage(parent: Any, fork: Any, plugin_id: str) -> dict[str, Any]:
@@ -89,7 +108,10 @@ def has_server_side_tools(api_kwargs: dict[str, Any]) -> bool:
     if "web_search_options" in api_kwargs or "web_search_options" in extra_body:
         return True
     plugins = [*(api_kwargs.get("plugins") or ()), *(extra_body.get("plugins") or ())]
-    return any(not (isinstance(item, dict) and item.get("id") == "pareto-router") for item in plugins)
+    return any(
+        not (isinstance(item, dict) and item.get("id") in _ROUTING_ONLY_OPENROUTER_PLUGINS)
+        for item in plugins
+    )
 
 
 def ask_text_only(
@@ -103,13 +125,17 @@ def ask_text_only(
     parent = capture.parent_ref()
     if parent is None:
         return None
+    refusal = _agent_provider_refusal(parent)
+    if refusal is not None:
+        logger.info("side_question plugin=%s outcome=refused:%s", plugin_id, refusal)
+        return None
     from agent.background_review import build_cache_parity_fork
     from agent.side_question import trim_snapshot_for_fork
     from anakot_cli.plugins import clear_thread_tool_whitelist, set_thread_tool_whitelist
-    from agent.auxiliary_hooks import run_with_aux_hooks
+    from agent.auxiliary_hooks import finish_aux_call_hooks, start_aux_call_hooks
     from agent.relay_llm import complete_logical_call
     from agent.turn_api_call import perform_api_call
-    from agent.turn_api_request import build_api_request
+    from agent.turn_api_request import build_request_payload
     from agent.turn_context import _PER_TURN_RESET_STATE
     from agent.turn_request_assembly import assemble_api_request
     from agent.turn_retry_state import TurnRetryState
@@ -135,7 +161,7 @@ def ask_text_only(
         fork, _runtime, _routed = build_cache_parity_fork(
             parent, {}, max_iterations=1, write_origin=PLUGIN_SIDE_QUESTION_TASK,
         )
-        if timed_out.is_set() or runtime_key(fork) != capture.runtime:
+        if timed_out.is_set() or runtime_key(parent) != capture.runtime:
             return None
         fork._cached_system_prompt = capture.system_prompt
         fork._cached_system_prompt_static = capture.system_prompt_static
@@ -185,29 +211,32 @@ def ask_text_only(
             pending_moa_prepared_request=None,
             request_logger=logger,
         )
-        built = build_api_request(
+        built = build_request_payload(
             fork,
             api_messages=assembled.api_messages,
             _moa_prepared_request=assembled._moa_prepared_request,
             tools_for_api=assembled.tools_for_api,
             system_message=None,
-            messages=messages,
-            original_user_message=prompt,
-            approx_tokens=assembled.approx_tokens,
-            total_chars=assembled.total_chars,
-            retry_count=0,
             api_call_count=1,
             api_request_id=api_request_id,
-            api_start_time=time.time(),
             effective_task_id=task_id,
             turn_id=turn_id,
-            skip_turn_hooks=True,
         )
         if has_server_side_tools(built.api_kwargs) or timed_out.is_set():
             return None
+        hooks = start_aux_call_hooks(
+            aux_task=PLUGIN_SIDE_QUESTION_TASK,
+            metadata={"api_request_id": api_request_id, "plugin_id": plugin_id},
+            client=fork.client,
+            kwargs=built.api_kwargs,
+            provider=str(fork.provider or ""),
+            model=str(fork.model or ""),
+            api_mode=str(fork.api_mode or ""),
+            streaming=False,
+        )
         start = time.time()
-        verdict = run_with_aux_hooks(
-            lambda: perform_api_call(
+        try:
+            verdict = perform_api_call(
                 fork,
                 api_kwargs=built.api_kwargs,
                 _original_api_kwargs=built._original_api_kwargs,
@@ -221,30 +250,34 @@ def ask_text_only(
                 effective_task_id=task_id,
                 turn_id=turn_id,
                 interrupted=False,
-            ),
-            aux_task=PLUGIN_SIDE_QUESTION_TASK,
-            metadata={"api_request_id": api_request_id, "plugin_id": plugin_id},
-            client=fork.client,
-            kwargs=built.api_kwargs,
-            provider=str(fork.provider or ""),
-            model=str(fork.model or ""),
-            api_mode=str(fork.api_mode or ""),
-        )
-        if verdict.action == "break" or verdict.response is None:
+            )
+            response = None if verdict.action == "break" else verdict.response
+            if response is not None:
+                record_response_usage(
+                    fork,
+                    response,
+                    messages=messages,
+                    api_call_count=1,
+                    api_duration=time.time() - start,
+                    compression_attempts=0,
+                    max_compression_attempts=0,
+                )
+                assistant_message = normalize_response_for_agent(fork, response)
+                normalized = (
+                    assistant_message,
+                    getattr(assistant_message, "finish_reason", "stop"),
+                    getattr(fork, "_usage_summary_for_api_request_hook", lambda _response: None)(response),
+                )
+        except BaseException as exc:
+            finish_aux_call_hooks(hooks, error=exc)
+            complete_logical_call(api_request_id, outcome="failed")
+            raise
+        if response is None:
+            finish_aux_call_hooks(hooks, error=InterruptedError("side question cancelled"))
             complete_logical_call(api_request_id, outcome="cancelled")
             return None
-        response = verdict.response
-        record_response_usage(
-            fork,
-            response,
-            messages=messages,
-            api_call_count=1,
-            api_duration=time.time() - start,
-            compression_attempts=0,
-            max_compression_attempts=0,
-        )
         complete_logical_call(api_request_id, outcome="success")
-        assistant_message = normalize_response_for_agent(fork, response)
+        finish_aux_call_hooks(hooks, response, normalized=normalized)
         content = assistant_message.content
         if not isinstance(content, str):
             from agent.message_content import flatten_message_text

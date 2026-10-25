@@ -561,8 +561,11 @@ def _guidance_parts(agent: Any) -> List[str]:
     parts.append(_tool_guidance_block(agent))  # None/empty entries are dropped by _join_tier
     if not agent.valid_tool_names:
         return parts
-    # Steering only lands inside tool results, so only reachable with tools.
-    parts.append(STEER_CHANNEL_NOTE)
+    # A finite one-shot has no later turn or live operator to steer it. Keep the
+    # note out of its stable prompt; interactive sessions retain the full lane.
+    from agent.oneshot_footprint import agent_is_oneshot
+    if not agent_is_oneshot(agent):
+        parts.append(STEER_CHANNEL_NOTE)
     # agent.tool_use_enforcement / agent.execution_guidance: "auto" (default)
     # matches the hardcoded model lists; true/false force; a list gives custom
     # model-name substrings.  Execution guidance is an independent gate so

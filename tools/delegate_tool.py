@@ -558,17 +558,44 @@ def _build_top_level_description(*, independent_completions=None) -> str:
     )
     return _DESCRIPTION_HEAD.format(delivery=delivery) + restrictions_rule + _DESCRIPTION_TAIL
 
+
+_DELIVERY_INDEPENDENT = "each ungrouped task / `group` returns on its own"
+_DELIVERY_JOINED = "one message per call"
+_DESCRIPTION_DELIVERY = (
+    "Sessions without a later-result consumer (including one-shot CLI and cron) join parallel children "
+    "and return results in this tool call. Otherwise runs in the background: dispatch returns live transcript "
+    "paths and results re-enter as a new message when subagents finish ({delivery}). Background results are "
+    "delivered only BETWEEN your turns: finish whatever does not depend on them, then give a one-line status "
+    "and END YOUR TURN. Never wait or poll on transcripts, artifact files, or CI for a child. While children "
+    "run, `action` (list/steer/stop) controls them live.\n\n"
+)
+_ONESHOT_DESCRIPTION_DELIVERY = "Parallel children are joined and their results return in this tool call.\n\n"
+
+
+def oneshot_delegate_function(function: dict) -> dict:
+    """Remove live child-control parameters from a fresh one-shot schema."""
+    description = function.get("description") or ""
+    for delivery in (_DELIVERY_INDEPENDENT, _DELIVERY_JOINED):
+        description = description.replace(
+            _DESCRIPTION_DELIVERY.format(delivery=delivery),
+            _ONESHOT_DESCRIPTION_DELIVERY,
+        )
+    params = function["parameters"]
+    properties = {
+        key: value for key, value in params["properties"].items()
+        if key not in {"action", "subagent_id", "message"}
+    }
+    return {
+        **function,
+        "description": description,
+        "parameters": {**params, "properties": properties},
+    }
+
 _DESCRIPTION_HEAD = (
     "Spawn subagents in isolated contexts; each gets its own conversation, terminal session, and toolset, and only its "
     "final summary returns to you. Pass every task in `tasks` — one entry spawns one subagent, several run in parallel "
     "(limit in the tasks description).\n\n"
-    "Sessions without a later-result consumer (including one-shot CLI and cron) join parallel children "
-    "and return results in this tool call. "
-    "Otherwise runs in the background: dispatch returns live transcript paths and results re-enter "
-    "as a new message when subagents finish ({delivery}). Background results are delivered only "
-    "BETWEEN your turns: finish whatever does not depend on them, then give a one-line status and END YOUR TURN. Never "
-    "wait or poll on transcripts, artifact files, or CI for a child. "
-    "While children run, `action` (list/steer/stop) controls them live.\n\n"
+    + _DESCRIPTION_DELIVERY +
     "USE FOR: reasoning-heavy subtasks, work that would flood your context, or independent parallel workstreams.\n"
     "DO NOT USE FOR (use these instead):\n"
     "- Mechanical multi-step work with no reasoning needed -> execute_code\n"

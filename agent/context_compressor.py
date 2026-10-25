@@ -26,6 +26,7 @@ from agent.context_engine import ContextEngine, sanitize_memory_context
 from agent.context_compressor_summary import SummaryDispatchMixin
 from agent.context_compressor_tail import (
     demote_stale_tail_tools,
+    elide_keeping_skill_safety_rule,
     lean_tail_budget,
     with_pruned_row_skill_safety_rule,
     with_skill_safety_rule,
@@ -518,8 +519,11 @@ def salvage_grown_transcript(
             and len(content) > _SALVAGE_SUMMARY_MAX_CHARS
             and _looks_like_compaction_summary(msg, content)
         ):
-            msg["content"] = (content[:_SALVAGE_SUMMARY_MAX_CHARS].rstrip()
-                              + "\n…[summary truncated so compaction can shrink]\n\n" + _SUMMARY_END_MARKER)
+            msg["content"] = (
+                elide_keeping_skill_safety_rule(content, _SALVAGE_SUMMARY_MAX_CHARS).rstrip()
+                + "\n…[summary truncated so compaction can shrink]\n\n"
+                + _SUMMARY_END_MARKER
+            )
     _prune_stale_reasoning_replay(out)
     if estimate_messages_tokens_rough(out) >= budget:
         _salvage_reduce_todo_snapshot(out)
@@ -727,6 +731,8 @@ _PRUNED_TOOL_PLACEHOLDER = "[Old tool output cleared to save context space]"
 
 def _is_summary_stub(content: str) -> bool:
     """True for a tool result already replaced by a 1-line ``[tool] ... (N chars)`` summary."""
+    from agent.context_compressor_tail import without_skill_safety_rule
+    content = without_skill_safety_rule(content)
     return content.startswith("[") and " chars)" in content and len(content) < 400
 
 
@@ -1892,7 +1898,10 @@ Describe agent/tool work only as completed actions, state, or historical work.]"
 }
 
 
-class ContextCompressor(SummaryDispatchMixin, MicroCompactionMixin, ContextEngine):
+from agent.context_compressor_prune import ProactivePruneMixin
+
+
+class ContextCompressor(ProactivePruneMixin, SummaryDispatchMixin, MicroCompactionMixin, ContextEngine):
     """Default context engine: prune tool results, protect head/tail, summarize the middle
     with an LLM, and iteratively update the previous summary on later compactions."""
 
@@ -3108,10 +3117,10 @@ class ContextCompressor(SummaryDispatchMixin, MicroCompactionMixin, ContextEngin
             f"{int(self._proactive_prune_rearm_tokens):,}",
         )
 
-    def prune_tool_results_only(
+    def _legacy_prune_tool_results_only(
         self, messages: List[Dict[str, Any]], current_tokens: int | None = None,
     ) -> tuple[List[Dict[str, Any]], int]:
-        """Deterministic, no-LLM tool-result prune gated on ``proactive_prune_tokens``.
+        """Legacy implementation retained for reference; the mixin owns the public method.
         Protects the tail by message COUNT only. A commit breaks the prompt cache, so it requires
         ``proactive_prune_min_reclaim_tokens`` and a full regrowth runway; otherwise returns the INPUT
         object as ``(messages, 0)``. The rearm gate is measured on message bodies only, so it is
@@ -3149,7 +3158,6 @@ class ContextCompressor(SummaryDispatchMixin, MicroCompactionMixin, ContextEngin
         pruned_msgs, pruned_count = self._prune_old_tool_results(
             messages, protect_tail_count=self.protect_last_n, protect_tail_tokens=None, min_prune_chars=self.proactive_prune_min_result_chars,
         )
-        pruned_msgs = with_pruned_row_skill_safety_rule(messages, pruned_msgs)
         if not pruned_count:
             # No-op contract: return the INPUT object so callers can gate on `result is not input`.
             self._warn_reclamation_no_op("prune:nothing_eligible", current_tokens)

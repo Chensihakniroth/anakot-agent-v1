@@ -135,6 +135,9 @@ def redeem_side_question(
     if reason is not None:
         logger.info("side_question plugin=%s outcome=rejected:%s", plugin_id, reason)
         return None
+    if runtime_key(lease.capture.parent_ref()) != lease.capture.runtime:
+        logger.info("side_question plugin=%s outcome=rejected:runtime_changed", plugin_id)
+        return None
     try:
         timeout_value = float(timeout)
     except (TypeError, ValueError):

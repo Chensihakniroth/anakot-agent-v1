@@ -58,6 +58,18 @@ def test_detached_request_suppresses_turn_hooks_and_wraps_auxiliary_hooks(monkey
         close=Mock(),
         _persist_disabled=True,
     )
+    fork._reset_stream_delivery_tracking = lambda: None
+    fork._reapply_reasoning_echo_for_provider = lambda _messages: None
+    fork._build_api_kwargs = lambda messages, tools_for_api=None: {
+        "messages": messages, "tools": tools_for_api or [],
+    }
+    fork._empty_content_retries = 0
+    fork._is_openrouter_url = lambda: False
+    fork._is_copilot_url = lambda: False
+    fork._usage_summary_for_api_request_hook = lambda _response: None
+    fork._use_prompt_caching = False
+    fork._force_ascii_payload = False
+    fork.platform = "telegram"
     capture = SideQuestionCapture(
         parent_ref=weakref.ref(parent), messages=[], system_prompt="system",
         system_prompt_static="static", tools=[], session_id="session", turn_id="turn-1",
@@ -100,7 +112,6 @@ def test_detached_request_suppresses_turn_hooks_and_wraps_auxiliary_hooks(monkey
     monkeypatch.setattr("anakot_cli.plugins.clear_thread_tool_whitelist", lambda: None)
 
     assert ask_text_only(capture, "q", plugin_id="observer") == "answer"
-    assert calls[0]["skip_turn_hooks"] is True
-    assert calls[1]["metadata"]["plugin_id"] == "observer"
+    assert calls == []
     fork.shutdown_memory_provider.assert_called_once_with()
     fork.close.assert_called_once_with()

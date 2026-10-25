@@ -165,3 +165,12 @@ def with_pruned_row_skill_safety_rule(
                 *pruned[i + 1:],
             ]
     return pruned
+
+
+def elide_keeping_skill_safety_rule(content: str, limit: int) -> str:
+    """Bound a compaction handoff without cutting its attached safety rule."""
+    if SKILL_SAFETY_RULE not in content:
+        return content[:limit]
+    body = without_skill_safety_rule(content)
+    available = max(0, limit - len(_SKILL_SAFETY_SUFFIX))
+    return body[:available].rstrip() + _SKILL_SAFETY_SUFFIX

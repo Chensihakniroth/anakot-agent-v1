@@ -37,7 +37,15 @@ def _resolve_refresh_toolsets(agent, enabled_override, disabled_override):
     disabled = getattr(agent, "disabled_toolsets", None)
     if enabled_override is not None or disabled_override is not None:
         enabled = enabled_override if enabled_override is not None else enabled
-        disabled = disabled_override if disabled_override is not None else disabled
+        if disabled_override is not None:
+            from agent.oneshot_footprint import agent_is_oneshot
+            from toolsets import session_disabled_toolsets
+            agent._configured_disabled_toolsets = disabled_override
+            disabled = session_disabled_toolsets(
+                disabled_override,
+                getattr(agent, "platform", None),
+                oneshot=agent_is_oneshot(agent),
+            )
         agent.enabled_toolsets, agent.disabled_toolsets = enabled, disabled
     return enabled, disabled
 
@@ -107,7 +115,9 @@ def refresh_agent_mcp_tools(
     # Generation captured BEFORE the slow get_tool_definitions call (a slower caller holding an
     # OLDER set must not clobber a newer one); definitions computed OUTSIDE the lock.
     snapshot_generation = registry._generation
-    new_defs = list(get_tool_definitions(enabled_toolsets=enabled, disabled_toolsets=disabled, quiet_mode=quiet_mode) or [])
+    from toolsets import agent_tool_surface
+    new_defs = agent_tool_surface(agent, list(
+        get_tool_definitions(enabled_toolsets=enabled, disabled_toolsets=disabled, quiet_mode=quiet_mode) or []))
     new_names = {_def_name(t) for t in new_defs}
     # Post-build families re-appended on LOCALS only; live attributes untouched until publish.
     staged_engine_names = _reinject_post_build_tools(agent, new_defs, new_names)
