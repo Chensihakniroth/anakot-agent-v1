@@ -353,17 +353,19 @@ class MemoryStore:
                                            (op.get("old_text") or "").strip(), f"Operation {i + 1} ({act or 'unknown'})")
                 if msg:
                     return self._failure_with_entries(target, msg + " No operations were applied (batch is all-or-nothing).")
-            if entries and not working:
+            if entries and not working and not (len(ops) == 1 and ops[0].get("action") == "remove"):
                 # #103419: a consolidation batch that removes the last entry would
-                # commit an empty file as a normal successful write. Refuse; single
-                # remove() is the deliberate-wipe path.
+                # commit an empty file as a normal successful write. Refuse; a batch of
+                # exactly one remove is the deliberate single delete (operations[] is the
+                # memory tool's only advertised shape), and unattended forks never get
+                # that far: the #105921 delete gate stages their removes.
                 label = self._path_for(target).name
                 return self._failure_with_entries(target, (
                     f"Refusing to empty {label}: this batch would remove every entry from a "
                     f"previously non-empty store. Nothing was applied (batch is all-or-nothing). "
                     f"Keep at least one entry — merge overlapping entries into a shorter one instead "
                     f"of removing the last one (see current_entries below). To delete the final entry "
-                    f"deliberately, use single remove() calls."))
+                    f"deliberately, remove it alone in a one-item batch."))
             new_total = len(ENTRY_DELIMITER.join(working))  # budget check against the FINAL state only
             # A one-item remove or duplicate add never grows the store, so like the legacy
             # remove/add it is not refused for excess left by a lowered cap.
