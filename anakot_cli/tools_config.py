@@ -626,9 +626,21 @@ def _prune_toolsets_stripped_by_disabled(enabled_toolsets: Set[str], disabled_na
     return {name for name, tools in resolved.items() if not tools or tools & surviving}
 
 
+def _disabled_entry_tools(name: str) -> Set[str]:
+    """Tools one ``agent.disabled_toolsets`` entry removes at runtime: legacy names
+    (``terminal_tools``) and the bundle/posture non-core delta included, which
+    ``resolve_toolset`` alone gets wrong."""
+    from model_tools import _LEGACY_TOOLSET_MAP, _apply_toolset_selection
+    from toolsets import resolve_toolset
+
+    universe = set(resolve_toolset(name)) | set(_LEGACY_TOOLSET_MAP.get(name, ()))
+    kept = set(universe)
+    _apply_toolset_selection(kept, [name], quiet_mode=True, disable=True)
+    return universe - kept
+
+
 def _recover_platform_native_toolsets(enabled_toolsets: Set[str], platform: str, *, skip: Set[str]) -> None:
-    """Add non-configurable platform toolsets (discord, feishu_*) in place: in the default composite but not in
-    CONFIGURABLE_TOOLSETS, so never in a checklist or saved list. Runs for BOTH ``_get_platform_tools`` branches."""
+    """Add non-configurable platform toolsets (discord, feishu_*) in place: in the default composite but not in CONFIGURABLE_TOOLSETS, so never in a checklist or saved list. Runs for BOTH ``_get_platform_tools`` branches."""
     from toolsets import resolve_toolset, TOOLSETS
 
     platform_tool_universe = set(resolve_toolset(_platform_default_toolset(platform)))
@@ -714,11 +726,11 @@ def _save_platform_tools(config: dict, platform: str, enabled_toolset_keys: Set[
         from agent.skill_utils import parse_config_string_list
         from toolsets import resolve_toolset
         parsed_disabled = parse_config_string_list(agent_cfg["disabled_toolsets"])
-        covered_tools = set().union(*(set(resolve_toolset(ts)) for ts in newly_enabled))
+        covered_tools = set().union(*(_disabled_entry_tools(ts) for ts in newly_enabled))
         remaining = [
             ts for ts in parsed_disabled
             if ts not in newly_enabled
-            and not (set(resolve_toolset(ts)) and set(resolve_toolset(ts)) <= covered_tools)
+            and not (_disabled_entry_tools(ts) and _disabled_entry_tools(ts) <= covered_tools)
         ]
         if remaining != parsed_disabled:
             agent_cfg["disabled_toolsets"] = remaining
