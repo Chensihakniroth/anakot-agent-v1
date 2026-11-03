@@ -213,6 +213,12 @@ _PROVIDER_MODELS: dict[str, list[str]] = {
     "xiaomi": ["mimo-v2.5-pro", "mimo-v2.5", "mimo-v2-pro", "mimo-v2-omni", "mimo-v2-flash"],
     "tencent-tokenhub": list(_TENCENT_MODELS),
     "tencent-tokenplan": list(_TENCENT_MODELS),
+    "tokenharbor": [
+        "claude-opus-5.5", "claude-sonnet-5.5", "claude-fable-5.1",
+        "gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra",
+        "gemini-4-argon", "grok-4.7", "kimi-k3.1-pro",
+        "muse-wonder-1.0", "deepseek-v4.1-flash", "glm-5.3",
+    ],
     "arcee": ["trinity-large-thinking", "trinity-large-preview", "trinity-mini"],
     "gmi": [
         "zai-org/GLM-5.1-FP8", "deepseek-ai/DeepSeek-V3.2", "moonshotai/Kimi-K2.5",
@@ -319,6 +325,7 @@ CANONICAL_PROVIDERS: list[ProviderEntry] = [ProviderEntry(*row) for row in (
     ("xiaomi", "Xiaomi MiMo", "Xiaomi MiMo (MiMo-V2.5 and V2 models: pro, omni, flash)"),
     ("tencent-tokenhub", "Tencent TokenHub", "Tencent TokenHub (Hy4 preview via tokenhub.tencentmaas.com)"),
     ("tencent-tokenplan", "Tencent TokenPlan", "Tencent TokenPlan (Hy4 preview via api.lkeap.cloud.tencent.com, Anthropic Messages)"),
+    ("tokenharbor", "Token Harbor", "Token Harbor (one API key for 16+ providers, OpenAI- & Anthropic-compatible)"),
     ("nvidia", "NVIDIA NIM", "NVIDIA NIM (Nemotron models via build.nvidia.com or local NIM)"),
     ("copilot", "GitHub Copilot", "GitHub Copilot (Uses GITHUB_TOKEN or gh auth token)"),
     ("copilot-acp", "GitHub Copilot ACP", "GitHub Copilot ACP (Spawns copilot --acp --stdio)"),

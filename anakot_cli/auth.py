@@ -238,6 +238,8 @@ _REGISTRY_ROWS: Tuple[Any, ...] = (
      "TOKENHUB_BASE_URL"),
     ("tencent-tokenplan", "Tencent TokenPlan", "https://api.lkeap.cloud.tencent.com/plan/anthropic",
      ("TOKENPLAN_API_KEY",), "TOKENPLAN_BASE_URL"),
+    ("tokenharbor", "Token Harbor", "https://tokenharbor.ai/v1", ("TOKENHARBOR_API_KEY",),
+     "TOKENHARBOR_BASE_URL"),
     ("ollama-cloud", "Ollama Cloud", DEFAULT_OLLAMA_CLOUD_BASE_URL, ("OLLAMA_API_KEY",), "OLLAMA_BASE_URL"),
     ("bedrock", "AWS Bedrock", "https://bedrock-runtime.us-east-1.amazonaws.com", (), "BEDROCK_BASE_URL",
      "aws_sdk"),
