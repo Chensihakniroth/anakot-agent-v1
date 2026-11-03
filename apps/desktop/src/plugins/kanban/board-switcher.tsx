@@ -36,6 +36,7 @@ import { type ReactNode, useEffect, useState } from 'react'
 
 import {
   $boardSlug,
+  $pinnedBoards,
   BOARDS_KEY,
   createBoard,
   deleteBoard,
@@ -43,8 +44,10 @@ import {
   fetchProjects,
   pluginOs,
   PROJECTS_KEY,
+  setBoardPinned,
   updateBoard
 } from './api'
+import { PinnedBoardTabs } from './pinned-board-tabs'
 import { runExportBoardFlow, runImportBoardFlow } from './transfer'
 import type { BoardMeta } from './types'
 import { errText, FIELD_LABEL, useKanban } from './ui'
@@ -284,6 +287,7 @@ export function BoardSwitcher() {
   const { t } = useI18n()
   const qc = useQueryClient()
   const slug = useValue($boardSlug)
+  const pinned = useValue($pinnedBoards)
   const { data: boards } = useQuery({ queryFn: fetchBoards, queryKey: BOARDS_KEY, staleTime: 30_000 })
   const [adding, setAdding] = useState(false)
   const [settingsFor, setSettingsFor] = useState<BoardMeta | null>(null)
@@ -331,6 +335,7 @@ export function BoardSwitcher() {
 
   const currentSlug = slug || boards.current
   const current = boards.boards.find(meta => meta.slug === currentSlug)
+  const isPinned = current ? pinned.includes(current.slug) : false
   const label = current?.name || current?.slug || k.board
 
   return (
@@ -378,6 +383,10 @@ export function BoardSwitcher() {
                 <Codicon name="settings-gear" size="0.8rem" />
                 {k.settingsDots}
               </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => setBoardPinned(current.slug, !isPinned)}>
+                <Codicon name={isPinned ? 'pinned' : 'pin'} size="0.8rem" />
+                {isPinned ? k.unpinBoard : k.pinBoard}
+              </DropdownMenuItem>
             </>
           )}
           <DropdownMenuItem onSelect={() => setAdding(true)}>
@@ -408,6 +417,7 @@ export function BoardSwitcher() {
           )}
         </DropdownMenuContent>
       </DropdownMenu>
+      <PinnedBoardTabs boards={boards.boards} currentSlug={currentSlug} serverCurrent={boards.current} />
       <NewBoardDialog onClose={() => setAdding(false)} open={adding} />
       <RenameBoardDialog board={renameFor} onClose={() => setRenameFor(null)} />
       <BoardSettingsDialog board={settingsFor} onClose={() => setSettingsFor(null)} />

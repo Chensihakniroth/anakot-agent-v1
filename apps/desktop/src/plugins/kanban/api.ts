@@ -11,11 +11,13 @@
 
 import {
   atom,
+  host,
   type PluginOs,
   type PluginRestOptions,
   type PluginStorage,
   type PluginTranslate,
-  queryClient
+  queryClient,
+  useValue
 } from '@anakot/plugin-sdk'
 
 // Native completion notification.
@@ -44,6 +46,32 @@ let os: null | PluginOs = null
 /** Selected board slug ('' = the server's current board). Persisted. */
 export const $boardSlug = atom<string>('')
 
+/** Pinned board slugs, in tab order, for the active connection. Persisted. */
+export const $pinnedBoards = atom<string[]>([])
+
+export function setBoardPinned(slug: string, pinned: boolean): void {
+  const current = $pinnedBoards.get()
+
+  if (current.includes(slug) !== pinned) {
+    $pinnedBoards.set(pinned ? [...current, slug] : current.filter(item => item !== slug))
+  }
+}
+
+/** Move `slug` into `target`'s position. */
+export function movePinnedBoard(slug: string, target: string): void {
+  const next = [...$pinnedBoards.get()]
+  const from = next.indexOf(slug)
+  const to = next.indexOf(target)
+
+  if (from < 0 || to < 0 || from === to) {
+    return
+  }
+
+  next.splice(from, 1)
+  next.splice(to, 0, slug)
+  $pinnedBoards.set(next)
+}
+
 /** Whether the "how this board works" intro was dismissed. Persisted. */
 export const $introDismissed = atom<boolean>(false)
 
@@ -56,9 +84,20 @@ export const $lanesByProfile = atom<boolean>(false)
 export const $collapsedLanes = atom<Record<string, boolean>>({})
 
 const BOARD_SLUG_KEY = 'boardSlug'
+const PINNED_BOARDS_KEY = 'pinnedBoards'
 const INTRO_KEY = 'introDismissed'
 const LANES_KEY = 'lanesByProfile'
 const COLLAPSED_KEY = 'collapsedLanes'
+
+const LOCAL_SCOPE = 'local'
+
+export function kanbanConnectionScope(): string {
+  return host.state.connectionId.get() ?? LOCAL_SCOPE
+}
+
+export function useKanbanScope(): string {
+  return useValue(host.state.connectionId) ?? LOCAL_SCOPE
+}
 
 /** One live `task_events` frame → precise cache invalidation: the board, plus
  *  each touched task's detail. The polls (8s board / 4s drawer) stay as the
@@ -113,6 +152,7 @@ export function bindApi(
   }
 
   persist($boardSlug, BOARD_SLUG_KEY, '')
+  persist($pinnedBoards, PINNED_BOARDS_KEY, [])
   persist($introDismissed, INTRO_KEY, false)
   persist($lanesByProfile, LANES_KEY, false)
   persist($collapsedLanes, COLLAPSED_KEY, {})

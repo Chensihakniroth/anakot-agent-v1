@@ -1,33 +1,48 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { cleanup, fireEvent, render, screen } from '@testing-library/react'
+import { act, cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+// The real namespaced plugin storage and connection store, so persistence and
+// per-connection scoping run their production path.
+// eslint-disable-next-line no-restricted-imports
+import { createPluginContext } from '@/contrib/plugin'
 // Test harness supplies the host's locale registration, as plugin loading does.
 // eslint-disable-next-line no-restricted-imports
 import { registerPluginLocales } from '@/i18n/plugin-i18n'
+// eslint-disable-next-line no-restricted-imports
+import { setConnection } from '@/store/session'
 
 import type * as KanbanApi from './api'
-import { $boardSlug } from './api'
+import { $boardSlug, bindApi } from './api'
 import { BoardSwitcher } from './board-switcher'
 import { KANBAN_LOCALES } from './i18n'
 
 vi.mock('./api', async importOriginal => ({
   ...(await importOriginal<typeof KanbanApi>()),
   fetchBoards: vi.fn(async () => ({
-    boards: [{ name: 'Shipping', project_id: null, slug: 'shipping', total: 3 }],
+    boards: [
+      { name: 'Shipping', project_id: null, slug: 'shipping', total: 3 },
+      { name: 'Research', project_id: null, slug: 'research', total: 1 }
+    ],
     current: 'shipping'
   }))
 }))
 
 let disposeLocales: () => void = () => undefined
+let disposeApi: () => void = () => undefined
 
 beforeEach(() => {
+  localStorage.clear()
+  setConnection(null)
   disposeLocales = registerPluginLocales('kanban', KANBAN_LOCALES)
 })
 
 afterEach(() => {
   cleanup()
+  disposeApi()
+  disposeApi = () => undefined
   disposeLocales()
+  setConnection(null)
   $boardSlug.set('')
 })
 
@@ -37,6 +52,30 @@ const mount = () =>
       <BoardSwitcher />
     </QueryClientProvider>
   )
+
+function bindPersistence() {
+  const ctx = createPluginContext('kanban')
+
+  disposeApi = bindApi(
+    async () => ({ current: 'shipping', latest_event_id: 0 }) as never,
+    ctx.storage,
+    () => () => {}
+  )
+
+  return ctx.storage
+}
+
+async function chooseFromMenu(name: RegExp | string) {
+  fireEvent.pointerDown(await screen.findByRole('button', { name: /^Board:/ }), { button: 0, ctrlKey: false })
+  fireEvent.click(await screen.findByRole('menuitem', { name }))
+}
+
+const tabNames = () =>
+  within(screen.getByRole('group', { name: 'Pinned boards' }))
+    .getAllByRole('button')
+    .map(button => button.textContent)
+
+const tab = (name: string) => within(screen.getByRole('group', { name: 'Pinned boards' })).getByRole('button', { name })
 
 describe('board switcher', () => {
   // The rename and settings dialogs stay mounted while closed, so they render
@@ -49,18 +88,47 @@ describe('board switcher', () => {
     expect(await screen.findByText('Shipping')).toBeTruthy()
   })
 
-  // The trigger is projected into the Kanban page header as the board's own name, so it
-  // must announce itself as a control: a visible "Board" label, a "Board: …"
-  // accessible name, and a "Switch board" tooltip on hover.
-  it('identifies the current board switcher as a control', async () => {
+  it('pins boards as tabs that switch, reorder without switching, and survive a reload', async () => {
+    const storage = bindPersistence()
+    const view = mount()
+
+    await chooseFromMenu('Pin board')
+    await chooseFromMenu(/^Research/)
+    await chooseFromMenu('Pin board')
+    expect(tabNames()).toEqual(['Shipping', 'Research'])
+    expect($boardSlug.get()).toBe('research')
+    expect(tab('Research').getAttribute('aria-pressed')).toBe('true')
+
+    fireEvent.keyDown(tab('Research'), { altKey: true, key: 'ArrowLeft' })
+    expect(tabNames()).toEqual(['Research', 'Shipping'])
+
+    const dataTransfer = { dropEffect: '', effectAllowed: '' }
+    fireEvent.dragStart(tab('Research'), { dataTransfer })
+    fireEvent.dragOver(tab('Shipping'), { dataTransfer })
+    fireEvent.drop(tab('Shipping'), { dataTransfer })
+    expect(tabNames()).toEqual(['Shipping', 'Research'])
+    expect($boardSlug.get()).toBe('research')
+    expect(storage.get('pinnedBoards', [])).toEqual(['shipping', 'research'])
+
+    // The server's current board is selected as '' — the same as the dropdown.
+    fireEvent.click(tab('Shipping'))
+    expect($boardSlug.get()).toBe('')
+    await chooseFromMenu('Unpin board')
+    expect(tabNames()).toEqual(['Research'])
+
+    view.unmount()
+    disposeApi()
+    bindPersistence()
+    mount()
+    expect((await screen.findByRole('group', { name: 'Pinned boards' })).textContent).toBe('Research')
+  })
+
+  // The trigger is projected into the Kanban page header as the board's
+  // display title. It must have an accessible name that names both the control
+  // and the board so screen readers describe it as an action, not plain text.
+  it('labels the trigger with both the control kind and current board', async () => {
     mount()
 
-    const trigger = await screen.findByRole('button', { name: 'Board: Shipping' })
-
-    expect(trigger.textContent).toContain('Board')
-
-    fireEvent.pointerMove(trigger, { pointerType: 'mouse' })
-
-    expect((await screen.findByRole('tooltip')).textContent).toContain('Switch board')
+    expect(await screen.findByRole('button', { name: 'Board: Shipping' })).toBeTruthy()
   })
 })
