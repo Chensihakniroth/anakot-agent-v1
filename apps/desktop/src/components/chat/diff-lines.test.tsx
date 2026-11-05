@@ -71,18 +71,21 @@ describe('FileDiffPanel survives a failed lazy syntax-diff chunk', () => {
   })
 })
 
-// The gutter is pinned under the code column, so it masks on a horizontal
-// scroll — but it is also always on screen. `data-glass-opaque` swaps
-// --ui-editor-surface-background for OPAQUE chrome (styles.css), which made it
-// a solid slab beside the Preview/Source gutters, whose own line-number columns
-// are transparent. Masking has to come from the backdrop blur instead.
+// The gutter is pinned beside the code column, but it is also always on screen —
+// so it must be a pass-through surface, exactly like the Preview/Source gutters.
+// Three ways to break that, all guarded here: a `bg-(--ui-editor-surface-…)` fill
+// (opaque chrome under glass, and in normal mode a fill that has to match the
+// pane beneath), `data-glass-opaque` (swaps the token for OPAQUE chrome by
+// contract), and `backdrop-blur` (hazes on a transparent Electron window because
+// the filter's backdrop has no painted layer to sample).
 describe('FileDiffPanel line-number gutter stays glass-transparent', () => {
-  it('masks without painting an opaque fill', () => {
+  it('paints nothing of its own', () => {
     const { container } = render(<FileDiffPanel diff={DIFF} path="file.ts" showLineNumbers />)
     const gutter = container.querySelector('[data-slot="file-diff-panel"] .sticky')
 
     expect(gutter).not.toBeNull()
     expect(gutter!.hasAttribute('data-glass-opaque')).toBe(false)
-    expect(gutter!.className).toContain('backdrop-blur')
+    expect(gutter!.className).not.toContain('backdrop-blur')
+    expect(gutter!.className).not.toMatch(/\bbg-/)
   })
 })

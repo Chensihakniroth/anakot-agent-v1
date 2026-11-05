@@ -655,15 +655,18 @@ export function FileDiffPanel({
         {showLineNumbers ? (
           <div className="grid min-w-max grid-cols-[auto_minmax(0,1fr)]">
             <div
-              className="sticky left-0 z-1 select-none bg-(--ui-editor-surface-background) py-3 text-muted-foreground/55 backdrop-blur-sm"
-              // The code column slides UNDER this gutter on a horizontal scroll,
-              // so it has to mask. It must NOT carry `data-glass-opaque` though:
-              // that swaps --ui-editor-surface-background for opaque chrome, and
-              // this gutter is always on screen — so under glass it read as a
-              // slab beside the Preview/Source gutters, which are transparent.
-              // The backdrop blur does the masking without painting a fill, so
-              // the column reads as glass; with glass off the fill is already
-              // opaque and the blur changes nothing.
+              className="sticky left-0 z-1 select-none py-3 text-muted-foreground/55"
+              // No fill of its own, in ANY mode — the Preview/Source gutters
+              // (`SourceView`) paint nothing either, and this column sits beside
+              // them in the same viewer, so an `bg-(--ui-editor-surface-background)`
+              // here read as a slab: opaque chrome under glass (unlike the
+              // transparent panes around it) and, with glass off, a fill that
+              // still has to match the pane it happens to be over.
+              //
+              // `data-glass-opaque` and `backdrop-blur` are both worse: the first
+              // swaps the token for OPAQUE chrome by contract, the second hazes
+              // on a transparent Electron window because its backdrop has no
+              // painted layer to sample.
             >
               {beforeRows > 0 && <div aria-hidden style={{ height: beforeRows * PREVIEW_LINE_PX }} />}
               {visibleLineChunks.map(chunk => (
