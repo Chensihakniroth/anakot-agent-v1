@@ -152,7 +152,13 @@ export function ReviewPane() {
 
       {/* Selected file's diff — reuses the shiki-highlighted FileDiffPanel. */}
       {selectedFile && (
-        <div className="flex max-h-[55%] shrink-0 flex-col border-t border-(--ui-stroke-secondary)">
+        // The windowed FileDiffPanel is `absolute inset-0` inside a `relative`
+        // box (its scroller IS the panel), so it contributes no intrinsic height:
+        // in an auto-height flex column the body resolves to 0px and the peek
+        // renders as a bare header row — the diff mounts but nothing is visible.
+        // `h-[clamp(...)]` gives the box the definite height that absolute child
+        // needs, and the existing `max-h-[55%]` still wins on a short pane.
+        <div className="flex h-[clamp(6rem,30vh,24rem)] max-h-[55%] shrink-0 flex-col border-t border-(--ui-stroke-secondary)">
           <div className="flex items-center gap-1 px-2.5 py-1.5" data-suppress-pane-reveal-side="">
             <span
               className="min-w-0 flex-1 truncate font-mono text-[0.66rem] text-(--ui-text-secondary)"
