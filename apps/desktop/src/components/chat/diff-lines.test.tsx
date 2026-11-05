@@ -70,3 +70,19 @@ describe('FileDiffPanel survives a failed lazy syntax-diff chunk', () => {
     expect(container.textContent).not.toContain(WORKSPACE_FALLBACK_TEXT)
   })
 })
+
+// The gutter is pinned under the code column, so it masks on a horizontal
+// scroll — but it is also always on screen. `data-glass-opaque` swaps
+// --ui-editor-surface-background for OPAQUE chrome (styles.css), which made it
+// a solid slab beside the Preview/Source gutters, whose own line-number columns
+// are transparent. Masking has to come from the backdrop blur instead.
+describe('FileDiffPanel line-number gutter stays glass-transparent', () => {
+  it('masks without painting an opaque fill', () => {
+    const { container } = render(<FileDiffPanel diff={DIFF} path="file.ts" showLineNumbers />)
+    const gutter = container.querySelector('[data-slot="file-diff-panel"] .sticky')
+
+    expect(gutter).not.toBeNull()
+    expect(gutter!.hasAttribute('data-glass-opaque')).toBe(false)
+    expect(gutter!.className).toContain('backdrop-blur')
+  })
+})

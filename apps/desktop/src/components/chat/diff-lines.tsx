@@ -655,11 +655,15 @@ export function FileDiffPanel({
         {showLineNumbers ? (
           <div className="grid min-w-max grid-cols-[auto_minmax(0,1fr)]">
             <div
-              className="sticky left-0 z-1 select-none bg-(--ui-editor-surface-background) py-3 text-muted-foreground/55"
-              // Masks the code scrolling horizontally beneath it, so it has to
-              // stay opaque when window glass thins the field. See
-              // `[data-glass-opaque]` in styles.css.
-              data-glass-opaque=""
+              className="sticky left-0 z-1 select-none bg-(--ui-editor-surface-background) py-3 text-muted-foreground/55 backdrop-blur-sm"
+              // The code column slides UNDER this gutter on a horizontal scroll,
+              // so it has to mask. It must NOT carry `data-glass-opaque` though:
+              // that swaps --ui-editor-surface-background for opaque chrome, and
+              // this gutter is always on screen — so under glass it read as a
+              // slab beside the Preview/Source gutters, which are transparent.
+              // The backdrop blur does the masking without painting a fill, so
+              // the column reads as glass; with glass off the fill is already
+              // opaque and the blur changes nothing.
             >
               {beforeRows > 0 && <div aria-hidden style={{ height: beforeRows * PREVIEW_LINE_PX }} />}
               {visibleLineChunks.map(chunk => (
