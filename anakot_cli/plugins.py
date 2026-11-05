@@ -1251,12 +1251,19 @@ class PluginManager(PluginLoaderMixin, PluginDispatchMixin, PluginLedgerMixin):
 
     def discover_and_load(self, force: bool = False) -> None:
         """Scan all plugin sources and load each plugin found; ``force`` unloads first so config
-        changes / new bundled backends become visible in long-lived sessions."""
+        changes / new bundled backends become visible in long-lived sessions.
+
+        Idempotent for every non-forced caller: one completed sweep per manager (per resolved home) is
+        the answer. ``_discovered`` is set for the whole sweep and cleared only on failure, so a second
+        caller must NOT re-run it — the sweep re-collects every manifest, re-scans entry points and
+        re-loads every plugin, which cost ~1s per call on a 60-plugin install and is paid on the
+        interactive paths that reach ``_ensure_plugins_discovered`` (``get_plugin_commands``, the
+        ``complete.slash`` / ``commands.catalog`` completion RPCs, hook delivery)."""
         with self._discovery_lock, _plugin_home_scope(self.home_path):
-            if self._discovered and not force and in_plugin_load_worker():
-                # A plugin whose register() re-enters discovery (importing model_tools does) runs on a
-                # deadline worker that cannot re-acquire the sweep's RLock; the flag is already set for the
-                # whole sweep, so return where the locked re-entry used to. Every other caller still waits.
+            if self._discovered and not force:
+                # Re-entrant callers land here too: a plugin whose register() re-enters discovery
+                # (importing model_tools does) runs on a deadline worker that cannot re-acquire the
+                # sweep's RLock, and the flag is already set for the sweep that spawned it.
                 return
             if force:
                 self.unload()  # the ledger owns teardown of process-global registries

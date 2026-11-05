@@ -395,6 +395,41 @@ class TestPluginDiscovery:
 
 
 
+    def test_repeat_discovery_does_not_rescan(self, tmp_path, monkeypatch):
+        """A completed sweep is the answer for every later non-forced caller.
+
+        ``discover_and_load`` is documented idempotent (``discover_plugins``,
+        ``_ensure_plugins_discovered``, ``get_plugin_commands``), and the interactive
+        completion RPCs reach it once per ``complete.slash`` / ``commands.catalog`` call.
+        Re-running the sweep there re-collects every manifest, re-scans entry points and
+        re-loads every plugin, which is ~1s per keystroke on a large install. ``force=True``
+        must still rescan.
+        """
+        monkeypatch.setenv("ANAKOT_HOME", str(tmp_path / "anakot_test"))
+        plugins_dir = tmp_path / "anakot_test" / "plugins"
+        _make_plugin_dir(plugins_dir, "idempotent_plugin")
+
+        mgr = PluginManager()
+        sweeps: list[int] = []
+        real_inner = PluginManager._discover_and_load_inner
+
+        def _counting_inner(self_inner):
+            sweeps.append(1)
+            return real_inner(self_inner)
+
+        monkeypatch.setattr(PluginManager, "_discover_and_load_inner", _counting_inner)
+
+        mgr.discover_and_load()
+        assert len(sweeps) == 1
+
+        mgr.discover_and_load()
+        mgr.discover_and_load()
+        assert len(sweeps) == 1, "a non-forced repeat re-ran the discovery sweep"
+        assert "idempotent_plugin" in mgr._plugins
+
+        mgr.discover_and_load(force=True)
+        assert len(sweeps) == 2, "force=True must rescan"
+
     def test_force_rediscover_clears_all_plugin_registries(self, monkeypatch):
         """force=True must clear every plugin-populated registry.
 
