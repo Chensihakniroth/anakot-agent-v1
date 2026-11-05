@@ -1,6 +1,6 @@
 import type { ModelCapabilities, ModelOptionProvider, ModelOptionsResult } from '@anakot/shared'
 
-import { getGlobalModelOptions, type AnakotGateway } from '@/anakot'
+import { type AnakotGateway, getGlobalModelOptions } from '@/anakot'
 
 type CatalogProviderIdentity = Pick<ModelOptionProvider, 'aliases' | 'name' | 'slug'>
 

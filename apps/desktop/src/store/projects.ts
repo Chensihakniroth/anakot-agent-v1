@@ -1,5 +1,6 @@
 import { atom, computed } from 'nanostores'
 
+import { anakotApi, type AnakotGateway, getAnakotConfig } from '@/anakot'
 import type { NewSessionPlacement } from '@/app/chat/new-session-drag'
 import {
   liveSessionProjectId,
@@ -8,7 +9,6 @@ import {
   type SidebarProjectTree
 } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { AnakotGitBaseBranch, AnakotGitBranch } from '@/global'
-import { getAnakotConfig, anakotApi, type AnakotGateway } from '@/anakot'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
 import { desktopGit } from '@/lib/desktop-git'

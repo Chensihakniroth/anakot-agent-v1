@@ -5,10 +5,10 @@
 // capabilityScoped are shared across api/ but must not reach call sites, or
 // request scoping stops having a single owner.
 export {
-  getApiRequestConnection,
-  getApiRequestProfile,
   anakotApi,
   AnakotGateway,
+  getApiRequestConnection,
+  getApiRequestProfile,
   profileScopeKey,
   PROMPT_SUBMIT_REQUEST_TIMEOUT_MS,
   setApiRequestConnection,
@@ -32,6 +32,8 @@ export * from './api/toolsets'
 export type {
   ActionResponse,
   ActionStatusResponse,
+  AnakotConfig,
+  AnakotConfigRecord,
   AnalyticsDailyEntry,
   AnalyticsModelEntry,
   AnalyticsResponse,
@@ -65,8 +67,6 @@ export type {
   ElevenLabsVoice,
   ElevenLabsVoicesResponse,
   EnvVarInfo,
-  AnakotConfig,
-  AnakotConfigRecord,
   LogsResponse,
   McpCatalogEntry,
   McpCatalogResponse,

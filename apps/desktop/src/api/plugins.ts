@@ -3,7 +3,7 @@ import { reconnectBackoffDelayMs } from '@anakot/shared'
 import type { AnakotConnection } from '@/global'
 import { RECONNECT_ATTEMPT_TIMEOUT_MS, withTimeout } from '@/lib/with-timeout'
 
-import { getApiRequestConnection, getApiRequestProfile, anakotApi, profileScoped } from './client'
+import { anakotApi, getApiRequestConnection, getApiRequestProfile, profileScoped } from './client'
 
 /** Resolve the ACTIVE backend's connection descriptor, (connectionId,
  *  profile)-scoped — mirroring how store/profile resolves $connection: a

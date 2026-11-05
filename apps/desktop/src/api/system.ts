@@ -13,7 +13,7 @@ import type {
   MemoryStatusResponse
 } from '@/types/anakot'
 
-import { capabilityScoped, anakotApi, type ProfileScope, profileScoped } from './client'
+import { anakotApi, capabilityScoped, type ProfileScope, profileScoped } from './client'
 
 export const AUDIO_SPEAK_MIN_REQUEST_TIMEOUT_MS = 180_000
 export const AUDIO_SPEAK_MAX_REQUEST_TIMEOUT_MS = 600_000

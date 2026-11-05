@@ -45,11 +45,9 @@ export function parseRichMarkup(markup: string): Line[] {
 }
 
 /** Skin banner art, or nothing when the skin ships none. */
-export const logo = (customLogo?: string): Line[] =>
-  customLogo ? parseRichMarkup(customLogo) : []
+export const logo = (customLogo?: string): Line[] => (customLogo ? parseRichMarkup(customLogo) : [])
 
-export const artWidth = (lines: Line[]): number =>
-  lines.reduce((m, [, t]) => Math.max(m, t.length), 0)
+export const artWidth = (lines: Line[]): number => lines.reduce((m, [, t]) => Math.max(m, t.length), 0)
 
 export const inkWidth = (lines: Line[]): number =>
   lines.reduce((m, [, t]) => Math.max(m, t.replace(/\s+$/, '').length), 0)

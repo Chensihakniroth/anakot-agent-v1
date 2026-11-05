@@ -1,5 +1,5 @@
+import { anakotApi, getApiRequestConnection, getApiRequestProfile } from '@/anakot'
 import { profileScoped } from '@/api/client'
-import { getApiRequestConnection, getApiRequestProfile, anakotApi } from '@/anakot'
 
 /**
  * Client-direct voice: call the active profile's STT/TTS providers straight

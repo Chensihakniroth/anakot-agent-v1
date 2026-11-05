@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type * as React from 'react'
 import { type ReactNode, useEffect, useId } from 'react'
 
+import { getGlobalModelOptions } from '@/anakot'
 import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import type { ModelSelection } from '@/app/shell/model-menu-panel'
 import { DeviceCode } from '@/components/onboarding/flow'
@@ -15,7 +16,6 @@ import {
   DialogTitle,
   preventCloseButtonAutoFocus
 } from '@/components/ui/dialog'
-import { getGlobalModelOptions } from '@/anakot'
 import { type Translations, useI18n } from '@/i18n'
 import { CheckCircle2, Loader2 } from '@/lib/icons'
 import { FREE_TIER_MODEL, friendlyWait, NOUS_PROVIDER_ID, refreshFreeTierStatus } from '@/store/free-tier'

@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { saveAnakotConfig } from '@/anakot'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { saveAnakotConfig } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 import { CHAT_FONT_SUGGESTIONS, normalizeChatFontFamily, setChatFontFamilyFromConfig } from '@/themes/chat-font'

@@ -700,6 +700,7 @@ function buildPinArgs(installStamp, { pinCommit = true } = {}) {
 
   if (hasCommitPin) {
     args.push('-Commit', installStamp.commit)
+
     return args
   }
 
@@ -716,6 +717,7 @@ function buildPosixPinArgs({ installStamp, activeRoot, anakotHome, pinCommit = t
 
   if (hasCommitPin) {
     args.push('--commit', installStamp.commit)
+
     return args
   }
 

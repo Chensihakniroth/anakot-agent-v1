@@ -1,5 +1,5 @@
 import { asText, normalize } from '@/lib/text'
-import type { ConfigFieldSchema, AnakotConfigRecord, ToolsetInfo } from '@/types/anakot'
+import type { AnakotConfigRecord, ConfigFieldSchema, ToolsetInfo } from '@/types/anakot'
 
 import { BUILTIN_PERSONALITIES, ENUM_OPTIONS, PROVIDER_GROUPS, SECTIONS } from './constants'
 

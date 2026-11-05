@@ -1,8 +1,5 @@
 import { atom, map } from 'nanostores'
 
-// The Capabilities Skills-list query key, imported rather than re-spelled so a
-// hub (un)install updates the Skills tab, not just the hub.
-import { SKILLS_QUERY_KEY } from '@/app/capabilities/skills/skills-data'
 import {
   getActionStatus,
   installSkillFromHub,
@@ -11,6 +8,9 @@ import {
   uninstallSkillFromHub,
   updateSkillsFromHub
 } from '@/anakot'
+// The Capabilities Skills-list query key, imported rather than re-spelled so a
+// hub (un)install updates the Skills tab, not just the hub.
+import { SKILLS_QUERY_KEY } from '@/app/capabilities/skills/skills-data'
 import { translateNow } from '@/i18n'
 import { queryClient } from '@/lib/query-client'
 import { invalidateSlashCompletions } from '@/lib/slash-completion-cache'

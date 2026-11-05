@@ -168,12 +168,12 @@ export {
   type WindowsBackgroundMaterial
 } from './translucency'
 export {
+  type AnakotWebSocketUrlOptions,
   buildAnakotWebSocketUrl,
   type GatewayAuthMode,
   GatewayReauthRequiredError,
   type GatewayWsConnection,
   type GatewayWsUrlResult,
-  type AnakotWebSocketUrlOptions,
   isGatewayReauthRequired,
   resolveGatewayWsUrl,
   type ResolveGatewayWsUrlDeps,

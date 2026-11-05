@@ -1,6 +1,8 @@
 import { compactNumber } from '@anakot/shared'
 import { type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { getActionStatus, getLogs, getStatus, getUsageAnalytics, restartGateway, updateAnakot } from '@/anakot'
+import type { ActionStatusResponse, AnalyticsResponse, SessionInfo, StatusResponse } from '@/anakot'
 import { LogTail } from '@/components/chat/log-tail'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
@@ -9,8 +11,6 @@ import { SearchField } from '@/components/ui/search-field'
 import { SegmentedControl } from '@/components/ui/segmented-control'
 import { ResponsiveTabs } from '@/components/ui/tab-dropdown'
 import { Tip } from '@/components/ui/tooltip'
-import { getActionStatus, getLogs, getStatus, getUsageAnalytics, restartGateway, updateAnakot } from '@/anakot'
-import type { ActionStatusResponse, AnalyticsResponse, SessionInfo, StatusResponse } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import {

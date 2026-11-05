@@ -23,12 +23,15 @@ async function rmDirEventually(dir: string): Promise<void> {
   for (let attempt = 0; ; attempt++) {
     try {
       fs.rmSync(dir, { recursive: true, force: true })
+
       return
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
+
       if ((code !== 'EBUSY' && code !== 'EPERM' && code !== 'ENOTEMPTY') || attempt >= 5) {
         throw error
       }
+
       await new Promise((resolve): ReturnType<typeof setTimeout> => setTimeout(resolve, 40 * (attempt + 1)))
     }
   }
