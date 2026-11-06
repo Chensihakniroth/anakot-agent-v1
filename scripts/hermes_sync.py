@@ -209,21 +209,8 @@ def _to_hermes_dir(rel: str) -> str:
 
 
 def _to_anakot_rel(hermes_rel: str) -> str:
-    """Rebrand a Hermes-tree relative path to its Anakot path."""
-    out = hermes_rel
-    if out.startswith("hermes_cli/"):
-        out = "anakot_cli/" + out[len("hermes_cli/"):]
-    elif out == "hermes_cli":
-        out = "anakot_cli"
-    base = os.path.basename(out)
-    if base.startswith("hermes_") and base.endswith(".py"):
-        out = out[: -len(base)] + "anakot_" + base[len("hermes_"):]
-    else:
-        parts = out.split("/")
-        if parts[0].startswith("hermes_"):
-            parts[0] = "anakot_" + parts[0][len("hermes_"):]
-        out = "/".join(parts)
-    return out
+    """Rebrand a Hermes-tree relative path to its Anakot path (every component)."""
+    return "/".join(rebrand(part) for part in hermes_rel.split("/"))
 
 
 def main(argv: list[str]) -> int:

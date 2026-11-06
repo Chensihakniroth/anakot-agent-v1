@@ -1,6 +1,6 @@
-# Rebranded-fork note: this checkout is NousResearch/hermes-agent rebranded to
+# Rebranded-fork note: this checkout is NousResearch/anakot-agent rebranded to
 # Anakot, and the rebrand skips extension-less files — so both the pre-rebrand
-# (`hermes*`) and post-rebrand (`anakot*`) names are listed for the paths the
+# (`anakot*`) and post-rebrand (`anakot*`) names are listed for the paths the
 # rebrand touched. Dropping the anakot twins makes `anakot update`'s
 # `git stash push --include-untracked` sweep live runtime state (#110648,
 # #112974) and makes the ZIP-swap guard see an untracked tree it must not

@@ -34,7 +34,7 @@ def test_unambiguous_trailing_amp_is_stripped_only(command, expected):
         'pid="`sleep 1 & echo $!`" &',
         "cat <(printf x) &",
         "cat >(printf x) &",
-        "hermes gateway run &",
+        "anakot gateway run &",
         r"printf x\&",
         "bash -c 'sleep 1 &' &",
         'sh -c "sleep 1 &" &',

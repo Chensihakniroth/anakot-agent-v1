@@ -57,7 +57,7 @@ DEFAULT_NOUS_INFERENCE_URL = "https://inference-api.nousresearch.com/v1"
 # the host allowlist, because the paid host cross-refuses an anonymous JWT with a 400.
 DEFAULT_NOUS_WELCOME_URL = "https://welcome-api.nousresearch.com/v1"
 # This is a Portal-registered OAuth client identifier, not an Anakot branding label. The Portal
-# currently accepts the shared Hermes device-flow client; changing it to ``anakot-cli`` makes the
+# currently accepts the shared Anakot device-flow client; changing it to ``anakot-cli`` makes the
 # device-code request fail with HTTP 400 ``invalid_client`` before the browser step starts.
 DEFAULT_NOUS_CLIENT_ID = "hermes-cli"
 NOUS_INFERENCE_INVOKE_SCOPE = "inference:invoke"

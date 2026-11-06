@@ -386,8 +386,8 @@ _SKIN_ALIASES: Dict[str, str] = {
     "catppuccin": "default",
     "mocha": "default",
     "gold": "anakot",
-    # Pre-rebrand skin name: the "hermes" skin became "anakot"; keep old configs working.
-    "hermes": "anakot",
+    # Pre-rebrand skin name: the "anakot" skin became "anakot"; keep old configs working.
+    "anakot": "anakot",
 }
 
 

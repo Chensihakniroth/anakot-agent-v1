@@ -325,10 +325,10 @@ def return_to_args(*, op: Optional[str] = None) -> dict[str, Any]:
 
     Only the desktop registers a URL scheme for that return, so every other surface sends neither
     field and keeps the vendor's own done page. The dev build registers ``anakot-dev://`` instead, and
-    announces itself to its backend with ``HERMES_DESKTOP_DEV_SERVER``."""
+    announces itself to its backend with ``ANAKOT_DESKTOP_DEV_SERVER``."""
     if session_platform() != "desktop":
         return {}
-    target = "anakot-desktop-dev" if os.environ.get("HERMES_DESKTOP_DEV_SERVER") else "anakot-desktop"
+    target = "anakot-desktop-dev" if os.environ.get("ANAKOT_DESKTOP_DEV_SERVER") else "anakot-desktop"
     return {"return_to": target, "op": op} if op else {"return_to": target}
 
 

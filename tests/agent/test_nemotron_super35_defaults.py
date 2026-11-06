@@ -1,4 +1,4 @@
-"""Nemotron Super 3.5 model defaults from the Hermes parity port."""
+"""Nemotron Super 3.5 model defaults from the Anakot parity port."""
 
 
 def test_nemotron_super35_has_one_million_context_fallback():
