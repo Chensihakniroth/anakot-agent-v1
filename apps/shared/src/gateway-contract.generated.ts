@@ -3887,6 +3887,799 @@ export interface PluginSettingField {
   has_value?: boolean | null
 }
 export type PluginSettingFieldType = 'string' | 'number' | 'boolean' | 'enum' | 'secret' | 'json'
+export interface GroupsAttachmentUploadParams {
+  profile?: string | null
+  room_id: string
+  upload_id: string
+  kind: string
+  name: string
+  mime: string
+  data_base64: string
+}
+export interface RoomAttachment {
+  attachment_id: string
+  kind: string
+  name: string
+  size: number
+  mime: string
+  sha256: string
+  state: string
+  created_at: number
+  idempotent: boolean
+  event_id?: string | null
+  [key: string]: unknown
+}
+export interface GroupsAttachmentDownloadParams {
+  profile?: string | null
+  room_id: string
+  event_id: string
+  attachment_id: string
+}
+export interface RoomAttachmentBytes {
+  attachment_id: string
+  kind: string
+  name: string
+  size: number
+  mime: string
+  sha256: string
+  state: string
+  created_at: number
+  idempotent: boolean
+  event_id?: string | null
+  data_base64: string
+  [key: string]: unknown
+}
+export interface GroupsDiscardParams {
+  profile?: string | null
+  room_id: string
+  member_id: string
+  task_id: string
+  execution_generation: number
+}
+export interface GroupsDiscardResult {
+  discarded?: boolean
+  task: RoomTaskReceipt
+}
+export interface PromptReceiptParams {
+  session_id: string
+  admission_id: string
+  include_result?: boolean | null
+}
+/** ``result`` / ``usage``: the structured turn result committed at settlement, only with ``include_result`` on a terminal admission that saved one. */
+export interface PromptReceiptResult {
+  admission_id: string
+  ref: CanonicalSessionRef
+  sequence: number
+  status: 'queued' | 'started' | 'unknown' | 'terminal'
+  outcome: string | null
+  authority_epoch: number
+  execution_generation: number | null
+  result?: unknown | null
+  usage?: Record<string, unknown> | null
+}
+export interface CanonicalSessionRef {
+  profile_id: string
+  session_id: string
+}
+export interface PromptCancelParams {
+  session_id: string
+  admission_id: string
+}
+/** ``gateway/session_contract.py::AdmissionReceipt`` as ``dataclasses.asdict`` sends it. */
+export interface AdmissionStatus {
+  admission_id: string
+  ref: CanonicalSessionRef
+  sequence: number
+  status: 'queued' | 'started' | 'unknown' | 'terminal'
+  outcome: string | null
+  authority_epoch: number
+  execution_generation: number | null
+}
+export interface PromptResolveUnknownParams {
+  session_id: string
+  admission_id: string
+  execution_generation: number
+}
+/** ``operation`` + ``payload`` are validated by ``anakot_state_mutations.validate_action``; ``expected_generation`` is required for delete/rewind/reset/branch/model/compress/reasoning/workspace. ``reasoning`` (``{effort}``) and ``workspace`` (``{cwd}``, refused ``session_busy`` mid-turn) rewrite the session's frozen policy: session-scope ``/reasoning`` and Desktop's Move to project. ``edit_policy`` (``{policy}``: ask / workspace_session / session) is an ACP session's edit approval (main's ACP modes). */
+export interface SessionMutateParams {
+  session_id: string
+  request_id: string
+  expected_revision: number
+  operation: string
+  payload: Record<string, unknown>
+  expected_generation?: number | null
+}
+/** The committed mutation receipt plus the operation's projection (``title``, ``archived``, ``branched_session_id``, compress ``status``/``lines``, …). ``revision`` is absent only on a read-only compress preview. */
+export interface SessionMutateResult {
+  session_id: string
+  operation: string
+  revision?: number | null
+  [key: string]: unknown
+}
+/** Exactly one of ``filters`` (``SessionDB.prune_sessions`` keyword filters, as ``anakot sessions prune`` builds them) or ``never_active_days`` (``--never-active``). */
+export interface SessionPruneParams {
+  filters?: Record<string, unknown> | null
+  never_active_days?: number | null
+}
+export interface SessionPruneResult {
+  deleted: number
+  routing_deleted?: number | null
+  skipped?: number | null
+}
+export interface CommandObserveParams {
+  session_id: string
+  name: string
+  arg?: string | null
+  profile?: string | null
+}
+export interface CommandObserveResult {
+  queued: boolean
+}
+export interface CanonicalSessionInfoParams {
+  session_id: string
+}
+/** ``gateway/session_local_inventory.py::snapshot_info``: ``local_session_info`` + the inventory. */
+export interface CanonicalSessionInfo {
+  provider?: string | null
+  tools?: Record<string, string[]> | null
+  skills?: Record<string, string[]> | null
+  mcp_servers?: McpServerStatus[] | null
+  version?: string | null
+  release_date?: string | null
+  update_behind?: unknown | null
+  update_command?: string | null
+  branch?: string | null
+  project?: ProjectRef | null
+  system_prompt?: string | null
+  context_length?: number | null
+  enabled_toolsets?: string[] | null
+  tool_availability?: Record<string, unknown> | null
+  tool_availability_warnings?: string[] | null
+  unknown_toolsets?: string[] | null
+  usage?: Usage | null
+  source: string
+  model?: string | null
+  lazy: boolean
+  profile_id: string
+  desktop_protocol: string
+  profile_name: string
+  cwd?: string | null
+  edit_approval_policy?: 'ask' | 'workspace_session' | 'session' | null
+  launch_request?: Record<string, unknown> | null
+  reasoning_effort?: string | null
+  reasoning_effort_wire?: string | null
+  service_tier?: string | null
+  fast?: boolean | null
+  title?: string | null
+  started_at?: number | null
+  last_active_at?: number | null
+  yolo?: boolean | null
+  api_mode?: string | null
+  tool_count?: number | null
+  credential_hint?: string | null
+  config_warning?: string | null
+  [key: string]: unknown
+}
+export interface SessionStatsParams {
+  session_id: string
+}
+/** ``gateway/session_usage.py::usage_stats``: session-cumulative counters (the agent's ``session_*``), context / compressor figures, rolling latency and throughput, rate-limit state, live subagents. */
+export interface SessionStats {
+  input_tokens: number
+  output_tokens: number
+  cache_read_tokens: number
+  cache_write_tokens: number
+  prompt_tokens: number
+  completion_tokens: number
+  total_tokens: number
+  reasoning_tokens: number
+  api_calls: number
+  last_prompt_tokens: number
+  context_tokens: number
+  context_length?: number | null
+  config_context_length?: number | null
+  context_source?: string | null
+  compression_count: number
+  avg_latency_s?: number | null
+  tokens_per_s?: number | null
+  last_turn_tokens: number
+  rate_limit?: Record<string, unknown> | null
+  active_subagents: number
+  model: string
+  provider: string
+  fallback_model?: string | null
+  plan_gauge?: PlanGauge | null
+}
+/** ``gateway/session_usage.py::plan_gauge``: a window plan's allowance for the status bar. */
+export interface PlanGauge {
+  id: string
+  label: string
+  used_bp: number
+  resets_at_ms?: number | null
+}
+export interface RollbackSessionDiffParams {
+  session_id: string
+  profile?: string | null
+}
+/** ``gateway/session_tui_ops.py::_session_diff``: ``CheckpointManager.session_diff`` under the session's frozen checkpoint policy (``enabled: false`` when that policy does not checkpoint). ``diff`` is bounded to fit one frame; ``diff_lines`` counts the whole body. */
+export interface RollbackSessionDiffResult {
+  enabled: boolean
+  success?: boolean
+  stat?: string
+  diff?: string
+  diff_lines?: number
+  empty?: boolean
+  error?: string | null
+}
+/** ``format``: json (default) / md / markdown / html / snapshot (``normalize_save_format``). */
+export interface SessionExportParams {
+  session_id: string
+  profile?: string | null
+  format?: string
+  redact?: boolean
+}
+/** ``gateway/session_tui_ops.py::export_session``: the rendered ``/save`` body and its default file name. The client writes it (the gateway may be remote); nothing is written on the host. */
+export interface SessionExportResult {
+  format: string
+  filename: string
+  content: string
+}
+export interface SessionAutomationParams {
+  session_id: string
+  kind: 'goal' | 'loop' | 'heartbeat'
+  call: string
+  args?: unknown[] | null
+  kwargs?: Record<string, unknown> | null
+}
+/** ``gateway/session_viewer_automation.py``: the manager's persisted state after the call (its own JSON, ``null`` when none) and the call's value, or the refusal main's manager raised. */
+export interface SessionAutomationResult {
+  state: string | null
+  value?: unknown | null
+  error?: Record<string, string> | null
+}
+export interface SessionDetachParams {
+  session_id: string
+  subscription_id: string
+  end_reason?: string | null
+}
+export interface SessionDetachResult {
+  session_id: string
+  subscription_id: string
+  detached: boolean
+}
+export type RuntimeDescribeParams = Record<string, never>
+export interface RuntimeDescribeResult {
+  instance_id: string
+  profile_id: string
+  authority_epoch: number
+  capabilities: string[]
+  session_create: SessionCreateDescriptor
+  skin?: SkinPayload | null
+}
+export interface SessionCreateDescriptor {
+  sources: string[]
+  parameters: string[]
+}
+/** ``tui_gateway/change_watcher.py::resolve_skin`` — the resolved active skin (``AnakotSkin``). ``{}`` when the skin engine failed to load. Colour maps are token → colour string. */
+export interface SkinPayload {
+  name?: string
+  description?: string
+  colors?: Record<string, string>
+  light_colors?: Record<string, string>
+  dark_colors?: Record<string, string>
+  branding?: Record<string, string>
+  banner_logo?: string
+  banner_hero?: string
+  tool_prefix?: string
+  help_header?: string
+  [key: string]: unknown
+}
+export interface ClarifyRespondParams {
+  session_id: string
+  execution_generation: number
+  prompt_id: string
+  answer: string
+}
+export interface PromptResponseResult {
+  status: 'resolved' | 'already_resolved'
+  prompt_id: string
+}
+export interface CronRunParams {
+  job_id: string
+  request_id: string
+  extra_prompt: string | null
+}
+export interface CronSubmitResult {
+  session_id: string
+  admission_id: string
+}
+/** ``result`` is the ``run_job`` tuple once terminal; ``recover`` adds the frozen ``job`` and answers ``status='missing'`` for a firing that was never admitted. */
+export interface CronStatusResult {
+  status: string
+  result: unknown[] | null
+  job_flags?: Record<string, unknown> | null
+  job?: Record<string, unknown> | null
+  [key: string]: unknown
+}
+export interface CronAdmissionParams {
+  session_id: string
+  admission_id: string
+}
+export interface CronCancelResult {
+  ok: boolean
+}
+export interface KanbanRunParams {
+  board: string
+  task_id: string
+  run_id: number
+  claim_lock: string
+  db?: string | null
+}
+export interface KanbanRunResult {
+  session_id: string
+  receipt: AdmissionStatus
+}
+export interface A2aForwardParams {
+  agent: string
+  tenant: string
+  peer: string
+  context_id: string
+  input_id: string
+  text: string
+}
+export interface A2aForwardResult {
+  admission_id: string
+  ref: CanonicalSessionRef
+  sequence: number
+  status: 'queued' | 'started' | 'unknown' | 'terminal'
+  outcome: string | null
+  authority_epoch: number
+  execution_generation: number | null
+  session_id: string
+  result: unknown | null
+}
+export interface WorkerRegisterParams {
+  profile_id: string
+  session_id: string
+  execution_id: string
+  generation: number
+  pid: number
+  birth: number
+  secret: string
+  kind: string
+}
+/** A ``worker_executions`` row without its adoption digest. */
+export interface WorkerExecution {
+  execution_id: string
+  session_id: string
+  kind: string
+  owner_epoch: number
+  generation: number
+  status: string
+  last_sequence: number
+  [key: string]: unknown
+}
+/** The producer claim every worker verb proves (``gateway/session_worker.py::_SCOPE``). */
+export interface WorkerScopeParams {
+  profile_id: string
+  session_id: string
+  execution_id: string
+  generation: number
+  pid: number
+  birth: number
+  secret: string
+}
+export interface WorkerPersistParams {
+  profile_id: string
+  session_id: string
+  execution_id: string
+  generation: number
+  pid: number
+  birth: number
+  secret: string
+  epoch: number
+  sequence: number
+  operation: string
+  payload: Record<string, unknown>
+}
+/** The operation's durable receipt (``message_id`` for an append, delegation results, …). */
+export type WorkerPersistResult = Record<string, unknown>
+export interface CanonicalCreateParams {
+  profile?: string | null
+  request_id?: string | null
+  source?: 'cli' | 'tui' | 'gui' | 'acp' | 'tool' | 'oneshot'
+  cwd?: string | null
+  row_cwd?: string | null
+  model?: string | null
+  provider?: string | null
+  base_url?: string | null
+  api_key?: string | null
+  toolsets?: string[] | null
+  reasoning?: string | null
+  max_turns?: number | string | null
+  ignore_rules?: boolean
+  yolo?: boolean
+  safe_mode?: boolean
+  ignore_user_config?: boolean
+  skills?: string[] | null
+  checkpoints?: boolean
+  accept_hooks?: boolean
+  pass_session_id?: boolean
+  editor?: Record<string, unknown> | null
+  title?: string | null
+  hidden?: boolean
+  follow_profile_config?: boolean | null
+  service_tier?: string | null
+  cwd_explicit?: boolean | null
+  run_budget?: number | null
+  verbose?: boolean
+  client_env?: Record<string, string> | null
+}
+export interface CanonicalSnapshot {
+  session_id: string
+  stored_session_id: string
+  messages: TranscriptMessage[]
+  messages_omitted?: boolean | null
+  display_messages?: TranscriptMessage[] | null
+  message_count: number
+  running: boolean
+  authority_epoch: number
+  replay_epoch: string
+  last_sequence: number
+  subscription_id: string
+  revision: number
+  execution_generation: number
+  pending: CanonicalPendingAdmission[]
+  prompts: CanonicalPendingPrompt[]
+  info: CanonicalSnapshotInfo
+  pending_connection?: ConnectionRequestPayload | null
+  todo_state?: TodoState | null
+  open_requests?: OpenRequestEntry[] | null
+}
+export interface CanonicalPendingAdmission {
+  admission_id: string
+  ref: CanonicalSessionRef
+  sequence: number
+  status: 'queued' | 'started' | 'unknown' | 'terminal'
+  outcome: string | null
+  authority_epoch: number
+  execution_generation: number | null
+  input_id: string
+  text: string
+  controls?: ('steer' | 'replace')[] | null
+  steering?: boolean | null
+}
+export interface CanonicalPendingPrompt {
+  kind: 'approval' | 'clarify'
+  prompt_id: string
+  execution_generation: number
+  choices: string[]
+  command?: string | null
+  description?: string | null
+  edit?: Record<string, unknown> | null
+  question?: string | null
+  multi_select?: boolean | null
+  timeout_s?: number | null
+}
+export interface CanonicalSnapshotInfo {
+  provider?: string | null
+  tools?: Record<string, string[]> | null
+  skills?: Record<string, string[]> | null
+  mcp_servers?: McpServerStatus[] | null
+  version?: string | null
+  release_date?: string | null
+  update_behind?: unknown | null
+  update_command?: string | null
+  branch?: string | null
+  project?: ProjectRef | null
+  system_prompt?: string | null
+  context_length?: number | null
+  enabled_toolsets?: string[] | null
+  tool_availability?: Record<string, unknown> | null
+  tool_availability_warnings?: string[] | null
+  unknown_toolsets?: string[] | null
+  usage?: Usage | null
+  desktop_protocol: 'anakot-gateway-v1'
+  source?: string | null
+  model?: string | null
+  lazy?: boolean | null
+  profile_id?: string | null
+  profile_name?: string | null
+  cwd?: string | null
+  edit_approval_policy?: 'ask' | 'workspace_session' | 'session' | null
+  launch_request?: Record<string, unknown> | null
+  reasoning_effort?: string | null
+  reasoning_effort_wire?: string | null
+  service_tier?: string | null
+  fast?: boolean | null
+  title?: string | null
+  started_at?: number | null
+  last_active_at?: number | null
+  yolo?: boolean | null
+  api_mode?: string | null
+  tool_count?: number | null
+  credential_hint?: string | null
+  config_warning?: string | null
+}
+export interface CanonicalResumeParams {
+  profile?: string | null
+  session_id?: string
+  title?: string | null
+  latest?: 'cli' | 'tui' | null
+  workspace?: string | null
+  source?: string | null
+  editor?: Record<string, unknown> | null
+  api_key?: string | null
+  defer_history?: boolean
+  omit_messages?: boolean
+  cols?: number | null
+  display_projection?: boolean
+}
+export interface CanonicalListParams {
+  profile?: string | null
+  scope?: 'live' | 'stored'
+  limit?: number
+  title?: string | null
+  include_hidden?: boolean
+}
+export interface CanonicalListResult {
+  sessions: CanonicalSessionListRow[]
+  scope: 'stored' | 'live'
+}
+export interface CanonicalSessionListRow {
+  session_id: string
+  id: string
+  title: string
+  source: string | null
+  started_at: number | null
+  message_count: number
+  running: boolean
+  model?: string | null
+  resolved_id?: string | null
+  root_title?: string | null
+}
+export interface CanonicalControlParams {
+  profile?: string | null
+  session_id: string
+  execution_generation: number
+}
+export interface CanonicalSessionHandle {
+  ref: CanonicalSessionRef
+  instance_id: string
+  authority_epoch: number
+  revision: number
+  execution_generation: number
+  execution_state: 'idle' | 'running' | 'waiting' | 'unknown' | 'terminal'
+}
+export interface CanonicalCorrectionParams {
+  profile?: string | null
+  session_id: string
+  execution_generation: number
+  text: string
+}
+/** ``session.steer`` / ``session.redirect``: the correction verdict, or ``{voice_stopped: true}`` when the busy-time text was a bare stop phrase that ended the LOCAL voice chat. */
+export type CanonicalCorrectionResult = CanonicalCorrectionAck | CanonicalVoiceStopped
+export interface CanonicalCorrectionAck {
+  status: 'queued' | 'redirected' | 'rejected'
+  text: string
+  execution_generation: number
+  authority_epoch: number
+  delivered?: false | null
+}
+/** A bare stop phrase typed while the session's voice chat is on: the chat ended, nothing was admitted (TUI-26). */
+export interface CanonicalVoiceStopped {
+  voice_stopped: true
+}
+export interface CanonicalEventsParams {
+  profile?: string | null
+  session_id: string
+  last_sequence?: number
+  last_seen?: number
+  replay_epoch?: string | null
+}
+export interface CanonicalEventsResult {
+  events: CanonicalReplayEvent[]
+  latest_seq: number
+  last_sequence: number
+  epoch: string
+  replay_epoch: string
+  truncated: boolean
+  snapshot_required: boolean
+  count: number
+  open_requests?: OpenRequestEntry[] | null
+}
+export interface CanonicalReplayEvent {
+  type: string
+  session_id: string
+  payload: Record<string, unknown>
+  replay_epoch: string
+  seq: number
+  authority_epoch?: number | null
+  execution_generation?: number | null
+  admission_id?: string | null
+}
+export interface CanonicalSubmitParams {
+  profile?: string | null
+  session_id: string
+  text: string
+  submission_id?: string | null
+  input_id?: string | null
+  queued?: boolean
+  attachments?: CanonicalAttachment[] | null
+  finite?: boolean
+  unattended?: boolean
+  surface?: string | null
+  voice_context?: string | null
+  interrupted?: boolean
+  voice_turn?: boolean
+  display_kind?: 'hidden' | null
+  title_preview?: string | null
+  turn_author?: CanonicalTurnAuthor | null
+  api_text?: string | null
+  model_override?: CanonicalModelOverride | null
+  clarify_batch?: boolean
+}
+export interface CanonicalAttachment {
+  path: string
+  mime: string
+}
+export interface CanonicalTurnAuthor {
+  id?: string | null
+  name?: string | null
+  is_bot?: boolean
+  origin?: string | null
+}
+export interface CanonicalModelOverride {
+  model: string
+  provider?: string | null
+  reasoning?: string | null
+}
+/** ``prompt.submit``: the admission receipt, or ``{voice_stopped: true}``. */
+export type CanonicalSubmitResult = AdmissionStatus | CanonicalVoiceStopped
+export interface CanonicalApprovalParams {
+  profile?: string | null
+  session_id: string
+  execution_generation: number
+  prompt_id: string
+  choice: string
+}
+export interface CanonicalSteerQueuedParams {
+  profile?: string | null
+  session_id: string
+  admission_id: string
+}
+/** The edited prompt: admitted as a NEW admission (``submission_id``) at the FIFO tail. */
+export interface CanonicalReplaceQueuedParams {
+  profile?: string | null
+  session_id: string
+  admission_id: string
+  submission_id: string
+  text: string
+  attachments?: CanonicalAttachment[] | null
+  display_kind?: 'hidden' | null
+  title_preview?: string | null
+}
+export interface CanonicalConfigGetResult {
+  value?: string | null
+  display?: string | null
+  tool_progress?: string | null
+  model?: string | null
+  provider?: string | null
+  providers?: ConfigProviderRef[] | null
+  home?: string | null
+  cwd?: string | null
+  branch?: string | null
+  config?: Record<string, unknown> | null
+  prompt?: string | null
+  mtime?: number | null
+  mcp_rev?: string | null
+  key?: string | null
+  scope?: string | null
+  options?: ('normal' | 'fast' | 'auto' | 'cold' | 'ultrafast')[] | null
+}
+/** Session controls (``busy`` / ``verbose`` / ``yolo`` / ``show_reasoning`` / ``service_tier``, which need ``session_id``) and the TUI's profile preferences (``gateway/session_tui_config.py``; ``session_id`` optional). ``model`` is recognised only to be refused with ``use_session_mutation_model``: a model pick is the revision-fenced ``session.mutate`` operation, never a config write. */
+export interface CanonicalConfigSetParams {
+  profile?: string | null
+  session_id?: string | null
+  key: string
+  value?: unknown
+  confirm_expensive_model?: boolean | null
+  scope?: 'session' | 'global' | null
+}
+export interface CanonicalProfilesParams {
+  profile?: string | null
+  include_sessions?: boolean
+}
+export interface CanonicalProfilesResult {
+  profiles: CanonicalProfileRow[]
+  bot_mode_protocol?: boolean
+}
+export interface CanonicalProfileRow {
+  name: string
+  path: string
+  is_default?: boolean
+  model?: string | null
+  provider?: string | null
+  description?: string
+  display_name?: string
+  skill_count?: number
+  last_session?: ProfileCanonicalSession | null
+  worker_session?: ProfileWorkerSession | null
+  canonical_session?: ProfileCanonicalSession | null
+  ui_meta_revisions?: Record<string, number>
+  ui_meta?: Record<string, unknown> | null
+  has_avatar?: boolean
+}
+export interface CanonicalAttachedImageResult {
+  name?: string | null
+  width?: number | null
+  height?: number | null
+  token_estimate?: number | null
+  attached: boolean
+  path?: string | null
+  count?: number | null
+  remainder?: string | null
+  text?: string | null
+  bytes?: number | null
+  message?: string | null
+  mime: string
+}
+export interface CanonicalRoomAttemptParams {
+  profile?: string | null
+  room_id: string
+  member_id: string
+  task_id: string
+  execution_generation: number
+}
+export interface CanonicalRoomCreateParams {
+  profile?: string | null
+  room_id: string
+  name: string
+  members: RoomMemberInput[]
+}
+export interface CanonicalRoomApproveParams {
+  profile?: string | null
+  room_id: string
+  member_id: string
+  task_id: string
+  execution_generation: number
+  choice: 'once' | 'deny'
+  request_id: string
+}
+export interface CanonicalBotDeliverParams {
+  profile?: string | null
+  message: string
+  id: string
+  session_id?: string | null
+  author?: Record<string, unknown> | null
+  notification_category?: string | null
+}
+/** A delivery's receipt. It names its admission, unless ``refused``: the FIFO refused the delivery before anything was committed (``gateway/session_bot.py``), a terminal ``failed`` receipt with no admission that the relay settles as the sender's answer. */
+export interface CanonicalBotDeliverResult {
+  status: string
+  delivery_id: string
+  profile_home: string
+  session_id: string
+  admission_id?: string | null
+  refused?: true | null
+  message: string
+  reply?: string | null
+  retry_admission_id?: string | null
+  error?: string | null
+  reason?: string | null
+  target_state?: 'idle' | 'working' | 'waiting_approval' | 'waiting_clarify' | 'paused' | null
+}
+export interface CanonicalBotCancelParams {
+  profile?: string | null
+  id: string
+  author_id?: string | null
+}
+/** ``gateway/session_bot_cancel.py``: ``cancelled`` (withdrawn before it ran, or its pending automatic retry withdrawn), ``stopping`` (its running turn was told to stop), or ``finished`` (nothing left to cancel); ``receipt_status`` is the delivery receipt's status after it. */
+export interface CanonicalBotCancelResult {
+  delivery_id: string
+  status: 'cancelled' | 'stopping' | 'finished'
+  receipt_status: string
+}
 /** Single question: ``question`` / ``choices`` (/ ``multi_select``); batch: ``questions``. ``answers`` rides only on a reconnect replay (locks the server already accepted). */
 export interface ClarifyRequestParams {
   session_id: string
@@ -4020,20 +4813,6 @@ export interface GatewayReadyPayload {
   change_events: boolean
   replay_epoch: string
   heartbeat?: boolean | null
-}
-/** ``tui_gateway/change_watcher.py::resolve_skin`` — the resolved active skin (``AnakotSkin``). ``{}`` when the skin engine failed to load. Colour maps are token → colour string. */
-export interface SkinPayload {
-  name?: string
-  description?: string
-  colors?: Record<string, string>
-  light_colors?: Record<string, string>
-  dark_colors?: Record<string, string>
-  branding?: Record<string, string>
-  banner_logo?: string
-  banner_hero?: string
-  tool_prefix?: string
-  help_header?: string
-  [key: string]: unknown
 }
 /** ``anakot_cli/free_tier_bootstrap.py::SetupRecord.as_payload``. */
 export interface SetupReadyPayload {
@@ -4506,6 +5285,10 @@ export interface RpcMethods {
   'gateway.capabilities': { params: PingParams; result: GatewayCapabilitiesResult }
   /** Resolve one exact pending approval raised by a local or peer room member. */
   'groups.approve': { params: GroupsApproveParams; result: GroupsApproveResult }
+  /** Read one committed attachment for a live room viewer. */
+  'groups.attachment.download': { params: GroupsAttachmentDownloadParams; result: RoomAttachmentBytes }
+  /** Store one attachment for a later groups.send manifest (idempotent per upload_id). */
+  'groups.attachment.upload': { params: GroupsAttachmentUploadParams; result: RoomAttachment }
   /** Describe the hosted-room protocol implemented by this gateway. */
   'groups.capabilities': { params: GroupsCapabilitiesParams; result: GroupsCapabilitiesResult }
   /** Create a hosted room idempotently; authority is this gateway's stable install identity. */
@@ -4514,6 +5297,8 @@ export interface RpcMethods {
   'groups.demote': { params: GroupsDemoteParams; result: GroupsDemoteResult }
   /** Permanently tombstone a hosted room id after stopping its work and revoking peer routes. */
   'groups.disband': { params: GroupsDisbandParams; result: GroupsDisbandResult }
+  /** Discard one indeterminate room task after explicit user confirmation. */
+  'groups.discard': { params: GroupsDiscardParams; result: GroupsDiscardResult }
   /** List rooms hosted by this gateway, most recently changed first. */
   'groups.list': { params: GroupsListParams; result: GroupsListResult }
   /** A monotonic room-log delta after since_seq, bounded by count and page bytes. */
@@ -4908,10 +5693,13 @@ export const RPC_METHODS = [
   'free_tier.status',
   'gateway.capabilities',
   'groups.approve',
+  'groups.attachment.download',
+  'groups.attachment.upload',
   'groups.capabilities',
   'groups.create',
   'groups.demote',
   'groups.disband',
+  'groups.discard',
   'groups.list',
   'groups.log',
   'groups.peer.invite',
@@ -5083,6 +5871,138 @@ export const RPC_METHODS = [
   'wake.status',
   'wake.stop'
 ] as const satisfies readonly RpcMethod[]
+
+// ── Canonical (anakot-gateway-v1) methods only the session authority serves ──
+export interface CanonicalRpcMethods {
+  /** Forward one A2A input into the conversation its identity tuple names. */
+  'a2a.forward': { params: A2aForwardParams; result: A2aForwardResult }
+  'approval.respond': { params: CanonicalApprovalParams; result: PromptResponseResult }
+  'bot_relay.cancel': { params: CanonicalBotCancelParams; result: CanonicalBotCancelResult }
+  'bot_relay.deliver': { params: CanonicalBotDeliverParams; result: CanonicalBotDeliverResult }
+  'bot_relay.settle': { params: CanonicalBotDeliverParams; result: CanonicalBotDeliverResult }
+  /** Lock one answer of the owner's batch clarify request (editable until every question is locked); only a viewer attached to that session with session:respond may lock. */
+  'clarify.lock': { params: ClarifyLockParams; result: ClarifyLockResult }
+  /** Generation-fenced answer to a pending clarify prompt (empty answer = skipped). */
+  'clarify.respond': { params: ClarifyRespondParams; result: PromptResponseResult }
+  /** Fire-only: a recognized command the classic CLI or the TUI runs itself; the gateway fires `pre_command` for it in the session's profile after replying (`queued` false: not fired). */
+  'command.observe': { params: CommandObserveParams; result: CommandObserveResult }
+  'config.get': { params: ConfigGetParams; result: CanonicalConfigGetResult }
+  'config.set': { params: CanonicalConfigSetParams; result: ConfigSetResult }
+  /** Cancel a queued cron admission or latch cancellation on a started one. */
+  'cron.cancel': { params: CronAdmissionParams; result: CronCancelResult }
+  /** Re-observe a firing after a scheduler restart (same request identity). */
+  'cron.recover': { params: CronRunParams; result: CronStatusResult }
+  /** Status and, once terminal, the result of one cron admission. */
+  'cron.status': { params: CronAdmissionParams; result: CronStatusResult }
+  /** Admit one cron firing into the owning profile's durable FIFO. */
+  'cron.submit': { params: CronRunParams; result: CronSubmitResult }
+  'groups.approve': { params: CanonicalRoomApproveParams; result: GroupsApproveResult }
+  /** Read one committed attachment for a live room viewer. */
+  'groups.attachment.download': { params: GroupsAttachmentDownloadParams; result: RoomAttachmentBytes }
+  /** Store one attachment for a later groups.send manifest (idempotent per upload_id). */
+  'groups.attachment.upload': { params: GroupsAttachmentUploadParams; result: RoomAttachment }
+  'groups.create': { params: CanonicalRoomCreateParams; result: GroupsCreateResult }
+  /** Discard one indeterminate room task after explicit user confirmation. */
+  'groups.discard': { params: GroupsDiscardParams; result: GroupsDiscardResult }
+  'groups.retry': { params: CanonicalRoomAttemptParams; result: GroupsRetryResult }
+  'image.attach_bytes': { params: ImageAttachBytesParams; result: CanonicalAttachedImageResult }
+  /** Native-owner only: admit the dispatcher's current claim on a kanban task. */
+  'kanban.run': { params: KanbanRunParams; result: KanbanRunResult }
+  'profiles.list': { params: CanonicalProfilesParams; result: CanonicalProfilesResult }
+  /** Retire a queued admission; a started one is interrupted in the same call. */
+  'prompt.cancel': { params: PromptCancelParams; result: AdmissionStatus }
+  /** Current receipt of one admission the caller submitted (or controls). */
+  'prompt.receipt': { params: PromptReceiptParams; result: PromptReceiptResult }
+  /** Cancel a still-queued admission and admit the edited prompt as a new admission at the back of the FIFO, in one write bound to the replaced admission. Refusals: admission_started, admission_conflict (the submission_id replaced another admission), queue_full, unsupported_control, not_found. */
+  'prompt.replace_queued': { params: CanonicalReplaceQueuedParams; result: AdmissionStatus }
+  /** Acknowledge a turn lost across an owner restart; the FIFO behind it resumes. Never requeues the lost input. */
+  'prompt.resolve_unknown': { params: PromptResolveUnknownParams; result: AdmissionStatus }
+  /** Hand a still-queued admission's text to the running turn's agent as a steer. The admission reads 'started' with that turn (pending snapshots mark it 'steering') and never runs on its own; it settles terminal 'steered' when the turn completes with its text, else 'interrupted' (its completion frame says 'cancelled', as an interrupted turn's does); a text the turn never consumed goes back to its queue place. Refusals: admission_started, session_idle, steer_unavailable (no agent to take it: the admission stays queued), unsupported_control, not_found. */
+  'prompt.steer_queued': { params: CanonicalSteerQueuedParams; result: AdmissionStatus }
+  'prompt.submit': { params: CanonicalSubmitParams; result: CanonicalSubmitResult }
+  /** The classic CLI's /diff session: everything changed since the session's earliest retained checkpoint, as data for its terminal renderer. */
+  'rollback.session_diff': { params: RollbackSessionDiffParams; result: RollbackSessionDiffResult }
+  /** Owner identity and the canonical capabilities a client may rely on. */
+  'runtime.describe': { params: RuntimeDescribeParams; result: RuntimeDescribeResult }
+  /** The classic CLI's /goal, /subgoal, /loop, /heartbeat manager calls (state writes, the goal judge, quality gates), run by the owner on the session's row. */
+  'session.automation': { params: SessionAutomationParams; result: SessionAutomationResult }
+  'session.create': { params: CanonicalCreateParams; result: CanonicalSnapshot }
+  /** Drop this connection's subscription; a stale subscription id answers detached=false. end_reason (snake_case): the viewer is closing the conversation; the last viewer leaving an idle local session ends its row with that reason. */
+  'session.detach': { params: SessionDetachParams; result: SessionDetachResult }
+  'session.events.since': { params: CanonicalEventsParams; result: CanonicalEventsResult }
+  /** The /save transcript rendered for the client to write (the gateway writes nothing). */
+  'session.export': { params: SessionExportParams; result: SessionExportResult }
+  /** Frozen launch policy projection of one local session. */
+  'session.info': { params: CanonicalSessionInfoParams; result: CanonicalSessionInfo }
+  'session.interrupt': { params: CanonicalControlParams; result: CanonicalSessionHandle }
+  'session.list': { params: CanonicalListParams; result: CanonicalListResult }
+  /** Revision-fenced, retry-idempotent session edit (rename, archive, sidebar, branch, delete, rewind, reset, model, reasoning, workspace, edit_policy, compress, import). */
+  'session.mutate': { params: SessionMutateParams; result: SessionMutateResult }
+  /** Local operator only: the owner deletes the ended sessions `anakot sessions prune` selected, skipping busy sessions and retained reset owners. */
+  'session.prune': { params: SessionPruneParams; result: SessionPruneResult }
+  'session.redirect': { params: CanonicalCorrectionParams; result: CanonicalCorrectionResult }
+  'session.resume': { params: CanonicalResumeParams; result: CanonicalSnapshot }
+  /** The session.usage dict on demand: what main's classic CLI read off its agent. */
+  'session.stats': { params: SessionStatsParams; result: SessionStats }
+  'session.steer': { params: CanonicalCorrectionParams; result: CanonicalCorrectionResult }
+  /** Adopt a registered execution after verifying the live producer claim. */
+  'worker.adopt': { params: WorkerScopeParams; result: WorkerExecution }
+  /** Sequence-fenced typed persistence write from an adopted worker. */
+  'worker.persist': { params: WorkerPersistParams; result: WorkerPersistResult }
+  /** Register a compute worker execution on an idle session. */
+  'worker.register': { params: WorkerRegisterParams; result: WorkerExecution }
+}
+export type CanonicalRpcMethod = keyof CanonicalRpcMethods
+export const CANONICAL_RPC_METHODS = [
+  'a2a.forward',
+  'approval.respond',
+  'bot_relay.cancel',
+  'bot_relay.deliver',
+  'bot_relay.settle',
+  'clarify.lock',
+  'clarify.respond',
+  'command.observe',
+  'config.get',
+  'config.set',
+  'cron.cancel',
+  'cron.recover',
+  'cron.status',
+  'cron.submit',
+  'groups.approve',
+  'groups.attachment.download',
+  'groups.attachment.upload',
+  'groups.create',
+  'groups.discard',
+  'groups.retry',
+  'image.attach_bytes',
+  'kanban.run',
+  'profiles.list',
+  'prompt.cancel',
+  'prompt.receipt',
+  'prompt.replace_queued',
+  'prompt.resolve_unknown',
+  'prompt.steer_queued',
+  'prompt.submit',
+  'rollback.session_diff',
+  'runtime.describe',
+  'session.automation',
+  'session.create',
+  'session.detach',
+  'session.events.since',
+  'session.export',
+  'session.info',
+  'session.interrupt',
+  'session.list',
+  'session.mutate',
+  'session.prune',
+  'session.redirect',
+  'session.resume',
+  'session.stats',
+  'session.steer',
+  'worker.adopt',
+  'worker.persist',
+  'worker.register'
+] as const satisfies readonly CanonicalRpcMethod[]
 
 // ── Server→client requests ──
 export interface ServerRequestMap {

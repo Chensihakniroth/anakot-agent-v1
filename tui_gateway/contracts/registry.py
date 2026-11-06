@@ -45,6 +45,7 @@ class EventContract:
 
 
 METHODS: dict[str, MethodContract] = {}
+CANONICAL_METHODS: dict[str, MethodContract] = {}
 SERVER_REQUESTS: dict[str, ServerRequestContract] = {}
 EVENTS: dict[str, EventContract] = {}
 
@@ -58,6 +59,14 @@ def _declare(table: dict, entry) -> None:
 def method(name: str, *, params: type[Params], result: type[Result], doc: str = "") -> MethodContract:
     entry = MethodContract(name, params, result, doc)
     _declare(METHODS, entry)
+    return entry
+
+
+def canonical_method(name: str, *, params: type[Params], result: type[Result], doc: str = "") -> MethodContract:
+    """A ``<transport>-gateway-v1`` method only the session authority serves; declared in its own
+    table so the runtime can tell a canonical surface from a transport-local one."""
+    entry = MethodContract(name, params, result, doc)
+    _declare(CANONICAL_METHODS, entry)
     return entry
 
 
