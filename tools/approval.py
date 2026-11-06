@@ -31,10 +31,11 @@ from tools.approval_detection import (
     _approval_key_aliases, _check_sudo_stdin_guard, detect_dangerous_command, detect_hardline_command,
 )
 from tools.approval_floors import (
-    _command_matches_permanent_allowlist, _hardline_block_result, _match_user_deny_rule, _sudo_stdin_block_result,
-    _user_deny_block_result,
+    _command_matches_permanent_allowlist, _hardline_block_result, _matching_permanent_allowlist_entry,
+    _match_user_deny_rule, _sudo_stdin_block_result, _user_deny_block_result,
 )
 from tools.approval_gateway_wait import _await_gateway_decision
+from tools.approval_provenance import allowlisted_result, preapproved_result
 from tools.approval_prompt import _present_with_selected_transport, _transport_choice, prompt_dangerous_approval
 from tools.approval_smart import _smart_verdict
 
@@ -510,6 +511,35 @@ def _approved() -> dict:
     return {"approved": True, "message": None}
 
 
+def _command_findings(command: str) -> list[tuple[str, str]]:
+    """``[(pattern_key, description)]`` this command trips; empty when it is clean.
+
+    Anakot's single-pattern detection has no content-rule split, so this is one finding at
+    most. Kept in the same shape as upstream so the provenance helpers are shared."""
+    is_dangerous, pattern_key, description = detect_dangerous_command(command)
+    return [(pattern_key, description)] if is_dangerous else []
+
+
+def _approved_with_provenance(findings: list[tuple[str, str]]) -> dict:
+    """Approved result for *findings* an earlier user decision already covers.
+
+    Called only after the approval check passed, so it only labels the decision — it never
+    decides anything. Clean commands keep the bare ``{"approved": True}`` shape."""
+    if not findings:
+        return _approved()
+    return preapproved_result(
+        findings, lambda key: "permanent" if _is_permanently_approved(key) else "session")
+
+
+def _allowlisted(command: str) -> dict:
+    """Approved result for a ``command_allowlist`` match; names the entry when the command was flagged."""
+    findings = _command_findings(command)
+    rule = _matching_permanent_allowlist_entry(command)
+    if not findings or rule is None:
+        return _approved()
+    return allowlisted_result(rule, "; ".join(text for _, text in findings))
+
+
 # ``outcome`` -> one plain sentence for the person who just answered (or did not). ``message`` is
 # addressed to the model ("Do NOT retry ..."); surfaces render ``user_summary`` first and fold the
 # model text away, so a Reject click does not read like an error the user caused.
@@ -805,7 +835,8 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
                     pattern_key: str, pattern_keys: list[str], warnings: list[tuple],
                     session_key: str, approval_callback, is_cli: bool, is_gateway: bool,
                     is_ask: bool, smart: bool = False,
-                    permanent_capable: bool = True, pending_body=None) -> dict:
+                    permanent_capable: bool = True, pending_body=None,
+                    findings: "list[tuple[str, str]] | None" = None) -> dict:
     """Ask a human (after the optional guardian-LLM step) and turn the answer into the gate result.
 
     ``warnings`` are the ``(key, _, is_tirith)`` tuples :func:`_persist_choice` stores on
@@ -841,7 +872,7 @@ def _human_decision(spec: _GateSpec, *, command: str, description: str,
             _persist_choice(session_key, choice, warnings)
         if spec.user_approved:
             return _user_approved(session_key, description)
-        return _approved()
+        return _approved_with_provenance(findings or [])
 
     if spec.transport:
         attempt = _present_with_selected_transport(
@@ -965,6 +996,7 @@ def _run_approval_gate(
     advice: str = "Find an alternative approach that avoids this action.",
     cron_deny_message: str = "", single_query_deny_message: str = "", unattended_deny_message: str = "",
     autoapprove_log_prefix: str, fail_closed_when_no_human: bool = False, no_human_block_message: str = "",
+    findings: "list[tuple[str, str]] | None" = None,
 ) -> dict:
     """Shared human-approval gate for a flagged action (tool call or write): decision core for
     :func:`request_tool_approval` and the file-tool write gates.
@@ -984,7 +1016,9 @@ def _run_approval_gate(
         return _approved()
     session_key = get_current_session_key()
     if is_approved(session_key, pattern_key):
-        return _approved()
+        # A prior 'session'/'always' answer covers this: label the decision so the terminal
+        # tool can explain why a flagged command ran without a prompt.
+        return _approved_with_provenance(findings or [])
 
     approval_callback, is_cli, is_gateway, is_ask = _presence(approval_callback)
     if not is_cli and not is_gateway:
@@ -1090,15 +1124,17 @@ def check_dangerous_command(command: str, env_type: str,
     if _yolo_active():
         return _approved()
     if _command_matches_permanent_allowlist(command):
+        return _allowlisted(command)
+    findings = _command_findings(command)
+    if not findings:
         return _approved()
-    is_dangerous, pattern_key, description = detect_dangerous_command(command)
-    if not is_dangerous:
-        return _approved()
+    pattern_key, description = findings[0]
     return _run_approval_gate(
         pattern_key=pattern_key, description=description, display_target=command, approval_callback=approval_callback,
         subject=f"Command flagged as dangerous ({description})", noun="dangerous commands",
         advice="Find an alternative approach that avoids this command.",
         autoapprove_log_prefix="AUTO-APPROVED dangerous command in non-interactive non-gateway context",
+        findings=findings,
     )
 
 
@@ -1189,7 +1225,7 @@ def check_all_command_guards(command: str, env_type: str,
     if _yolo_active() or approval_mode == "off":
         return _approved()
     if _command_matches_permanent_allowlist(command):
-        return _approved()
+        return _allowlisted(command)
 
     approval_callback, is_cli, is_gateway, is_ask = _presence(approval_callback)
     # Outside CLI/gateway/ask flows we never block on approvals: each
@@ -1216,7 +1252,9 @@ def check_all_command_guards(command: str, env_type: str,
     if is_dangerous and not is_approved(session_key, pattern_key):
         warnings.append((pattern_key, description, False))
     if not warnings:
-        return _approved()
+        # Every finding is already covered by an earlier answer: approve, but name the
+        # decision so the terminal tool can explain it instead of looking like a bypass.
+        return _approved_with_provenance(_command_findings(command))
 
     combined_desc = "; ".join(desc for _, desc, _ in warnings)
     primary_key = warnings[0][0]
@@ -1231,6 +1269,7 @@ def check_all_command_guards(command: str, env_type: str,
         session_key=session_key, approval_callback=approval_callback,
         is_cli=is_cli, is_gateway=is_gateway, is_ask=is_ask, smart=approval_mode == "smart",
         permanent_capable=any(not is_t for _, _, is_t in warnings),
+        findings=_command_findings(command),
     )
 
 
@@ -1295,7 +1334,7 @@ def check_execute_code_guard(code: str, env_type: str, has_host_access: bool = F
     # Without this, "Approve session" / "Always" choices are stored but never
     # consulted, so every execute_code call re-prompts (#39275).
     if is_approved(session_key, pattern_key):
-        return _approved()
+        return _approved_with_provenance([(pattern_key, description)])
 
     # Smart mode: an APPROVE only suppresses the redundant whole-script prompt; the per-call terminal() guards still
     # run independently. The gateway renders the pending payload to Discord/Slack, so the script body is redacted for
@@ -1303,6 +1342,7 @@ def check_execute_code_guard(code: str, env_type: str, has_host_access: bool = F
     from agent.redact import redact_approval_display
     return _human_decision(
         _EXECUTE_CODE_GATE, command=command, description=description, pattern_key=pattern_key,
+        findings=[(pattern_key, description)],
         pattern_keys=[pattern_key], warnings=[(pattern_key, None, False)], session_key=session_key,
         approval_callback=approval_callback, is_cli=is_cli, is_gateway=is_gateway, is_ask=is_ask,
         smart=approval_mode == "smart",
