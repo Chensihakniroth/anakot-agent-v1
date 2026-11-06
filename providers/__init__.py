@@ -106,16 +106,24 @@ def get_provider_profile(name: str) -> ProviderProfile | None:
     if not _discovered:
         _discover_providers()
     layer, home, key = _bound_home_layer()
-    _refresh_home_layer(layer, home, key)
+    checked = _refresh_home_layer(layer, home, key)
 
     def lookup(candidate: str) -> ProviderProfile | None:
         canonical = layer.aliases.get(candidate) or _ALIASES.get(candidate, candidate)
         return layer.registry.get(canonical) or _REGISTRY.get(canonical)
 
     profile = lookup(name)
+    # A newly installed provider is normally first requested by its new name, so a miss
+    # re-checks the plugin dirs now (unless this call just did) instead of waiting for the
+    # periodic check. ``custom:<route>`` misses resolve to the generic profile below and the
+    # picker asks for them once per model, so they wait for the periodic check.
+    is_custom_route = isinstance(name, str) and name.lower().startswith("custom:")
+    if profile is None and not is_custom_route and not checked:
+        if _refresh_home_layer(layer, home, key, force=True):
+            profile = lookup(name)
     # Named custom routes share the generic wire policy unless a plugin
     # explicitly registered that route. Other names retain exact lookup.
-    if profile is None and isinstance(name, str) and name.lower().startswith("custom:"):
+    if profile is None and is_custom_route:
         profile = lookup("custom")
     return profile
 
@@ -201,17 +209,21 @@ def _plugin_dir_stamps(home: Path) -> tuple:
 
 
 def _refresh_home_layer(layer: _HomeLayer, home: Path, key: str, *, force: bool = False) -> bool:
-    """Load a profile's user providers when its plugin directories change."""
+    """Re-stat the layer's plugin dirs when due (or *force*d); True when it stat'ed this call.
+
+    Stamps are read before the scan: a plugin that lands mid-scan changes them and the next
+    check picks it up. Checking on a short cadence keeps a newly installed plugin discoverable
+    without making every model lookup perform two filesystem stats.
+    """
     now = time.monotonic()
     if not force and layer.stamp_checked_at is not None and now - layer.stamp_checked_at < _PLUGIN_DIR_STAMP_TTL_SECONDS:
         return False
     stamps = _plugin_dir_stamps(home)
-    changed = stamps != layer.stamps
-    if changed:
+    if stamps != layer.stamps:
         _scan_home_layer(layer, key)
         layer.stamps = stamps
     layer.stamp_checked_at = now
-    return changed
+    return True
 
 
 def _user_module_name(plugin_dir: Path, home_key: str) -> str:

@@ -1269,20 +1269,6 @@ def _entry_name(entry: dict) -> str:
     return entry.get("frontmatter_name") or entry.get("skill_name") or ""
 
 
-def _read_category_descriptions(root: Path, log_fmt: str) -> dict[str, str]:
-    """``description`` from every DESCRIPTION.md under *root*, keyed by category path."""
-    found: dict[str, str] = {}
-    for desc_file in iter_skill_index_files(root, "DESCRIPTION.md"):
-        try:
-            cat_desc = parse_frontmatter(desc_file.read_text(encoding="utf-8"))[0].get("description")
-            if cat_desc:
-                rel = desc_file.relative_to(root)
-                found["/".join(rel.parts[:-1]) if len(rel.parts) > 1 else "general"] = str(cat_desc).strip().strip("'\"")
-        except Exception as e:
-            logger.debug(log_fmt, desc_file, e)
-    return found
-
-
 def _collect_extra_skills(
     root: Path, skill_files, hides, claimed: set[str], skills_by_category: dict[str, list[tuple[str, str]]],
     *, desc_prefix: str, log_fmt: str,
@@ -1319,7 +1305,7 @@ def _label_visible_entries(visible_entries: list[dict], skills_by_category: dict
 
 
 def _render_skills_index(
-    skills_by_category: dict[str, list[tuple[str, str]]], category_descriptions: dict[str, str],
+    skills_by_category: dict[str, list[tuple[str, str]]],
     compact_categories: "frozenset[str] | None", available_tools: "set[str] | None",
 ) -> str:
     """Render the ## Skills block; "" when there is nothing to list."""
@@ -1341,8 +1327,7 @@ def _render_skills_index(
         if category in demoted:
             index_lines.append(f"  {category} [names only]: {', '.join(sorted({n for n, _ in entries}))}")
             continue
-        cat_desc = category_descriptions.get(category, "")
-        index_lines.append(f"  {category}: {cat_desc}" if cat_desc else f"  {category}:")
+        index_lines.append(f"  {category}:")
         seen = set()
         for name, desc in sorted(entries, key=lambda x: x[0]):  # stable: first entry per name wins
             if name not in seen:
@@ -1411,13 +1396,11 @@ def _build_skills_system_prompt_inner(
                 or not _skill_should_show(conditions, available_tools, available_toolsets, _platform_hint or None))
 
     skills_by_category: dict[str, list[tuple[str, str]]] = {}
-    category_descriptions: dict[str, str] = {}
     # Disk snapshot (fast path) vs. full scan: both yield (entry, is_compatible) pairs so labeling runs identically.
     snapshot = _load_skills_snapshot(skills_dir)
     if snapshot is not None:
         candidates = [(entry, skill_matches_platform_list(entry.get("platforms") or []))
                       for entry in snapshot.get("skills", []) if isinstance(entry, dict)]
-        category_descriptions = {str(k): str(v) for k, v in (snapshot.get("category_descriptions") or {}).items()}
     else:
         candidates = []
         for skill_file in iter_skill_index_files(skills_dir, "SKILL.md"):
@@ -1438,11 +1421,10 @@ def _build_skills_system_prompt_inner(
     # Drop shadowed entries BEFORE org labeling so collision flags don't fire on intentional overrides.
     _label_visible_entries([e for e in visible_entries if _entry_name(e) not in project_names], skills_by_category)
     if snapshot is None:  # persist for fast cold-start reuse (best-effort)
-        category_descriptions.update(_read_category_descriptions(skills_dir, "Could not read skill description %s: %s"))
         try:
             atomic_json_write(_skills_prompt_snapshot_path(), {
                 "version": _SKILLS_SNAPSHOT_VERSION, "manifest": _build_skills_manifest(skills_dir),
-                "skills": [entry for entry, _ in candidates], "category_descriptions": category_descriptions,
+                "skills": [entry for entry, _ in candidates],
             })
         except Exception as e:
             logger.debug("Could not write skills prompt snapshot: %s", e)
@@ -1452,10 +1434,8 @@ def _build_skills_system_prompt_inner(
     for ext_dir in (d for d in external_dirs if d.exists()):
         _collect_extra_skills(ext_dir, iter_skill_index_files(ext_dir, "SKILL.md"), hides, seen_skill_names,
                               skills_by_category, desc_prefix="", log_fmt="Error reading external skill %s: %s")
-        for cat, cat_desc in _read_category_descriptions(ext_dir, "Could not read external skill description %s: %s").items():
-            category_descriptions.setdefault(cat, cat_desc)
 
-    result = _render_skills_index(skills_by_category, category_descriptions, compact_categories, available_tools)
+    result = _render_skills_index(skills_by_category, compact_categories, available_tools)
     with _SKILLS_PROMPT_CACHE_LOCK:
         _SKILLS_PROMPT_CACHE[cache_key] = result
         _SKILLS_PROMPT_CACHE.move_to_end(cache_key)

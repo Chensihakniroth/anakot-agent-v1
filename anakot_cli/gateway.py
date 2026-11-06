@@ -6487,6 +6487,12 @@ def _restart_all(system: bool) -> None:
         print(f"✓ Stopped {total} gateway process(es) across all profiles")
     _wait_for_gateway_exit(timeout=10.0, force_after=5.0)
     _wait_for_api_server_port_free()
+    # The verb stops the host with a service call or a SIGTERM, so the old process never runs the
+    # in-band restart path that stamps the planned-restart marker; without it the next boot reads a
+    # plain stop and every home channel stays silent. Stamp only once the old host is gone: a
+    # marker written while it still drains can be replayed and unlinked by it (#142515).
+    from gateway.restart_notice import write_planned_restart_marker
+    write_planned_restart_marker()
 
     print("Starting gateway...")
     # Even without a registered task, gateway_windows.start() uses the detached launcher.

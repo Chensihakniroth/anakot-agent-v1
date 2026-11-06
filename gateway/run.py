@@ -1538,7 +1538,8 @@ def _restart_notification_pending() -> bool:
 
 
 def _planned_restart_notification_path() -> Path:
-    return _anakot_home / ".restart_pending.json"
+    from gateway.restart_notice import planned_restart_marker_path
+    return planned_restart_marker_path(_anakot_home)
 
 
 def _planned_restart_notification_pending() -> bool:

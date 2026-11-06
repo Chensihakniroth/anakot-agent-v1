@@ -1934,8 +1934,7 @@ class GatewayShutdownMixin:
 
     def _stop_persist_exit_state(self, ctx: "GatewayShutdownMixin._StopContext") -> None:
         """PID/lock release, clean-shutdown marker, restart markers, terminal runtime status."""
-        from gateway.run import _anakot_home, _planned_restart_notification_path, _shutdown_gateway_health_export
-        from utils import atomic_json_write
+        from gateway.run import _anakot_home, _shutdown_gateway_health_export
         from gateway.status import remove_pid_file, release_gateway_runtime_lock
         remove_pid_file()
         release_gateway_runtime_lock()
@@ -1953,16 +1952,11 @@ class GatewayShutdownMixin:
         if ctx.active_agents:
             self._increment_restart_failure_counts(set(ctx.active_agents.keys()))
         if self._restart_requested and self._restart_command_source is None:
-            with _log_suppressed(logging.DEBUG, "Failed to write planned restart notification marker: %s"):
-                atomic_json_write(
-                    _planned_restart_notification_path(),
-                    {
-                        "requested_at": time.time(),
-                        "via_service": bool(self._restart_via_service),
-                        "detached": bool(self._restart_detached),
-                    },
-                    indent=None,
-                )
+            from gateway.restart_notice import write_planned_restart_marker
+            write_planned_restart_marker(
+                via_service=bool(self._restart_via_service),
+                detached=bool(self._restart_detached),
+            )
         if self._restart_requested and self._restart_via_service:
             # Exit 75 + ``RestartForceExitStatus=75``: systemd replaces us without a racing helper.
             self._exit_code = GATEWAY_SERVICE_RESTART_EXIT_CODE

@@ -151,3 +151,54 @@ def test_user_provider_layers_are_isolated_across_profiles(tmp_path, monkeypatch
     assert next(p for p in list_providers() if p.name == "profile-provider").base_url == "https://B.example/v1"
     monkeypatch.setenv("ANAKOT_HOME", str(homes[0]))
     assert get_provider_profile("profile-provider").base_url == "https://A.example/v1"
+
+
+def test_a_miss_rechecks_plugin_stamps_without_waiting_for_the_ttl(tmp_path, monkeypatch):
+    """A provider installed after the layer warmed is found on its first lookup by the new name.
+
+    The periodic stamp check is on a 1 s cadence; a newly installed provider is normally first
+    requested by its new name, so a miss re-stats the plugin dirs now instead of waiting for the
+    next tick (upstream ``f63c388e``).
+    """
+    home = tmp_path / ".anakot"
+    monkeypatch.setenv("ANAKOT_HOME", str(home))
+    _clear_provider_caches()
+    from providers import get_provider_profile
+
+    # Warm the layer: the periodic stamp check runs now and is then inside its TTL.
+    assert get_provider_profile("anthropic") is not None
+
+    plugin = home / "plugins" / "model-providers" / "late-provider"
+    plugin.mkdir(parents=True)
+    (plugin / "__init__.py").write_text(
+        "from providers import register_provider\n"
+        "from providers.base import ProviderProfile\n"
+        "register_provider(ProviderProfile(name='late-provider', base_url='https://late.example/v1'))\n"
+    )
+    (plugin / "plugin.yaml").write_text("name: late-provider\nkind: model-provider\n")
+
+    late = get_provider_profile("late-provider")
+    assert late is not None and late.base_url == "https://late.example/v1"
+    _clear_provider_caches()
+
+
+def test_a_miss_does_not_restat_when_the_periodic_check_just_ran(tmp_path, monkeypatch):
+    """A miss re-stats only when this call did not already: one stat pair per lookup, never two."""
+    home = tmp_path / ".anakot"
+    monkeypatch.setenv("ANAKOT_HOME", str(home))
+    _clear_provider_caches()
+    import providers
+    from providers import get_provider_profile
+
+    calls = []
+    real = providers._plugin_dir_stamps
+
+    def counting(path):
+        calls.append(path)
+        return real(path)
+
+    monkeypatch.setattr(providers, "_plugin_dir_stamps", counting)
+
+    assert get_provider_profile("no-such-provider") is None
+    assert len(calls) == 1, calls
+    _clear_provider_caches()
