@@ -705,6 +705,79 @@ dead code — `apps/desktop/src/hermes.ts`, `apps/desktop/src/types/hermes.ts`,
 which is the only thing making `tsc` exit non-zero: 0 TS errors). `tests/hermes_cli/` and
 `tests/hermes_state/` duplicate `tests/anakot_cli|state/`.
 
+### 2026-11-06 — Desktop helpers, canonical contract table, and the tui_gateway catalog (PAUSED mid-batch)
+
+**Verified results this session**
+
+- `npm run build` (apps/desktop) **exits 0** — the full Hermes feature set builds under the Anakot
+  brand (`dist/index.html + assets present`). Note `build` runs `vite build`, not `tsc`; the type
+  errors below do not block it.
+- Full `tests/agent tests/tools tests/providers`: baseline `1cbbde07` = **49 failed / 1,593 files**;
+  current = **1,859 failed / 2,103 files**. Classification: **all 1,810 extra failures are in files the
+  sync added; 0 are in pre-existing files.** Baseline worktree method: `git worktree add
+  /tmp/anakot-baseline 1cbbde07` + `ln -sfn <repo>/.venv /tmp/anakot-baseline/.venv`.
+- 30-file focused diff (same file set, both trees): baseline 44 failed → current 40 failed, with 4
+  pre-existing failures fixed and the 2 new ones (since repaired) identified by name.
+
+**Committed**
+
+| SHA | Change |
+|-----|--------|
+| `fc3d1a76` | 34 Hermes-named stray paths renamed + repo-wide reference rebrand |
+| `0c8778e` | 60+ dead `hermes.*` duplicates deleted (each verified 0 imports first); clears the pnpm workspace conflict |
+| `44397891` | `platform.ts` browser-host block, `isAnakotCloudUrl` export, gateway contract models |
+| `f2857eed` | canonical gateway method table wired (`CANONICAL_METHODS` + `canonical_method()`, `canonical` imported, `CanonicalRpcMethods` / `CANONICAL_RPC_METHODS` / `x-canonical-methods` rendered) |
+
+**Uncommitted (paused here) — 4 files**
+
+- `tui_gateway/contracts/__init__.py` — imports the `display`, `i18n`, `machine` contract modules
+  (all three exist and import cleanly; they were simply never wired in).
+- `tui_gateway/server.py` — registers `methods_display`, `methods_display_watch`,
+  `methods_onboarding`, `methods_i18n`, `methods_machine` (added to the `from . import (...)` list and
+  the `for _m in (...)` register loop at the foot of the file).
+- `tui_gateway/contracts/profiles_vault_complete_foreign_subagents.py` — ported the
+  `onboarding.state` / `set_run` / `start` / `skip` method contracts + payloads (inserted before the
+  `# ── vault (methods_vault) ──` marker).
+- `tui_gateway/contracts/events.py` — ported `OnboardingOutcome`, `OnboardingEndedPayload` and the
+  `onboarding.ended` event (inserted before `event("setup.ready", ...)`).
+
+These four collapsed `registry.assert_complete` from 22 problems to **6**.
+
+**Remaining (exact, as reported by `registry.assert_complete`)**
+
+```
+method contracts with no handler:   groups.attachment.download, groups.attachment.upload, groups.discard
+server requests without a contract: setup_beat, theme.apply, theme.pick
+```
+
+**Next steps, in order**
+
+1. `tui_gateway/contracts/server_requests.py` — port the `setup_beat` block (`SetupBeat`,
+   `SetupOption`, `SetupNameCard`, `SetupThemeCard`, `SetupOptionsCard`, `SetupConnectorsCard`,
+   `SetupPluginsCard`, `SetupBeatRequestParams`, the six answer results, `SetupBeatResult`) and the
+   `theme.apply` / `theme.pick` block (`ThemeMode`, `ThemePicker`, `ThemeApplyRequestParams`,
+   `ThemePickRequestParams`, `ThemeValues`, `ThemePickResult`). Both blocks are in Hermes's
+   `tui_gateway/contracts/server_requests.py`; `ValueResult` already exists in Anakot's at line 22.
+   Source of truth: `/tmp/hermes-tree/hermes-agent-main/` (re-fetch if gone).
+2. `groups.attachment.*` — `tui_gateway/methods_groups.py` exists but (a) is **not registered** in
+   `tui_gateway/server.py` and (b) has no `groups.attachment.*` handlers. Hermes's
+   `tui_gateway/methods_groups.py` lines ~417-430 carry them (`@_room_method("groups.attachment.download", ...)`,
+   plus the upload and discard handlers). Port the handlers, then add `methods_groups` to the same
+   import + register loop as step 1's modules.
+3. Re-run: `scripts/gen_gateway_contracts.py`, then
+   `scripts/run_tests.sh tests/tui_gateway/contracts/ -q`.
+
+**Known larger gap, deliberately not started**
+
+`agent/credits_tracker.py` has no usage-window denominator support at all: `denominator_kind` only
+knows `"subscription_cap" | "none"` (no `"usage_window"`), `CreditsState` has no `gauges` field, and
+`_window_seed_fields` does not exist. `anakot_cli/nous_account.py` is a generation behind Hermes's
+(639 vs 776 lines) and lacks `NousUsageWindowInfo`, `cached_nous_portal_account_info` and
+`format_usage_window_block_guidance` — the 3 public symbols; 8 total. Its dependencies
+(`agent/usage_gauges.parse_gauges`/`all_scope`, `agent.plan_limits.credits_action`/`USE_CREDITS`,
+`nous_portal_billing_url`/`nous_portal_topup_url`) **already exist** in Anakot, so the port is
+self-contained. This is what `tests/tui_gateway/test_billing_plan_usage.py` (a synced file) exercises.
+
 ---
 
 ## Quick Commands
