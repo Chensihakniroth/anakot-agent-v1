@@ -11649,7 +11649,7 @@
       },
       "ErrorSurface": {
         "additionalProperties": true,
-        "description": "``agent/error_surface.py::_surface`` \u2014 advisory {layer, code, retryable} (+ identity, + auth hint).",
+        "description": "``agent/error_surface.py::_surface`` \u2014 advisory {layer, code, retryable} (+ identity, + auth hint,\n+ ``resets_at`` epoch seconds when the provider named when its limit lifts, + ``usage_limit`` on a\nusage-window plan's limit).",
         "properties": {
           "layer": {
             "title": "Layer",
@@ -11686,6 +11686,29 @@
             ],
             "default": null,
             "title": "Model"
+          },
+          "resets_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resets At"
+          },
+          "usage_limit": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageLimit"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
           }
         },
         "required": [
@@ -16186,6 +16209,18 @@
             ],
             "default": null,
             "title": "Rendered"
+          },
+          "response_transformed": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Response Transformed"
           },
           "error": {
             "anyOf": [
@@ -33038,6 +33073,116 @@
         ],
         "title": "UsageBarKind",
         "type": "string"
+      },
+      "UsageLimit": {
+        "additionalProperties": false,
+        "description": "``agent/plan_limits.py::LimitHit`` \u2014 a usage-window plan's limit: what ran out, when it resets, and\nthe one-click ways on (switch to a recommended model, use / add credits).",
+        "properties": {
+          "gauge_id": {
+            "title": "Gauge Id",
+            "type": "string"
+          },
+          "scope": {
+            "title": "Scope",
+            "type": "string"
+          },
+          "limit_name": {
+            "title": "Limit Name",
+            "type": "string"
+          },
+          "resets_at_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Resets At Ms"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "suggestions": {
+            "items": {
+              "$ref": "#/components/schemas/UsageLimitSuggestion"
+            },
+            "title": "Suggestions",
+            "type": "array"
+          },
+          "credits": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UsageLimitCredits"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "current_model": {
+            "default": "",
+            "title": "Current Model",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gauge_id",
+          "scope",
+          "limit_name",
+          "message"
+        ],
+        "title": "UsageLimit",
+        "type": "object"
+      },
+      "UsageLimitCredits": {
+        "additionalProperties": false,
+        "description": "``agent/plan_limits.py::CreditsOption`` \u2014 ``use_credits`` (turn on Keep going), ``add_credits``, or\n``add_credits_and_keep_going`` (both: Keep going is off and there is no balance).",
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          }
+        },
+        "required": [
+          "action"
+        ],
+        "title": "UsageLimitCredits",
+        "type": "object"
+      },
+      "UsageLimitSuggestion": {
+        "additionalProperties": false,
+        "description": "``agent/plan_limits.py::ModelSuggestion`` \u2014 a recommended model that still works past the limit.",
+        "properties": {
+          "model": {
+            "title": "Model",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "provider": {
+            "default": "nous",
+            "title": "Provider",
+            "type": "string"
+          }
+        },
+        "required": [
+          "model",
+          "label",
+          "note"
+        ],
+        "title": "UsageLimitSuggestion",
+        "type": "object"
       },
       "UsageModel": {
         "additionalProperties": false,

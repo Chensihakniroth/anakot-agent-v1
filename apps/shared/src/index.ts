@@ -60,6 +60,7 @@ export {
 } from './data-url-read-max'
 export { compactNumber } from './format'
 export { type FuzzyMatch, fuzzyRank, fuzzyScore, fuzzyScoreMulti, type RankedItem } from './fuzzy'
+export { ANAKOT_CLOUD_MANAGED, isAnakotCloudUrl } from './anakot-cloud'
 export * from './gateway-events'
 export {
   applyDocumentLocale,

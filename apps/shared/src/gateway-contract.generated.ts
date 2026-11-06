@@ -4080,6 +4080,7 @@ export interface MessageCompletePayload {
   billing?: BillingBlock | null
   failure_reason?: string | null
   rendered?: string | null
+  response_transformed?: boolean | null
   error?: string | null
   recoverable?: boolean | null
   error_surface?: ErrorSurface | null
@@ -4097,14 +4098,38 @@ export interface BillingBlock {
   message: string
   unverified?: boolean | null
 }
-/** ``agent/error_surface.py::_surface`` — advisory {layer, code, retryable} (+ identity, + auth hint). */
+/** ``agent/error_surface.py::_surface`` — advisory {layer, code, retryable} (+ identity, + auth hint, + ``resets_at`` epoch seconds when the provider named when its limit lifts, + ``usage_limit`` on a usage-window plan's limit). */
 export interface ErrorSurface {
   layer: string
   code: string
   retryable: boolean
   provider?: string | null
   model?: string | null
+  resets_at?: number | null
+  usage_limit?: UsageLimit | null
   [key: string]: unknown
+}
+/** ``agent/plan_limits.py::LimitHit`` — a usage-window plan's limit: what ran out, when it resets, and the one-click ways on (switch to a recommended model, use / add credits). */
+export interface UsageLimit {
+  gauge_id: string
+  scope: string
+  limit_name: string
+  resets_at_ms?: number | null
+  message: string
+  suggestions?: UsageLimitSuggestion[]
+  credits?: UsageLimitCredits | null
+  current_model?: string
+}
+/** ``agent/plan_limits.py::ModelSuggestion`` — a recommended model that still works past the limit. */
+export interface UsageLimitSuggestion {
+  model: string
+  label: string
+  note: string
+  provider?: string
+}
+/** ``agent/plan_limits.py::CreditsOption`` — ``use_credits`` (turn on Keep going), ``add_credits``, or ``add_credits_and_keep_going`` (both: Keep going is off and there is no balance). */
+export interface UsageLimitCredits {
+  action: string
 }
 /** ``server._status_update`` and the direct emitters (goal / loop / heartbeat / process). */
 export interface StatusUpdatePayload {

@@ -232,6 +232,45 @@ class StatusResult(OpenModel):
     status: str
 
 
+class PlanGauge(Result):
+    """``gateway/session_usage.py::plan_gauge``: a window plan's allowance for the status bar."""
+
+    id: str
+    label: str
+    used_bp: int
+    resets_at_ms: int | None = None
+
+
+class PlanUsageGauge(Result):
+    """One server allowance on ``ModelOptionProvider.plan_usage``, in the server's order. ``label`` is the
+    server's id (``day`` / ``week`` / ``month`` / ``top_tier`` have client words; any other id shows
+    ``title``). ``scope``: which models a full one stops (``all`` / ``top_tier``)."""
+
+    label: str
+    left_fraction: float
+    style: str
+    resets_at_ms: int | None = None
+    scope: str = "all"
+    title: str = ""
+
+
+class PlanUsage(Result):
+    """``anakot_cli/model_picker_usage.py::PickerUsage.to_payload`` — usage-window plan chrome."""
+
+    kind: str
+    plan: str | None = None
+    gauges: list[PlanUsageGauge] = Field(default_factory=list)
+    # Ids the gateway labels ``top_tier`` (Large).
+    top_tier_model_ids: list[str] = Field(default_factory=list)
+    # Ids billed to a subscription the account holds: ``free`` in ``usage_levels`` (never dimmed), no "Free" tag.
+    subscription_model_ids: list[str] = Field(default_factory=list)
+    featured_model_ids: list[str] = Field(default_factory=list)
+    paused_reason: str | None = None
+    # Past a full allowance, top-up credits pay (pay as you go): Keep going on credits on + a balance.
+    # False: the turn stops. None: unknown (older portal).
+    credits_pay: bool | None = None
+
+
 class EmptyResult(Result):
     pass
 
@@ -242,6 +281,7 @@ class EmptyPayload(Payload):
 
 __all__ = [
     "TERMINAL_SUBAGENT_STATUSES", "AccountOwner", "ConnectorOwner", "EmptyPayload", "EmptyResult", "McpServerStatus", "MessageReaction", "OkResult", "OpenModel", "PendingApproval",
+    "PlanGauge", "PlanUsage", "PlanUsageGauge",
     "ProfileParams", "ProjectRef", "SessionLiveInfo", "SessionOwner", "SessionParams", "StatusResult", "StoredSessionRow",
     "SubagentStatus", "TranscriptMessage", "Usage",
 ]
