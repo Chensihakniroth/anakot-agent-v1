@@ -551,13 +551,14 @@ def _redact_approval_command(cmd: "str | None") -> str:
 
     Tirith's *findings* are already redacted, but the gateway approval prompt is built from the raw command
     string, so a credential-shaped value Tirith flagged would otherwise be echoed verbatim to the chat
-    platform (#48456). Uses ``redact_sensitive_text(force=True)`` — the same Tirith-grade redactor — so the
-    prompt honors redaction even when ``security.redact_secrets`` is off. Module-level so the wiring is
-    unit-testable (the call site is a deeply nested gateway closure that cannot be driven directly).
+    platform (#48456). Uses ``redact_approval_display(force=True)`` so the prompt honors redaction
+    even when ``security.redact_secrets`` is off AND shows hidden/format characters instead of
+    letting a zero-width or bidi-override payload render as an innocent command. Module-level so the
+    wiring is unit-testable (the call site is a deeply nested gateway closure that cannot be driven directly).
     """
-    from agent.redact import redact_sensitive_text
+    from agent.redact import redact_approval_display
 
-    return redact_sensitive_text(str(cmd or ""), force=True)
+    return redact_approval_display(cmd, force=True)
 
 
 def _format_exec_approval_fallback(
