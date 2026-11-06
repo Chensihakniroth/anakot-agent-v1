@@ -1070,6 +1070,12 @@ _SCOPED_PROVIDER_REGISTRARS: Tuple[Tuple[str, str, str, str, str, str, Dict[str,
      "Register an :class:`agent.transcription_provider.TranscriptionProvider`; ``provider.name`` is "
      "matched by ``stt.provider`` unless it is a built-in name (rejected) or a ``stt.providers.<name>: "
      "type: command`` entry shares it (command-providers win).", {"normalize": "lower"}),
+    ("register_delegation_provider", "delegation_provider", "agent.delegation_registry",
+     "agent.delegation_provider:DelegationProvider", "delegation provider",
+     "Register an :class:`agent.delegation_provider.DelegationProvider`; ``provider.name`` is matched by "
+     "``delegation.backend``. It decides each ``delegate_task`` task's route (model/provider or an Anakot "
+     "profile) and may add per-task schema parameters; core keeps the subagent lifecycle.",
+     {"normalize": "lower"}),
 )
 
 _NAME_NORMALIZERS: Dict[Optional[str], Optional[Callable[[str], str]]] = {

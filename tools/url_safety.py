@@ -217,8 +217,59 @@ def _global_fake_ip_ranges() -> tuple:
     return _cached_fake_ip_ranges
 
 
+#: Leading/trailing whitespace urlsplit tolerates but another client may not; stripped before
+#: authority parsing so ``" http://x"`` and ``"http://x\t"`` cannot smuggle a different host.
+_URL_EDGE_WHITESPACE = " \t\n\r\x0b\x0c"
+
+
+def _url_hostname(url: str, *, percent_decode: bool = False) -> str:
+    """The host of *url* in the form a WHATWG client dials it: IDNA-encoded (so ``169.254.169.254。``
+    is ``169.254.169.254``), lowercased, trailing dot dropped, optionally percent-decoded first."""
+    host = urlsplit(url.strip(_URL_EDGE_WHITESPACE)).hostname or ""
+    if percent_decode:
+        host = unquote(host)
+    try:
+        host = host.encode("idna").decode("ascii")
+    except UnicodeError:
+        pass
+    return _normalize_hostname(host)
+
+
 def _normalize_hostname(host: Optional[str]) -> str:
     return (host or "").strip().lower().rstrip(".")
+
+
+def _authority_ambiguity(url: str, *, floor: bool = False) -> Optional[str]:
+    """Why another client could read a different host or port from an http(s) *url* than urlsplit
+    does, else None. ``\\`` and ``@`` after the authority (path, query, fragment) are accepted: every
+    parser has fixed the host by then, and WHATWG's ``\\`` -> ``/`` rewrite only changes the path.
+    ``floor`` keeps only what can move the host itself (controls, no ``//``, ``\\`` in the authority):
+    userinfo and an unparseable port (templated ``{port}``/``%d`` literals) leave the host as is, and
+    the floor checks a percent-encoded host after decoding it."""
+    url = url.strip(_URL_EDGE_WHITESPACE)
+    parts = urlsplit(url)
+    if parts.scheme.lower() not in _HTTP_SCHEMES:
+        return None
+    if any(ord(c) < 0x20 or ord(c) == 0x7F for c in url):
+        return "control character in URL"  # urlsplit silently drops tab/CR/LF anywhere
+    if not parts.netloc:
+        return "authority not introduced by //"
+    if "\\" in parts.netloc:
+        return "backslash in authority"
+    if floor:
+        return None
+    _, at, host = parts.netloc.rpartition("@")
+    if at:
+        return "userinfo in authority"
+    if "%" in host:
+        return "percent-encoding in host"
+    if any(c.isspace() for c in host):
+        return "whitespace in host"
+    try:
+        parts.port
+    except ValueError:
+        return "invalid port"
+    return None
 
 
 def _parse_ip(hostname: str) -> Optional[_IPAddress]:
@@ -269,8 +320,14 @@ def is_always_blocked_url(url: str) -> bool:
     hostnames/IPs, regardless of backend, routing, or ``allow_private_urls``. For callers that
     deliberately bypass the full check (e.g. hybrid cloud browser routing private URLs to a local
     sidecar) but must still enforce the floor. False for ordinary private/loopback URLs, DNS
-    failures and parse errors (the caller's ordinary fail-closed path handles those)."""
+    failures and parse errors (the caller's ordinary fail-closed path handles those); True for an
+    http(s) URL whose host another client could read differently, which may hide a metadata target.
+    A percent-encoded host is judged decoded, as WHATWG clients read it."""
     try:
+        reason = _authority_ambiguity(url, floor=True)
+        if reason is not None:
+            logger.warning("Blocked request — ambiguous URL authority (always-blocked floor): %s", reason)
+            return True
         hostname = _normalize_hostname(urlparse(url).hostname)
         if not hostname:
             return False
