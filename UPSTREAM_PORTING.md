@@ -8,6 +8,8 @@ This file tracks commits from [NousResearch/hermes-agent](https://github.com/Nou
 3. Add notes explaining what you did
 4. Commit this file so history persists
 
+> **Parity status (2026-11-06):** file-level parity with Hermes `main` (`ca436069`) is **complete** — every Hermes path now exists in Anakot under the rebrand (9,574 gaps → 0). The remaining work is *behavioural*: the 9,362 shared files that differ, and the 85 `PENDING` commit rows. `scripts/hermes_sync.py` performs the additive half; `UPSTREAM_PORTING.md` still tracks the semantic half.
+
 ---
 
 ## Refresh Command
@@ -649,6 +651,15 @@ for c in json.load(sys.stdin):
 - The window is dominated by Hermes Cloud surfaces Anakot does not carry: `desktop` 423, `webapp` 230, `pm` 52 — recorded as `N/A` rather than as missing features.
 - Of the 105 `feat` commits, 24 are recorded as `PENDING` candidates (prepared compaction, cron `grace_minutes` and cancel, `pre_llm_call` blocking, per-skill content lock, `/model reset`, vault backends, ElevenLabs voices, ConfigBackend, and smaller adapter/telemetry additions); the rest are Hermes-Cloud-only.
 - Ported two from this window: `3f5612cd` (approval display integrity) and `3166c4a4` (cron run time).
+
+### 2026-11-06 — File-level parity with Hermes main (`ca436069`)
+- Measured the real gap against a full Hermes `main` tree: **9,574 Hermes-only paths** and **9,362 differing shared paths**. The 9,574 were dominated by tests (3,474), the desktop app (2,205), contributors (950), the plugin catalog (905) and the docs site (321); the remaining ~1,500 were real source modules.
+- Built **`scripts/hermes_sync.py`** — the mechanical half of the fork's update workflow. It copies files from a Hermes tree with the rebrand applied, via an ordered longest-first mapping plus a `PROTECTED` list for infrastructure identifiers that must survive verbatim (the Nous-registered `hermes-cli` client id and the real `nousresearch.com` API hosts). `--only-new` makes it strictly additive, so no Anakot customization can be overwritten.
+- Ran it in waves: Python/TS source (`agent`, `tools`, `cron`, `acp_adapter`, `tui_gateway`, `gateway`, `plugins`, `anakot_cli`, `web`, `ui-tui`, `locales`, `skills`, `optional-skills`, `assets`, `nix`, `docker`) → 1,545 files; `apps/` → 2,365; content (`plugin-catalog`, `contributors`, `website`, `scripts`, `.github`, `evals`, `pm`) → 2,530; `tests/` + `tests-js/` → 4,748. **Gap: 9,574 → 0.**
+- Wiring fixes the newly present modules needed: `providers.base.ProviderProfile` gained `hidden`/`listed()` (pre-release profiles), `auth_handler`/`refresh_credential`/`classify_api_error`, and `agent.reasoning_effort` gained `TOKENHUB_EFFORTS`, `tokenhub_effort` and `generic_nested_reasoning`. All 51 bundled provider plugins now load cleanly (was 3 failing).
+- `.gitignore`: negated `apps/desktop/src/app/capabilities/connectors/data/` and the skills `examples/` dirs — the bare `data/` and `examples/` patterns were silently swallowing the synced files.
+- Branding: 44 user-facing files / 1,650 lines rebranded (`anakot` launcher, skin names, `cli-config.yaml.example`, `.env.example`, `Dockerfile`, docker init scripts, Nix modules, the kanban dashboard build, bundled docs, installer helpers). Upstream references deliberately kept: `UPSTREAM_PORTING.md`, the `hermes-port` skill, the registered client id, attribution/copyright notices. The `hermes` skin name is now an alias for `anakot` so existing configs resolve.
+- Commits: `9638bf5c` (tool + `468f14ac` port), `9afd51bf` (non-test sync), `977448cd` (test sync), `efd3caba` (branding).
 
 ### 2026-11-06 — Ported approval-card binding, UNVERIFIED stance, JSON recursion guard
 - **`5ab58da1` / `7ab170ea`** — Added `tools.approval.resolve_gateway_approval_card`: with the card's `request_id`, only that request can resolve, so a card whose request already settled (timeout, `/approve` elsewhere) resolves nothing instead of the next queued approval in the session. Threaded `request_id` through `ExecApprovalPrompt` → `gateway/run_turn_runner.py` → nine adapters (Telegram, Slack, Feishu, Matrix, Teams, Discord, WhatsApp Cloud, Relay, QQBot). QQBot's `approve:<session>:<decision>` button data gained an optional trailing request id; cards without one keep the FIFO fallback. Regression coverage pins the settled-card and matching-card cases plus the QQBot wire format.
