@@ -685,7 +685,12 @@ class TestApprovalButtonData:
     def test_parse_allow_once(self):
         from gateway.platforms.qqbot.keyboards import parse_approval_button_data
         result = parse_approval_button_data("approve:agent:main:qqbot:c2c:UID:allow-once")
-        assert result == ("agent:main:qqbot:c2c:UID", "allow-once")
+        assert result == ("agent:main:qqbot:c2c:UID", "allow-once", None)
+
+    def test_parse_carries_the_request_id_when_present(self):
+        from gateway.platforms.qqbot.keyboards import parse_approval_button_data
+        result = parse_approval_button_data("approve:agent:main:qqbot:c2c:UID:allow-once:req-123")
+        assert result == ("agent:main:qqbot:c2c:UID", "allow-once", "req-123")
 
 
     def test_parse_empty_returns_none(self):
@@ -714,6 +719,14 @@ class TestBuildApprovalKeyboard:
         assert datas[0] == "approve:agent:main:qqbot:c2c:UID:allow-once"
         assert datas[1] == "approve:agent:main:qqbot:c2c:UID:allow-always"
         assert datas[2] == "approve:agent:main:qqbot:c2c:UID:deny"
+
+    def test_button_data_embeds_request_id(self):
+        from gateway.platforms.qqbot.keyboards import build_approval_keyboard
+        kb = build_approval_keyboard("session-1", request_id="req-123")
+        datas = [b.action.data for b in kb.content.rows[0].buttons]
+        assert datas[0] == "approve:session-1:allow-once:req-123"
+        assert datas[1] == "approve:session-1:allow-always:req-123"
+        assert datas[2] == "approve:session-1:deny:req-123"
 
 
 class TestBuildUpdatePromptKeyboard:
