@@ -132,15 +132,28 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
     setLoadError(null)
 
     try {
+      // Capture the real RPC error instead of swallowing it: a generic
+      // "Could not load connectors." tells the user nothing when the backend
+      // says NEEDS_NOUS_AUTH / CONNECTORS_UNAVAILABLE / timeout / etc.
+      let firstError: unknown = null
+      const track = <T,>(promise: Promise<T>) => promise.catch((error: unknown) => {
+        if (firstError === null) {
+          firstError = error
+        }
+        return null as T | null
+      })
       const [catalog, list, accounts, policy] = await Promise.all([
-        request<ConnectorsCatalogResult>('connectors.catalog').catch(() => null),
-        request<ConnectorsListResult>('connectors.list', { owner: ACCOUNT_OWNER }).catch(() => null),
-        request<ConnectorAccountsResult>('connectors.accounts').catch(() => null),
-        request<ConnectorPolicyGetResult>('connectors.policy.get').catch(() => null)
+        track(request<ConnectorsCatalogResult>('connectors.catalog')),
+        track(request<ConnectorsListResult>('connectors.list', { owner: ACCOUNT_OWNER })),
+        track(request<ConnectorAccountsResult>('connectors.accounts')),
+        track(request<ConnectorPolicyGetResult>('connectors.policy.get'))
       ])
 
       if (!catalog || !list) {
-        throw new Error(copy.loadFailed)
+        if (firstError !== null) {
+          console.error('[connectors] initial load failed', firstError)
+        }
+        throw firstError instanceof Error ? firstError : new Error(copy.loadFailed)
       }
 
       if (generation !== loadGeneration.current) {

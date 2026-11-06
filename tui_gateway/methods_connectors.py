@@ -175,10 +175,15 @@ def _connector_rows(rows):
     from tools.connectors.gateway.wire import ConnectorListItem
     from tui_gateway.connector_payload import connector_ui_payload
 
-    return connector_ui_payload([
-        ConnectorListItem.model_validate(row).model_dump(mode="json", by_alias=False)
-        for row in rows
-    ])
+    result = []
+    for row in rows:
+        dumped = ConnectorListItem.model_validate(row).model_dump(mode="json", by_alias=False)
+        # Contract (ConnectorsListResult) names this `gateway_disabled_tools`;
+        # the wire model calls it `disabled_tools`. Rename so validation passes
+        # and the frontend's `gateway_disabled_tools` read actually sees it.
+        dumped["gateway_disabled_tools"] = dumped.pop("disabled_tools", [])
+        result.append(dumped)
+    return connector_ui_payload(result)
 
 
 def _account_connector_list(rid):

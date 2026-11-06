@@ -101,7 +101,7 @@ describe('ConnectorsTab', () => {
 
     render(<ConnectorsTab profile="workbot" query="" />)
 
-    await waitFor(() => expect(screen.getByText('Could not load connectors.')).toBeTruthy())
+    await waitFor(() => expect(screen.getByText('backend unavailable')).toBeTruthy())
     expect(screen.getByRole('button', { name: 'Retry' })).toBeTruthy()
   })
 })
