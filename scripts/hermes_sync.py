@@ -98,9 +98,9 @@ def hermes_source(rel: str) -> list[str]:
     base = os.path.basename(rel)
     if base.startswith("anakot_") and base.endswith(".py"):
         candidates.append(rel[: -len(base)] + "hermes_" + base[len("anakot_"):])
-    # setup-anakot.ps1 <- setup-hermes.ps1
-    if base.startswith("anakot-"):
-        candidates.append(rel[: -len(base)] + "hermes-" + base[len("anakot-"):])
+    # setup-anakot.ps1 <- setup-hermes.ps1 (and any other hyphenated brand spelling)
+    if "-anakot" in base:
+        candidates.append(rel[: -len(base)] + base.replace("-anakot", "-hermes"))
     return candidates
 
 
