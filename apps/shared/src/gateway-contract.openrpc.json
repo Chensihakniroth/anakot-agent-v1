@@ -817,6 +817,168 @@
       }
     },
     {
+      "name": "display.install",
+      "summary": "Run the distro package install on the gateway host; progress streams as display.install.log/.done.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayInstallResult"
+        }
+      }
+    },
+    {
+      "name": "display.lease.acquire",
+      "summary": "Take over: the human named by a viewer id this connection minted controls the screen.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayLeaseAcquireParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayLeaseResult"
+        }
+      }
+    },
+    {
+      "name": "display.lease.release",
+      "summary": "Hand back. Without a viewer id the release is refused while a human holds unless force.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayLeaseReleaseParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayLeaseResult"
+        }
+      }
+    },
+    {
+      "name": "display.observe",
+      "summary": "Mint a single-use ticket for /api/display/ws and the server-minted viewer id for this connection.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayObserveParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayObserveResult"
+        }
+      }
+    },
+    {
+      "name": "display.start",
+      "summary": "Start this profile's Xvnc + Xfce (idempotent); blocks until the display is published.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayStatus"
+        }
+      }
+    },
+    {
+      "name": "display.status",
+      "summary": "Runtime + lease snapshot for this profile's screen.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayStatus"
+        }
+      }
+    },
+    {
+      "name": "display.stop",
+      "summary": "Stop the screen. Refused (5300, code viewer_mismatch) while a human holds unless force.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayStopParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayStopResult"
+        }
+      }
+    },
+    {
+      "name": "display.switchSandboxImage",
+      "summary": "Decide the pending default sandbox image switch for this profile; refused when none is pending.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/DisplaySwitchSandboxImageParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplaySwitchSandboxImageResult"
+        }
+      }
+    },
+    {
+      "name": "display.thumbnail",
+      "summary": "One JPEG grab of the bot's screen; read-only, never changes the lease.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/DisplayThumbnailResult"
+        }
+      }
+    },
+    {
       "name": "file.attach",
       "summary": "Stage a non-image file into the session workspace and hand back its @file: ref.",
       "params": [
@@ -1339,6 +1501,42 @@
       }
     },
     {
+      "name": "i18n.catalog",
+      "summary": "Pack + overlay messages for one language and surface; the renderer merges them over its bundled catalog.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/I18nCatalogParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/I18nCatalogResult"
+        }
+      }
+    },
+    {
+      "name": "i18n.languages",
+      "summary": "Every language some layer supplies (bundled \u222a user overlay \u222a plugin packs), en first.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/ProfileParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/I18nLanguagesResult"
+        }
+      }
+    },
+    {
       "name": "image.attach",
       "summary": "Queue a gateway-visible image file for the next turn.",
       "params": [
@@ -1533,6 +1731,24 @@
         "name": "result",
         "schema": {
           "$ref": "#/components/schemas/LlmOneshotResult"
+        }
+      }
+    },
+    {
+      "name": "machine.facts",
+      "summary": "Facts about the machine running this backend and its OS account, for the desktop first run.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/Params"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/MachineFactsResult"
         }
       }
     },
@@ -1803,6 +2019,78 @@
         "name": "result",
         "schema": {
           "$ref": "#/components/schemas/ModelSaveKeyResult"
+        }
+      }
+    },
+    {
+      "name": "onboarding.set_run",
+      "summary": "Write onboarding.run in the root profile's config.yaml; answers the new state.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/OnboardingSetRunParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/OnboardingRunStateResult"
+        }
+      }
+    },
+    {
+      "name": "onboarding.skip",
+      "summary": "Skip setup: end the session's onboarding run and close the card that waits.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/OnboardingSkipParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/OnboardingSkipResult"
+        }
+      }
+    },
+    {
+      "name": "onboarding.start",
+      "summary": "Open the onboarding chat in the default profile: create it, write its run record and play the opening.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/OnboardingStartParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/OnboardingStartResult"
+        }
+      }
+    },
+    {
+      "name": "onboarding.state",
+      "summary": "Whether desktop first-run onboarding is due, and the chat in progress; reads the root profile's config.",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/OnboardingStateParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/OnboardingRunStateResult"
         }
       }
     },
@@ -8940,6 +9228,13 @@
             "default": false,
             "title": "Has Avatar",
             "type": "boolean"
+          },
+          "previous_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Previous Names",
+            "type": "array"
           }
         },
         "required": [
@@ -15836,6 +16131,1240 @@
         "title": "DispatchType",
         "type": "string"
       },
+      "DisplayImageSwitch": {
+        "additionalProperties": false,
+        "description": "A persisted Docker sandbox kept on the previous default image; the user decides the switch.",
+        "properties": {
+          "current_image": {
+            "title": "Current Image",
+            "type": "string"
+          },
+          "target_image": {
+            "title": "Target Image",
+            "type": "string"
+          },
+          "containers": {
+            "title": "Containers",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "current_image",
+          "target_image",
+          "containers"
+        ],
+        "title": "DisplayImageSwitch",
+        "type": "object"
+      },
+      "DisplayInstallDonePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "code": {
+            "title": "Code",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/DisplayStatus"
+          }
+        },
+        "required": [
+          "profile_key",
+          "code",
+          "status"
+        ],
+        "title": "DisplayInstallDonePayload",
+        "type": "object"
+      },
+      "DisplayInstallLogPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "line": {
+            "title": "Line",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile_key",
+          "line"
+        ],
+        "title": "DisplayInstallLogPayload",
+        "type": "object"
+      },
+      "DisplayInstallResult": {
+        "additionalProperties": false,
+        "properties": {
+          "started": {
+            "title": "Started",
+            "type": "boolean"
+          },
+          "command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Command"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "started",
+          "profile_key"
+        ],
+        "title": "DisplayInstallResult",
+        "type": "object"
+      },
+      "DisplayInstallSudoParams": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "profile_key"
+        ],
+        "title": "DisplayInstallSudoParams",
+        "type": "object"
+      },
+      "DisplayLease": {
+        "additionalProperties": false,
+        "description": "``tools/bot_desktop/lease.py::Lease`` as clients may see it: the holder's viewer id is a\ncapability and never leaves the gateway; ``viewer_hash`` lets the holder recognise itself.",
+        "properties": {
+          "holder": {
+            "$ref": "#/components/schemas/LeaseHolder"
+          },
+          "viewer_id": {
+            "default": null,
+            "title": "Viewer Id",
+            "type": "null"
+          },
+          "viewer_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Viewer Hash"
+          },
+          "since": {
+            "title": "Since",
+            "type": "number"
+          },
+          "epoch": {
+            "title": "Epoch",
+            "type": "integer"
+          },
+          "reason": {
+            "default": "",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "holder",
+          "since",
+          "epoch"
+        ],
+        "title": "DisplayLease",
+        "type": "object"
+      },
+      "DisplayLeaseAcquireParams": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          },
+          "viewer_id": {
+            "title": "Viewer Id",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "viewer_id"
+        ],
+        "title": "DisplayLeaseAcquireParams",
+        "type": "object"
+      },
+      "DisplayLeasePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          }
+        },
+        "required": [
+          "profile_key",
+          "lease"
+        ],
+        "title": "DisplayLeasePayload",
+        "type": "object"
+      },
+      "DisplayLeaseReleaseParams": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          },
+          "viewer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Viewer Id"
+          },
+          "force": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Force"
+          }
+        },
+        "title": "DisplayLeaseReleaseParams",
+        "type": "object"
+      },
+      "DisplayLeaseResult": {
+        "additionalProperties": false,
+        "properties": {
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          }
+        },
+        "required": [
+          "lease"
+        ],
+        "title": "DisplayLeaseResult",
+        "type": "object"
+      },
+      "DisplayObserveParams": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          },
+          "viewer_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Viewer Id"
+          }
+        },
+        "title": "DisplayObserveParams",
+        "type": "object"
+      },
+      "DisplayObserveResult": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pid"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display"
+          },
+          "socket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Socket"
+          },
+          "geometry": {
+            "title": "Geometry",
+            "type": "string"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Install Command"
+          },
+          "browser": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Browser"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocker"
+          },
+          "memory_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Available Mb"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Limit Mb"
+          },
+          "placement": {
+            "default": "gateway",
+            "title": "Placement",
+            "type": "string"
+          },
+          "image_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisplayImageSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "ticket": {
+            "title": "Ticket",
+            "type": "string"
+          },
+          "path": {
+            "title": "Path",
+            "type": "string"
+          },
+          "viewer_id": {
+            "title": "Viewer Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "supported",
+          "installed",
+          "missing",
+          "running",
+          "geometry",
+          "lease",
+          "profile_key",
+          "ticket",
+          "path",
+          "viewer_id"
+        ],
+        "title": "DisplayObserveResult",
+        "type": "object"
+      },
+      "DisplayStatus": {
+        "additionalProperties": false,
+        "description": "``tools/bot_desktop/runtime.py::DesktopStatus`` plus the lease and the profile it speaks for.",
+        "properties": {
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pid"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display"
+          },
+          "socket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Socket"
+          },
+          "geometry": {
+            "title": "Geometry",
+            "type": "string"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Install Command"
+          },
+          "browser": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Browser"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocker"
+          },
+          "memory_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Available Mb"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Limit Mb"
+          },
+          "placement": {
+            "default": "gateway",
+            "title": "Placement",
+            "type": "string"
+          },
+          "image_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisplayImageSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "supported",
+          "installed",
+          "missing",
+          "running",
+          "geometry",
+          "lease",
+          "profile_key"
+        ],
+        "title": "DisplayStatus",
+        "type": "object"
+      },
+      "DisplayStatusPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pid"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display"
+          },
+          "socket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Socket"
+          },
+          "geometry": {
+            "title": "Geometry",
+            "type": "string"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Install Command"
+          },
+          "browser": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Browser"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocker"
+          },
+          "memory_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Available Mb"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Limit Mb"
+          },
+          "placement": {
+            "default": "gateway",
+            "title": "Placement",
+            "type": "string"
+          },
+          "image_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisplayImageSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "supported",
+          "installed",
+          "missing",
+          "running",
+          "geometry",
+          "lease",
+          "profile_key"
+        ],
+        "title": "DisplayStatusPayload",
+        "type": "object"
+      },
+      "DisplayStopParams": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          },
+          "force": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Force"
+          }
+        },
+        "title": "DisplayStopParams",
+        "type": "object"
+      },
+      "DisplayStopResult": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pid"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display"
+          },
+          "socket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Socket"
+          },
+          "geometry": {
+            "title": "Geometry",
+            "type": "string"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Install Command"
+          },
+          "browser": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Browser"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocker"
+          },
+          "memory_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Available Mb"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Limit Mb"
+          },
+          "placement": {
+            "default": "gateway",
+            "title": "Placement",
+            "type": "string"
+          },
+          "image_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisplayImageSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "stopped": {
+            "title": "Stopped",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "profile",
+          "supported",
+          "installed",
+          "missing",
+          "running",
+          "geometry",
+          "lease",
+          "profile_key",
+          "stopped"
+        ],
+        "title": "DisplayStopResult",
+        "type": "object"
+      },
+      "DisplaySwitchSandboxImageParams": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          },
+          "approve": {
+            "default": true,
+            "title": "Approve",
+            "type": "boolean"
+          }
+        },
+        "title": "DisplaySwitchSandboxImageParams",
+        "type": "object"
+      },
+      "DisplaySwitchSandboxImageResult": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "title": "Profile",
+            "type": "string"
+          },
+          "supported": {
+            "title": "Supported",
+            "type": "boolean"
+          },
+          "installed": {
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "missing": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Missing",
+            "type": "array"
+          },
+          "running": {
+            "title": "Running",
+            "type": "boolean"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Pid"
+          },
+          "display": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Display"
+          },
+          "socket": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Socket"
+          },
+          "geometry": {
+            "title": "Geometry",
+            "type": "string"
+          },
+          "install_command": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Install Command"
+          },
+          "browser": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Browser"
+          },
+          "blocker": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Blocker"
+          },
+          "memory_available_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Available Mb"
+          },
+          "memory_limit_mb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Memory Limit Mb"
+          },
+          "placement": {
+            "default": "gateway",
+            "title": "Placement",
+            "type": "string"
+          },
+          "image_switch": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DisplayImageSwitch"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null
+          },
+          "lease": {
+            "$ref": "#/components/schemas/DisplayLease"
+          },
+          "profile_key": {
+            "title": "Profile Key",
+            "type": "string"
+          },
+          "docker_image": {
+            "title": "Docker Image",
+            "type": "string"
+          }
+        },
+        "required": [
+          "profile",
+          "supported",
+          "installed",
+          "missing",
+          "running",
+          "geometry",
+          "lease",
+          "profile_key",
+          "docker_image"
+        ],
+        "title": "DisplaySwitchSandboxImageResult",
+        "type": "object"
+      },
+      "DisplayThumbnailResult": {
+        "additionalProperties": false,
+        "description": "``data_url`` is null while the screen is stopped or while a human holds the lease\n(``suppressed``): the frame may show what they are typing.",
+        "properties": {
+          "data_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Data Url"
+          },
+          "suppressed": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Suppressed"
+          }
+        },
+        "title": "DisplayThumbnailResult",
+        "type": "object"
+      },
       "EmptyRequestParams": {
         "additionalProperties": false,
         "properties": {
@@ -18126,6 +19655,80 @@
         "title": "HeartbeatSnapshot",
         "type": "object"
       },
+      "I18nCatalogParams": {
+        "additionalProperties": false,
+        "properties": {
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          },
+          "lang": {
+            "title": "Lang",
+            "type": "string"
+          },
+          "surface": {
+            "$ref": "#/components/schemas/LocaleSurface",
+            "default": "core"
+          }
+        },
+        "required": [
+          "lang"
+        ],
+        "title": "I18nCatalogParams",
+        "type": "object"
+      },
+      "I18nCatalogResult": {
+        "additionalProperties": false,
+        "description": "``messages`` is ONLY the pack + user-overlay layer for that surface (flat dotted keys); the\nclient merges it over its bundled ``en``/``<lang>``. ``lang`` is the canonical id the request\nresolved to (``pt-BR`` \u2192 ``pt-br``; an unknown id resolves to ``en`` with an empty layer).",
+        "properties": {
+          "lang": {
+            "title": "Lang",
+            "type": "string"
+          },
+          "surface": {
+            "$ref": "#/components/schemas/LocaleSurface"
+          },
+          "messages": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Messages",
+            "type": "object"
+          }
+        },
+        "required": [
+          "lang",
+          "surface",
+          "messages"
+        ],
+        "title": "I18nCatalogResult",
+        "type": "object"
+      },
+      "I18nLanguagesResult": {
+        "additionalProperties": false,
+        "properties": {
+          "languages": {
+            "items": {
+              "$ref": "#/components/schemas/LanguageOption"
+            },
+            "title": "Languages",
+            "type": "array"
+          }
+        },
+        "required": [
+          "languages"
+        ],
+        "title": "I18nLanguagesResult",
+        "type": "object"
+      },
       "ImageAttachBytesParams": {
         "additionalProperties": false,
         "description": "``content_base64`` (or the ``data`` alias) carries the bytes; ``filename`` / ``ext`` only hint\nthe extension \u2014 magic bytes decide.",
@@ -18796,6 +20399,44 @@
         "title": "KanbanRunResult",
         "type": "object"
       },
+      "LanguageOption": {
+        "additionalProperties": false,
+        "description": "``agent.i18n_languages.language_options`` row. ``source`` is ``bundled``, ``overlay`` or\n``plugin:<name>`` \u2014 the highest layer that supplies the language. ``surfaces`` are the surfaces some\nlayer has strings for; a renderer leaves out a language it does not bundle and that lacks its surface,\nsince picking it would only show English.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "endonym": {
+            "title": "Endonym",
+            "type": "string"
+          },
+          "rtl": {
+            "title": "Rtl",
+            "type": "boolean"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "surfaces": {
+            "items": {
+              "$ref": "#/components/schemas/LocaleSurface"
+            },
+            "title": "Surfaces",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "endonym",
+          "rtl",
+          "source",
+          "surfaces"
+        ],
+        "title": "LanguageOption",
+        "type": "object"
+      },
       "LayoutApplyPayload": {
         "additionalProperties": true,
         "description": "``tools/apply_layout_tool.py``.",
@@ -19292,6 +20933,14 @@
         "title": "LearningNodeRow",
         "type": "object"
       },
+      "LeaseHolder": {
+        "enum": [
+          "agent",
+          "human"
+        ],
+        "title": "LeaseHolder",
+        "type": "string"
+      },
       "LegacyPluginRow": {
         "additionalProperties": false,
         "properties": {
@@ -19459,6 +21108,15 @@
         "title": "LlmOneshotResult",
         "type": "object"
       },
+      "LocaleSurface": {
+        "enum": [
+          "core",
+          "tui",
+          "desktop"
+        ],
+        "title": "LocaleSurface",
+        "type": "string"
+      },
       "LoopSnapshot": {
         "additionalProperties": false,
         "description": "``_safe_loop_snapshot`` \u2014 persisted LoopState fields, never its route.",
@@ -19561,6 +21219,175 @@
           "deferred_by_goal"
         ],
         "title": "LoopSnapshot",
+        "type": "object"
+      },
+      "MachineFactsResult": {
+        "additionalProperties": false,
+        "description": "``machine_kind`` is ``Spark``, ``Mac``, ``PC`` or ``computer``. ``nvidia_platform`` is\n``products.nvidia_platform()``: ``rtx_spark``, ``dgx_spark``, ``discrete`` or null. ``locale`` is the OS\naccount's first UI language, null when the OS has none.",
+        "properties": {
+          "machine": {
+            "$ref": "#/components/schemas/MachineInfo"
+          },
+          "machine_kind": {
+            "title": "Machine Kind",
+            "type": "string"
+          },
+          "has_nvidia_gpu": {
+            "title": "Has Nvidia Gpu",
+            "type": "boolean"
+          },
+          "nvidia_platform": {
+            "anyOf": [
+              {
+                "enum": [
+                  "rtx_spark",
+                  "dgx_spark",
+                  "discrete"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Nvidia Platform"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Locale"
+          }
+        },
+        "required": [
+          "machine",
+          "machine_kind",
+          "has_nvidia_gpu"
+        ],
+        "title": "MachineFactsResult",
+        "type": "object"
+      },
+      "MachineInfo": {
+        "additionalProperties": false,
+        "description": "Measured hardware; a key that was not measured is absent.",
+        "properties": {
+          "os_family": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Os Family"
+          },
+          "os_release": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Os Release"
+          },
+          "native_arch": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Native Arch"
+          },
+          "cpu_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Cpu Model"
+          },
+          "ram_gb": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Ram Gb"
+          },
+          "gpu_class": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Gpu Class"
+          },
+          "vendor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Vendor"
+          },
+          "wsl": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Wsl"
+          },
+          "container": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Container"
+          }
+        },
+        "title": "MachineInfo",
         "type": "object"
       },
       "McpCatalogEntry": {
@@ -21746,6 +23573,234 @@
         "title": "OnboardingAnswers",
         "type": "object"
       },
+      "OnboardingEndedPayload": {
+        "additionalProperties": false,
+        "description": "``agent/onboarding_record.py::_transition``: the run ``run_id`` stopped being in progress.\n``stored_session_id`` is its chat at the compression tip. ``done``: the first-task card was answered;\n``skipped``: Skip setup; ``replaced``: a rerun opened a new run; ``deleted``: its chat was deleted.",
+        "properties": {
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          },
+          "stored_session_id": {
+            "title": "Stored Session Id",
+            "type": "string"
+          },
+          "outcome": {
+            "$ref": "#/components/schemas/OnboardingOutcome"
+          }
+        },
+        "required": [
+          "run_id",
+          "stored_session_id",
+          "outcome"
+        ],
+        "title": "OnboardingEndedPayload",
+        "type": "object"
+      },
+      "OnboardingFactsSource": {
+        "enum": [
+          "local",
+          "remote"
+        ],
+        "title": "OnboardingFactsSource",
+        "type": "string"
+      },
+      "OnboardingOutcome": {
+        "enum": [
+          "done",
+          "skipped",
+          "replaced",
+          "deleted"
+        ],
+        "title": "OnboardingOutcome",
+        "type": "string"
+      },
+      "OnboardingRunStateResult": {
+        "additionalProperties": false,
+        "description": "``run``: onboarding opens on this launch (root config ``onboarding.run``, else a machine that\nnever used Anakot). ``eligible``: this is the desktop's local backend and the welcome trial or a\nconfigured provider can carry the first chat.\n``session_id``: the stored id of the onboarding chat still in progress, so a relaunch reopens it;\n``run_id``: that run's id, which ``onboarding.ended`` names.",
+        "properties": {
+          "run": {
+            "title": "Run",
+            "type": "boolean"
+          },
+          "eligible": {
+            "title": "Eligible",
+            "type": "boolean"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Session Id"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Run Id"
+          }
+        },
+        "required": [
+          "run",
+          "eligible"
+        ],
+        "title": "OnboardingRunStateResult",
+        "type": "object"
+      },
+      "OnboardingSetRunParams": {
+        "additionalProperties": false,
+        "description": "``mark_profile_offered`` also latches ``onboarding.seen.profile_build_offered`` in the root config,\nso the first chat after onboarding gets the plain intro instead of the profile offer.",
+        "properties": {
+          "run": {
+            "title": "Run",
+            "type": "boolean"
+          },
+          "mark_profile_offered": {
+            "default": false,
+            "title": "Mark Profile Offered",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "run"
+        ],
+        "title": "OnboardingSetRunParams",
+        "type": "object"
+      },
+      "OnboardingSkipParams": {
+        "additionalProperties": false,
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "profile": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Profile"
+          }
+        },
+        "required": [
+          "session_id"
+        ],
+        "title": "OnboardingSkipParams",
+        "type": "object"
+      },
+      "OnboardingSkipResult": {
+        "additionalProperties": false,
+        "properties": {
+          "skipped": {
+            "title": "Skipped",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "skipped"
+        ],
+        "title": "OnboardingSkipResult",
+        "type": "object"
+      },
+      "OnboardingStartParams": {
+        "additionalProperties": false,
+        "description": "``rerun``: start a new onboarding chat even when one is in progress (Settings, Run onboarding\nagain; it never claims the welcome trial). ``fresh_launch``: the app's once-per-launch start; a run\nthe app was closed on does not count, so its chat is deleted and the run starts over.\n``facts_source``: whether the backend runs on the user's own computer. ``locale``: the desktop's UI\nlanguage, preferred over the backend OS locale. ``assume_fresh``: as on ``onboarding.state``. A new\nrun on a first install claims the welcome trial before its chat exists; a failed claim is error\n5079 and leaves no guest and no chat. A claim that is blocked (another install took the trial) with\nno trial or provider to run on is error 5080 and opens no chat.",
+        "properties": {
+          "rerun": {
+            "default": false,
+            "title": "Rerun",
+            "type": "boolean"
+          },
+          "fresh_launch": {
+            "default": false,
+            "title": "Fresh Launch",
+            "type": "boolean"
+          },
+          "assume_fresh": {
+            "default": false,
+            "title": "Assume Fresh",
+            "type": "boolean"
+          },
+          "facts_source": {
+            "$ref": "#/components/schemas/OnboardingFactsSource",
+            "default": "local"
+          },
+          "locale": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Locale"
+          }
+        },
+        "title": "OnboardingStartParams",
+        "type": "object"
+      },
+      "OnboardingStartResult": {
+        "additionalProperties": false,
+        "description": "``session_id`` is the runtime id the client attaches to; ``resumed`` is true when an onboarding\nchat already in progress was reopened instead of a new one started. ``run_id`` names the run in\n``onboarding.ended``.",
+        "properties": {
+          "session_id": {
+            "title": "Session Id",
+            "type": "string"
+          },
+          "stored_session_id": {
+            "title": "Stored Session Id",
+            "type": "string"
+          },
+          "resumed": {
+            "title": "Resumed",
+            "type": "boolean"
+          },
+          "run_id": {
+            "title": "Run Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "session_id",
+          "stored_session_id",
+          "resumed",
+          "run_id"
+        ],
+        "title": "OnboardingStartResult",
+        "type": "object"
+      },
+      "OnboardingStateParams": {
+        "additionalProperties": false,
+        "description": "``assume_fresh``: the unpackaged desktop's ``--fresh-install`` launch; the backend treats this\nmachine as one that never used Anakot. Packaged builds never send it.",
+        "properties": {
+          "assume_fresh": {
+            "default": false,
+            "title": "Assume Fresh",
+            "type": "boolean"
+          }
+        },
+        "title": "OnboardingStateParams",
+        "type": "object"
+      },
       "OpenRequestEntry": {
         "additionalProperties": false,
         "description": "One unanswered server\u2192client request (``server_requests.Request.snapshot``); the reconnecting\nclient re-delivers it to its request handlers.",
@@ -21803,6 +23858,13 @@
           "pane"
         ],
         "title": "PaneRevealPayload",
+        "type": "object"
+      },
+      "Params": {
+        "additionalProperties": false,
+        "description": "Client\u2192server method params / server\u2192client request params. Unknown keys are rejected.",
+        "properties": {},
+        "title": "Params",
         "type": "object"
       },
       "PasteCollapseParams": {
@@ -25193,6 +27255,13 @@
             "default": false,
             "title": "Has Avatar",
             "type": "boolean"
+          },
+          "previous_names": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Previous Names",
+            "type": "array"
           }
         },
         "required": [
@@ -41846,6 +43915,24 @@
       }
     },
     {
+      "name": "display.install.sudo",
+      "summary": "Masked sudo password for the Bot Screen package install; app-level (empty session).",
+      "params": [
+        {
+          "name": "params",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayInstallSudoParams"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "$ref": "#/components/schemas/ValueResult"
+        }
+      }
+    },
+    {
       "name": "preview.act",
       "summary": "Click / type / scroll / annotate inside the in-app browser preview.",
       "params": [
@@ -42160,6 +44247,54 @@
       ]
     },
     {
+      "name": "display.install.done",
+      "summary": "The install ended (0 ok, -1 cancelled, -2 no sudo: the command to run by hand was streamed).",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayInstallDonePayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "display.install.log",
+      "summary": "One line of package-manager output.",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayInstallLogPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "display.lease",
+      "summary": "The takeover lease changed hands; every client repaints.",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayLeasePayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "display.status",
+      "summary": "This profile's screen started or stopped (also for transitions made outside anakot serve).",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/DisplayStatusPayload"
+          }
+        }
+      ]
+    },
+    {
       "name": "error",
       "summary": "A session-level failure outside a turn (agent init, model switch, compression, resume).",
       "params": [
@@ -42336,6 +44471,18 @@
           "name": "payload",
           "schema": {
             "$ref": "#/components/schemas/NotificationShowPayload"
+          }
+        }
+      ]
+    },
+    {
+      "name": "onboarding.ended",
+      "summary": "A first-run onboarding run ended; sent to every connected window.",
+      "params": [
+        {
+          "name": "payload",
+          "schema": {
+            "$ref": "#/components/schemas/OnboardingEndedPayload"
           }
         }
       ]

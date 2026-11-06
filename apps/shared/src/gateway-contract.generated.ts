@@ -1109,6 +1109,143 @@ export interface ConnectorPolicySetResult {
   revision: string
   effective: ConnectorPolicyEffectiveUnrestricted | ConnectorPolicyEffectiveDenyAll | ConnectorPolicyEffectiveAllow | ConnectorPolicyEffectiveDeny
 }
+/** ``tools/bot_desktop/runtime.py::DesktopStatus`` plus the lease and the profile it speaks for. */
+export interface DisplayStatus {
+  profile: string
+  supported: boolean
+  installed: boolean
+  missing: string[]
+  running: boolean
+  pid?: number | null
+  display?: string | null
+  socket?: string | null
+  geometry: string
+  install_command?: string | null
+  browser?: string | null
+  blocker?: string | null
+  memory_available_mb?: number | null
+  memory_limit_mb?: number | null
+  placement?: string
+  image_switch?: DisplayImageSwitch | null
+  lease: DisplayLease
+  profile_key: string
+}
+/** A persisted Docker sandbox kept on the previous default image; the user decides the switch. */
+export interface DisplayImageSwitch {
+  current_image: string
+  target_image: string
+  containers: number
+}
+/** ``tools/bot_desktop/lease.py::Lease`` as clients may see it: the holder's viewer id is a capability and never leaves the gateway; ``viewer_hash`` lets the holder recognise itself. */
+export interface DisplayLease {
+  holder: LeaseHolder
+  viewer_id?: null
+  viewer_hash?: string | null
+  since: number
+  epoch: number
+  reason?: string
+}
+export type LeaseHolder = 'agent' | 'human'
+/** ``data_url`` is null while the screen is stopped or while a human holds the lease (``suppressed``): the frame may show what they are typing. */
+export interface DisplayThumbnailResult {
+  data_url?: string | null
+  suppressed?: string | null
+}
+export interface DisplayStopParams {
+  profile?: string | null
+  force?: boolean | null
+}
+export interface DisplayStopResult {
+  profile: string
+  supported: boolean
+  installed: boolean
+  missing: string[]
+  running: boolean
+  pid?: number | null
+  display?: string | null
+  socket?: string | null
+  geometry: string
+  install_command?: string | null
+  browser?: string | null
+  blocker?: string | null
+  memory_available_mb?: number | null
+  memory_limit_mb?: number | null
+  placement?: string
+  image_switch?: DisplayImageSwitch | null
+  lease: DisplayLease
+  profile_key: string
+  stopped: boolean
+}
+export interface DisplayObserveParams {
+  profile?: string | null
+  viewer_id?: string | null
+}
+export interface DisplayObserveResult {
+  profile: string
+  supported: boolean
+  installed: boolean
+  missing: string[]
+  running: boolean
+  pid?: number | null
+  display?: string | null
+  socket?: string | null
+  geometry: string
+  install_command?: string | null
+  browser?: string | null
+  blocker?: string | null
+  memory_available_mb?: number | null
+  memory_limit_mb?: number | null
+  placement?: string
+  image_switch?: DisplayImageSwitch | null
+  lease: DisplayLease
+  profile_key: string
+  ticket: string
+  path: string
+  viewer_id: string
+}
+export interface DisplaySwitchSandboxImageParams {
+  profile?: string | null
+  approve?: boolean
+}
+export interface DisplaySwitchSandboxImageResult {
+  profile: string
+  supported: boolean
+  installed: boolean
+  missing: string[]
+  running: boolean
+  pid?: number | null
+  display?: string | null
+  socket?: string | null
+  geometry: string
+  install_command?: string | null
+  browser?: string | null
+  blocker?: string | null
+  memory_available_mb?: number | null
+  memory_limit_mb?: number | null
+  placement?: string
+  image_switch?: DisplayImageSwitch | null
+  lease: DisplayLease
+  profile_key: string
+  docker_image: string
+}
+export interface DisplayInstallResult {
+  started: boolean
+  command?: string | null
+  profile_key: string
+}
+export interface DisplayLeaseAcquireParams {
+  profile?: string | null
+  viewer_id: string
+  reason?: string | null
+}
+export interface DisplayLeaseResult {
+  lease: DisplayLease
+}
+export interface DisplayLeaseReleaseParams {
+  profile?: string | null
+  viewer_id?: string | null
+  force?: boolean | null
+}
 export interface GroupsCapabilitiesParams {
   profile?: string | null
 }
@@ -1540,6 +1677,29 @@ export interface BrowserControllerParams {
 export interface BrowserControllerDetachResult {
   detached?: boolean
 }
+export interface I18nLanguagesResult {
+  languages: LanguageOption[]
+}
+/** ``agent.i18n_languages.language_options`` row. ``source`` is ``bundled``, ``overlay`` or ``plugin:<name>`` — the highest layer that supplies the language. ``surfaces`` are the surfaces some layer has strings for; a renderer leaves out a language it does not bundle and that lacks its surface, since picking it would only show English. */
+export interface LanguageOption {
+  id: string
+  endonym: string
+  rtl: boolean
+  source: string
+  surfaces: LocaleSurface[]
+}
+export type LocaleSurface = 'core' | 'tui' | 'desktop'
+export interface I18nCatalogParams {
+  profile?: string | null
+  lang: string
+  surface?: LocaleSurface
+}
+/** ``messages`` is ONLY the pack + user-overlay layer for that surface (flat dotted keys); the client merges it over its bundled ``en``/``<lang>``. ``lang`` is the canonical id the request resolved to (``pt-BR`` → ``pt-br``; an unknown id resolves to ``en`` with an empty layer). */
+export interface I18nCatalogResult {
+  lang: string
+  surface: LocaleSurface
+  messages: Record<string, string>
+}
 export type PingParams = Record<string, never>
 export interface PingResult {
   pong: boolean
@@ -1552,6 +1712,28 @@ export interface ClientCapabilitiesParams {
 }
 export interface ClientCapabilitiesResult {
   server_requests: string[]
+}
+/** Client→server method params / server→client request params. Unknown keys are rejected. */
+export type Params = Record<string, never>
+/** ``machine_kind`` is ``Spark``, ``Mac``, ``PC`` or ``computer``. ``nvidia_platform`` is ``products.nvidia_platform()``: ``rtx_spark``, ``dgx_spark``, ``discrete`` or null. ``locale`` is the OS account's first UI language, null when the OS has none. */
+export interface MachineFactsResult {
+  machine: MachineInfo
+  machine_kind: string
+  has_nvidia_gpu: boolean
+  nvidia_platform?: 'rtx_spark' | 'dgx_spark' | 'discrete' | null
+  locale?: string | null
+}
+/** Measured hardware; a key that was not measured is absent. */
+export interface MachineInfo {
+  os_family?: string | null
+  os_release?: string | null
+  native_arch?: string | null
+  cpu_model?: string | null
+  ram_gb?: number | null
+  gpu_class?: string | null
+  vendor?: string | null
+  wsl?: boolean | null
+  container?: boolean | null
 }
 /** ``word`` is the token under the cursor (``@`` prefix = context reference); ``cwd`` / ``session_id`` pick the directory the listing resolves against. */
 export interface CompletePathParams {
@@ -1630,6 +1812,7 @@ export interface ProfileRow {
   ui_meta_revisions?: Record<string, number>
   ui_meta?: Record<string, unknown> | null
   has_avatar?: boolean
+  previous_names?: string[]
 }
 /** Newest human-facing session of a profile (``_latest_profile_session_rows``). */
 export interface ProfileSessionPreview {
@@ -1807,6 +1990,45 @@ export interface ProfilesRememberOnboardingResult {
   saved?: boolean
   profile?: string
   target?: string
+}
+/** ``assume_fresh``: the unpackaged desktop's ``--fresh-install`` launch; the backend treats this machine as one that never used Anakot. Packaged builds never send it. */
+export interface OnboardingStateParams {
+  assume_fresh?: boolean
+}
+/** ``run``: onboarding opens on this launch (root config ``onboarding.run``, else a machine that never used Anakot). ``eligible``: this is the desktop's local backend and the welcome trial or a configured provider can carry the first chat. ``session_id``: the stored id of the onboarding chat still in progress, so a relaunch reopens it; ``run_id``: that run's id, which ``onboarding.ended`` names. */
+export interface OnboardingRunStateResult {
+  run: boolean
+  eligible: boolean
+  session_id?: string | null
+  run_id?: string | null
+}
+/** ``mark_profile_offered`` also latches ``onboarding.seen.profile_build_offered`` in the root config, so the first chat after onboarding gets the plain intro instead of the profile offer. */
+export interface OnboardingSetRunParams {
+  run: boolean
+  mark_profile_offered?: boolean
+}
+/** ``rerun``: start a new onboarding chat even when one is in progress (Settings, Run onboarding again; it never claims the welcome trial). ``fresh_launch``: the app's once-per-launch start; a run the app was closed on does not count, so its chat is deleted and the run starts over. ``facts_source``: whether the backend runs on the user's own computer. ``locale``: the desktop's UI language, preferred over the backend OS locale. ``assume_fresh``: as on ``onboarding.state``. A new run on a first install claims the welcome trial before its chat exists; a failed claim is error 5079 and leaves no guest and no chat. A claim that is blocked (another install took the trial) with no trial or provider to run on is error 5080 and opens no chat. */
+export interface OnboardingStartParams {
+  rerun?: boolean
+  fresh_launch?: boolean
+  assume_fresh?: boolean
+  facts_source?: OnboardingFactsSource
+  locale?: string | null
+}
+export type OnboardingFactsSource = 'local' | 'remote'
+/** ``session_id`` is the runtime id the client attaches to; ``resumed`` is true when an onboarding chat already in progress was reopened instead of a new one started. ``run_id`` names the run in ``onboarding.ended``. */
+export interface OnboardingStartResult {
+  session_id: string
+  stored_session_id: string
+  resumed: boolean
+  run_id: string
+}
+export interface OnboardingSkipParams {
+  session_id: string
+  profile?: string | null
+}
+export interface OnboardingSkipResult {
+  skipped: boolean
 }
 export interface VaultListResult {
   items?: VaultItem[]
@@ -4609,6 +4831,7 @@ export interface CanonicalProfileRow {
   ui_meta_revisions?: Record<string, number>
   ui_meta?: Record<string, unknown> | null
   has_avatar?: boolean
+  previous_names?: string[]
 }
 export interface CanonicalAttachedImageResult {
   name?: string | null
@@ -4789,6 +5012,10 @@ export interface TourStep {
   side?: string | null
   [key: string]: unknown
 }
+export interface DisplayInstallSudoParams {
+  session_id: string
+  profile_key: string
+}
 /** ``methods_connectors._connection_update``: one target transition (``target``/``from``/``to``/ ``actor``) or the settlement (none of those), with the full snapshot. */
 export interface ConnectionUpdatePayload {
   op_id: string
@@ -4807,6 +5034,44 @@ export interface ConnectionUpdatePayload {
 }
 /** ``tools/connectors/contract.py::Actor``. */
 export type ConnectionActor = 'user' | 'backend_watcher' | 'clock'
+export interface RequestCancelPayload {
+  id: string
+  method: string
+  reason: string
+}
+export interface DisplayStatusPayload {
+  profile: string
+  supported: boolean
+  installed: boolean
+  missing: string[]
+  running: boolean
+  pid?: number | null
+  display?: string | null
+  socket?: string | null
+  geometry: string
+  install_command?: string | null
+  browser?: string | null
+  blocker?: string | null
+  memory_available_mb?: number | null
+  memory_limit_mb?: number | null
+  placement?: string
+  image_switch?: DisplayImageSwitch | null
+  lease: DisplayLease
+  profile_key: string
+}
+export interface DisplayLeasePayload {
+  profile_key: string
+  lease: DisplayLease
+}
+export interface DisplayInstallLogPayload {
+  profile_key: string
+  line: string
+}
+export interface DisplayInstallDonePayload {
+  profile_key: string
+  code: number
+  status: DisplayStatus
+}
 /** ``tui_gateway/entry.py`` (stdio) / ``tui_gateway/ws.py`` (WebSocket) first frame. */
 export interface GatewayReadyPayload {
   skin: SkinPayload
@@ -4814,6 +5079,13 @@ export interface GatewayReadyPayload {
   replay_epoch: string
   heartbeat?: boolean | null
 }
+/** ``agent/onboarding_record.py::_transition``: the run ``run_id`` stopped being in progress. ``stored_session_id`` is its chat at the compression tip. ``done``: the first-task card was answered; ``skipped``: Skip setup; ``replaced``: a rerun opened a new run; ``deleted``: its chat was deleted. */
+export interface OnboardingEndedPayload {
+  run_id: string
+  stored_session_id: string
+  outcome: OnboardingOutcome
+}
+export type OnboardingOutcome = 'done' | 'skipped' | 'replaced' | 'deleted'
 /** ``anakot_cli/free_tier_bootstrap.py::SetupRecord.as_payload``. */
 export interface SetupReadyPayload {
   provider_configured: boolean
@@ -5175,11 +5447,6 @@ export interface PetHatchProgressPayload {
 }
 /** ``change_watcher._CHANGE_WATCHES`` payload fn — ``{}`` for every watch except pet.changed. */
 export type ChangeSignalPayload = Record<string, unknown>
-export interface RequestCancelPayload {
-  id: string
-  method: string
-  reason: string
-}
 
 // ── Client→server methods ──
 export interface RpcMethods {
@@ -5273,6 +5540,24 @@ export interface RpcMethods {
   'delegation.status': { params: ProfileParams; result: DelegationStatusResult }
   /** Upload a force-redacted debug bundle to Nous-internal diagnostics storage. */
   'diagnostics.share_nous': { params: DiagnosticsShareNousParams; result: DiagnosticsShareNousResult }
+  /** Run the distro package install on the gateway host; progress streams as display.install.log/.done. */
+  'display.install': { params: ProfileParams; result: DisplayInstallResult }
+  /** Take over: the human named by a viewer id this connection minted controls the screen. */
+  'display.lease.acquire': { params: DisplayLeaseAcquireParams; result: DisplayLeaseResult }
+  /** Hand back. Without a viewer id the release is refused while a human holds unless force. */
+  'display.lease.release': { params: DisplayLeaseReleaseParams; result: DisplayLeaseResult }
+  /** Mint a single-use ticket for /api/display/ws and the server-minted viewer id for this connection. */
+  'display.observe': { params: DisplayObserveParams; result: DisplayObserveResult }
+  /** Start this profile's Xvnc + Xfce (idempotent); blocks until the display is published. */
+  'display.start': { params: ProfileParams; result: DisplayStatus }
+  /** Runtime + lease snapshot for this profile's screen. */
+  'display.status': { params: ProfileParams; result: DisplayStatus }
+  /** Stop the screen. Refused (5300, code viewer_mismatch) while a human holds unless force. */
+  'display.stop': { params: DisplayStopParams; result: DisplayStopResult }
+  /** Decide the pending default sandbox image switch for this profile; refused when none is pending. */
+  'display.switchSandboxImage': { params: DisplaySwitchSandboxImageParams; result: DisplaySwitchSandboxImageResult }
+  /** One JPEG grab of the bot's screen; read-only, never changes the lease. */
+  'display.thumbnail': { params: ProfileParams; result: DisplayThumbnailResult }
   /** Stage a non-image file into the session workspace and hand back its @file: ref. */
   'file.attach': { params: FileAttachParams; result: FileAttachResult }
   /** Mark the one-time availability notice as shown on the free-tier identity. */
@@ -5331,6 +5616,10 @@ export interface RpcMethods {
   'handoff.request': { params: HandoffRequestParams; result: HandoffRequestResult }
   /** Poll the handoff row for this session. */
   'handoff.state': { params: SessionParams; result: HandoffStateResult }
+  /** Pack + overlay messages for one language and surface; the renderer merges them over its bundled catalog. */
+  'i18n.catalog': { params: I18nCatalogParams; result: I18nCatalogResult }
+  /** Every language some layer supplies (bundled ∪ user overlay ∪ plugin packs), en first. */
+  'i18n.languages': { params: ProfileParams; result: I18nLanguagesResult }
   /** Queue a gateway-visible image file for the next turn. */
   'image.attach': { params: ImageAttachParams; result: AttachedImageResult }
   /** Queue an image uploaded as base64 (remote client); reply mirrors image.attach. */
@@ -5353,6 +5642,8 @@ export interface RpcMethods {
   'learning.frames': { params: LearningFramesParams; result: LearningFramesResult }
   /** Stateless one-shot LLM completion (titles, ideas) on the session's or the task backend. */
   'llm.oneshot': { params: LlmOneshotParams; result: LlmOneshotResult }
+  /** Facts about the machine running this backend and its OS account, for the desktop first run. */
+  'machine.facts': { params: Params; result: MachineFactsResult }
   /** Curated MCP presets with per-profile installed/enabled state and the env keys each needs. */
   'mcp.catalog': { params: ProfileParams; result: McpCatalogResult }
   /** Add a server to the profile's config from a catalog preset and/or an explicit config. */
@@ -5383,6 +5674,14 @@ export interface RpcMethods {
   'model.options': { params: ModelOptionsParams; result: ModelOptionsResult }
   /** Save an API key for a provider and return its refreshed inventory row. */
   'model.save_key': { params: ModelSaveKeyParams; result: ModelSaveKeyResult }
+  /** Write onboarding.run in the root profile's config.yaml; answers the new state. */
+  'onboarding.set_run': { params: OnboardingSetRunParams; result: OnboardingRunStateResult }
+  /** Skip setup: end the session's onboarding run and close the card that waits. */
+  'onboarding.skip': { params: OnboardingSkipParams; result: OnboardingSkipResult }
+  /** Open the onboarding chat in the default profile: create it, write its run record and play the opening. */
+  'onboarding.start': { params: OnboardingStartParams; result: OnboardingStartResult }
+  /** Whether desktop first-run onboarding is due, and the chat in progress; reads the root profile's config. */
+  'onboarding.state': { params: OnboardingStateParams; result: OnboardingRunStateResult }
   /** Spill a large paste to a file and hand back the inline placeholder. */
   'paste.collapse': { params: PasteCollapseParams; result: PasteCollapseResult }
   /** Render a PDF's pages to PNG and queue them as images for the next turn. */
@@ -5687,6 +5986,15 @@ export const RPC_METHODS = [
   'delegation.pause',
   'delegation.status',
   'diagnostics.share_nous',
+  'display.install',
+  'display.lease.acquire',
+  'display.lease.release',
+  'display.observe',
+  'display.start',
+  'display.status',
+  'display.stop',
+  'display.switchSandboxImage',
+  'display.thumbnail',
   'file.attach',
   'free_tier.ack_notice',
   'free_tier.provision',
@@ -5716,6 +6024,8 @@ export const RPC_METHODS = [
   'handoff.fail',
   'handoff.request',
   'handoff.state',
+  'i18n.catalog',
+  'i18n.languages',
   'image.attach',
   'image.attach_bytes',
   'image.detach',
@@ -5727,6 +6037,7 @@ export const RPC_METHODS = [
   'learning.edit',
   'learning.frames',
   'llm.oneshot',
+  'machine.facts',
   'mcp.catalog',
   'mcp.servers.add',
   'mcp.servers.list',
@@ -5742,6 +6053,10 @@ export const RPC_METHODS = [
   'model.disconnect',
   'model.options',
   'model.save_key',
+  'onboarding.set_run',
+  'onboarding.skip',
+  'onboarding.start',
+  'onboarding.state',
   'paste.collapse',
   'pdf.attach',
   'pet.cancel',
@@ -6010,6 +6325,8 @@ export interface ServerRequestMap {
   approval: { params: ApprovalRequestParams; result: ApprovalResult }
   /** The clarify tool: ask the user one question or a batch. */
   clarify: { params: ClarifyRequestParams; result: ClarifyResult }
+  /** Masked sudo password for the Bot Screen package install; app-level (empty session). */
+  'display.install.sudo': { params: DisplayInstallSudoParams; result: ValueResult }
   /** Click / type / scroll / annotate inside the in-app browser preview. */
   'preview.act': { params: PreviewActRequestParams; result: ValueResult }
   /** Read the in-app browser preview's text (JSON text answer). */
@@ -6035,6 +6352,7 @@ export type ServerRequestMethod = keyof ServerRequestMap
 export const SERVER_REQUEST_METHODS = [
   'approval',
   'clarify',
+  'display.install.sudo',
   'preview.act',
   'preview.read',
   'secret',
@@ -6071,6 +6389,14 @@ export interface BackendGatewayEventMap {
   'connection.update': ConnectionUpdatePayload
   /** cron/jobs.json moved; refetch the cron list. */
   'cron.changed': ChangeSignalPayload
+  /** The install ended (0 ok, -1 cancelled, -2 no sudo: the command to run by hand was streamed). */
+  'display.install.done': DisplayInstallDonePayload
+  /** One line of package-manager output. */
+  'display.install.log': DisplayInstallLogPayload
+  /** The takeover lease changed hands; every client repaints. */
+  'display.lease': DisplayLeasePayload
+  /** This profile's screen started or stopped (also for transitions made outside anakot serve). */
+  'display.status': DisplayStatusPayload
   /** A session-level failure outside a turn (agent init, model switch, compression, resume). */
   error: ErrorPayload
   /** First frame of a connection: the resolved skin, the change-event capability and the replay epoch. */
@@ -6101,6 +6427,8 @@ export interface BackendGatewayEventMap {
   'notification.clear': NotificationClearPayload
   /** Show / replace a keyed out-of-band notice (toast or status bar). */
   'notification.show': NotificationShowPayload
+  /** A first-run onboarding run ended; sent to every connected window. */
+  'onboarding.ended': OnboardingEndedPayload
   /** Pairing state moved; refetch pairing. */
   'pairing.changed': ChangeSignalPayload
   /** Focus / reveal a named desktop pane. */
@@ -6201,6 +6529,10 @@ export const GATEWAY_EVENT_TYPES = [
   'connection.request',
   'connection.update',
   'cron.changed',
+  'display.install.done',
+  'display.install.log',
+  'display.lease',
+  'display.status',
   'error',
   'gateway.ready',
   'layout.apply',
@@ -6216,6 +6548,7 @@ export const GATEWAY_EVENT_TYPES = [
   'notice',
   'notification.clear',
   'notification.show',
+  'onboarding.ended',
   'pairing.changed',
   'pane.reveal',
   'pet.changed',
