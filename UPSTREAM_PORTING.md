@@ -357,6 +357,31 @@ for c in json.load(sys.stdin):
 | 52f15ab6 | 2026-11-05 | fix(release): a Store commit answered 202 Accepted counts as committed | N/A | Hermes release/Store packaging; Anakot has a different installer pipeline. |
 | 9f9b9f54 | 2026-11-05 | fix: review follow-ups for the workspace dependency moves | N/A | JS workspace/pnpm switch; Anakot's JS workspaces are not being migrated. |
 | 70622290 | 2026-11-06 | chore(js): switch the workspaces from npm to pnpm | N/A | Same pnpm migration; not applicable to Anakot's npm workspaces. |
+| 3f5612cd | 2026-11-01 | feat(approval): show hidden characters and padding in approval prompts | PORTED | Added `agent.redact.sanitize_command_for_display` / `redact_approval_display` (invisible/format Unicode → visible escapes; padding and blank-line runs → markers) and wired it into every approval surface: gateway prompt, CLI prompt, interactive transport and the `execute_code` pending body. Display-only — the executed command, smart assessment and allowlist keys never see this copy. Regression: `tests/agent/test_approval_display_sanitize.py`. |
+| 3166c4a4 | 2026-11-01 | feat(cron): give scheduled jobs their actual run time in the prompt | PORTED | `cron/scheduler_prompt.py::_run_time_line()` interpolated after the byte-stable `_CRON_HINT`. Anakot has no `hermes_time.safe_strftime`, so the strftime is wrapped defensively (empty string on a clock failure). |
+| 32a636bc | 2026-10-26 | feat(agent): opt-in prepared compaction (compression.prepare_ahead) | PENDING | Prepared-compaction cluster (`32a636bc`, `d2d1824f`, `c2383a68`, `4501b3f8`, `4ea24bae`). |
+| b81e71ad | 2026-10-29 | feat(cron): optional per-job grace_minutes override | PENDING | `grace_minutes` per job (0-1440, `0` = never catch up); touches `cron/jobs*`, `tools/cronjob_tools.py` and the CLI. |
+| 8c228c5b | 2026-10-30 | feat(cron): hermes cron cancel stops a job's live run | PENDING | Cluster with `ee394bd9` (missed-run policy) and `3166c4a4`. |
+| ad9229c8 | 2026-11-01 | feat(hooks): pre_llm_call can block a turn before any inference request | PENDING | Plugin hook capability. |
+| b694c7d9 | 2026-11-01 | feat(skills): per-skill content lock against autonomous writes | PENDING | Security feature; cluster with `91c51e04` and `722d4fac`. |
+| ac8037c0 | 2026-11-01 | feat(streaming): opt-in cap on a streaming response's total lifetime | PENDING | |
+| 5bb7bdc7 | 2026-11-01 | feat: /model reset — clear a session's model pin without losing history | PENDING | 20-file change including all bundled locales; cluster with `66c48cb1`. |
+| d4e19b98 | 2026-10-25 | feat(tools): support scoped browser vault backend plugins | PENDING | Vault cluster (`d4e19b98`, `895eb4ed`, `7abb9cc0`). |
+| c975831f | 2026-10-25 | feat(tts): let the agent pick ElevenLabs voices (voice_id + paginated search) | PENDING | Cluster with `f2197089`. |
+| 871900df | 2026-10-26 | feat(config): route every user config.yaml read/write through a ConfigBackend seam | PENDING | Architecture change; cluster with `69d037b3` (remote backend) and `9909c4f7`. |
+| 31d5f1d4 | 2026-10-29 | feat(whatsapp): log delivery and read status of sent messages | PENDING | |
+| e240d617 | 2026-10-29 | feat(sessions): refresh-prompts lets continuing sessions adopt updated prompt sources | PENDING | |
+| 33cf2037 | 2026-10-31 | feat(gateway): allow intentional silence per room | PENDING | |
+| 016bc1df | 2026-11-01 | feat(telegram): support video note messages | PENDING | |
+| 6f55623c | 2026-11-01 | feat(telemetry): count messages that arrive while a chat's agent is busy | PENDING | |
+| 83b41280 | 2026-10-25 | feat: hold a held session's reply until transform_llm_output rewrites it | PENDING | Cluster with `2eec2a7d` (`register_hook(..., hold_stream=True)`). |
+| 3a73078f | 2026-11-01 | feat(slack): show emoji reactions in thread context | PENDING | Cluster with `53308b19` (`thread_followup_silence`). |
+| afe3a911 | 2026-10-28 | feat(hosted-rooms): make discussion budgets configurable | PENDING | Cluster with `41010b6f`. |
+| 889d7537 | 2026-10-26 | feat(left-core): migration rows for a model provider that moved to a plugin | PENDING | |
+| 91ecc88b | 2026-10-26 | feat(plugins): public model-setup helpers and secret_source_label for provider plugins | PENDING | Cluster with `d74fe787`. |
+| 1da2eb42 | 2026-10-26 | refactor!: remove GitHub Copilot from core (now a labs plugin) | N/A | Hermes-core provider removal; Anakot's core provider set is its own. |
+| 2b75150d | 2026-10-25 | feat(desktop): group chat rename, disband, mentions and attachment paste | N/A | Hermes Cloud desktop surfaces; Anakot's desktop is a separate implementation. |
+| b5eb5ee7 | 2026-10-25 | feat(webapp): carry the browser-hosted Desktop's server pieces | N/A | Hermes Webapp; Anakot has no equivalent browser-hosted surface. |
 
 ---
 
@@ -618,6 +643,12 @@ for c in json.load(sys.stdin):
 - Bounded scan: 800 commits from 2026-11-04..11-06 (8 pages of the `since` feed), filtered to ~360 non-merge/non-catalog/non-CI/non-test candidates, then grouped into the clusters recorded below. The window is dominated by the pnpm workspace migration, plugin-catalog churn, a large group-chat/approval/redaction hardening push, and the memory checkpoint-fork cluster.
 - Added 70 tracker rows: 66 `PENDING` candidates and 4 `N/A` (pnpm migration, Store release lane). `PENDING` here means "recorded for audit", not "missing feature" — many are Hermes-specific `hermes_cli`/PM paths that will resolve to `CUSTOM`/`SKIPPED` on inspection.
 - Cleared the previous session's 11 `PENDING` rows; the table is now at 0 carry-over `PENDING` before the new batch.
+
+### 2026-11-06 — Triage of the 2026-10-25 → 2026-11-03 window
+- Full compare-API sweep of the 3,284 commits in the previously untriaged window: **2,103 runtime** (fix/feat/refactor/perf), 707 catalog/contributor, 294 test-only, 109 chore/fmt, 93 docs-only, 27 CI, 22 merge.
+- The window is dominated by Hermes Cloud surfaces Anakot does not carry: `desktop` 423, `webapp` 230, `pm` 52 — recorded as `N/A` rather than as missing features.
+- Of the 105 `feat` commits, 24 are recorded as `PENDING` candidates (prepared compaction, cron `grace_minutes` and cancel, `pre_llm_call` blocking, per-skill content lock, `/model reset`, vault backends, ElevenLabs voices, ConfigBackend, and smaller adapter/telemetry additions); the rest are Hermes-Cloud-only.
+- Ported two from this window: `3f5612cd` (approval display integrity) and `3166c4a4` (cron run time).
 
 ### 2026-11-06 — Ported approval-card binding, UNVERIFIED stance, JSON recursion guard
 - **`5ab58da1` / `7ab170ea`** — Added `tools.approval.resolve_gateway_approval_card`: with the card's `request_id`, only that request can resolve, so a card whose request already settled (timeout, `/approve` elsewhere) resolves nothing instead of the next queued approval in the session. Threaded `request_id` through `ExecApprovalPrompt` → `gateway/run_turn_runner.py` → nine adapters (Telegram, Slack, Feishu, Matrix, Teams, Discord, WhatsApp Cloud, Relay, QQBot). QQBot's `approve:<session>:<decision>` button data gained an optional trailing request id; cards without one keep the FIFO fallback. Regression coverage pins the settled-card and matching-card cases plus the QQBot wire format.
