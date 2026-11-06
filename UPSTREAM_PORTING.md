@@ -676,6 +676,35 @@ for c in json.load(sys.stdin):
 - **`86a61729` / `bc8e9107` / `8e5ea80d` / `1205a010` / `dfa1171d`** — Added `gateway/restart_notice.py` as the single owner of `.restart_pending.json`. The gateway's in-band shutdown calls it with `via_service`/`detached`; `_restart_all` and the Windows CLI restart stamp it only after the old host is authoritatively gone; a write failure logs at debug and never aborts the restart. `utils.atomic_json_write`'s `indent` annotation widened to `int | None`.
 - Verification: `tests/providers/`, `tests/agent/test_redact.py`, `tests/agent/test_prompt_builder.py`, `tests/cron/`, and the focused tool/gateway suites — **1861 + 263 tests passed**, 0 failed. New regressions: `tests/tools/test_search_files_schema_platform.py`, `tests/gateway/test_planned_restart_marker_cli.py`, plus additions to `tests/agent/test_redact.py`, `tests/cron/test_scheduler.py`, and `tests/providers/test_plugin_discovery.py`.
 
+### 2026-11-06 — Regression baseline after the bulk sync
+The bulk copy brought in Hermes's newer modules without the shared files they depend on. Two
+wiring gaps surfaced and were repaired:
+
+- **`tools/url_safety.py`** — added `_URL_EDGE_WHITESPACE`, `_url_hostname()` and
+  `_authority_ambiguity()`, plus the always-blocked ambiguity floor in `is_always_blocked_url()`.
+  The synced `tools/browser_url_policy.py` imported `_authority_ambiguity`, which did not exist
+  here, so every browser URL-policy check raised `ImportError`.
+- **`anakot_cli/plugins.py`** — added the missing `register_delegation_provider` row to
+  `_SCOPED_PROVIDER_REGISTRARS` (the row existed only in the unused duplicate module
+  `anakot_cli/plugins_registrars.py`). Without it `PluginContext` had no such method, the bundled
+  default delegation plugin failed to load, and its warning polluted caplog-based assertions.
+
+Verification against a clean worktree at `1cbbde07` (before this session's changes), same 30-file
+set: baseline **44 failed / 1284 passed**, current **40 failed / 1288 passed** — 4 pre-existing
+failures fixed, **0 regressions**, 4 more tests passing. The remaining 40 are environmental
+(docker, browser/computer-use, voice, Windows compat) and fail identically on the baseline.
+
+**Known dead duplicates** (safe to delete, blocked only by the approval gate): the bulk sync created
+rebranded copies beside files that already existed, leaving the old `hermes.*` names as unreferenced
+dead code — `apps/desktop/src/hermes.ts`, `apps/desktop/src/types/hermes.ts`,
+`apps/desktop/src/lib/hermes-open-target.ts`, `apps/desktop/electron/windows-hermes-path.ts`,
+`ui-tui/src/types/hermes-ink.d.ts`, `web/src/components/HermesConsoleModal.tsx`,
+`apps/desktop/src/app/session/hooks/use-hermes-config.ts`,
+`anakot_cli/observability/schemas/hermes.shared_metrics.*.json`,
+`apps/desktop/public/hermes*`, `ui-tui/packages/hermes-ink` (also a pnpm workspace-name conflict,
+which is the only thing making `tsc` exit non-zero: 0 TS errors). `tests/hermes_cli/` and
+`tests/hermes_state/` duplicate `tests/anakot_cli|state/`.
+
 ---
 
 ## Quick Commands
