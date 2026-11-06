@@ -12,11 +12,12 @@ const mocks = vi.hoisted(() => ({
   loadedConfig: {} as Record<string, unknown>,
   notifyError: vi.fn(),
   profileSwitch: null as null | (() => void),
-  save: vi.fn()
+  save: vi.fn(),
+  writeScope: { connectionId: 'connection-a', profile: 'default' }
 }))
 
 vi.mock('@/anakot', () => ({
-  saveAnakotConfig: (config: Record<string, unknown>) => mocks.save(config)
+  saveAnakotConfig: (config: Record<string, unknown>, scope?: unknown) => mocks.save(config, scope)
 }))
 
 vi.mock('@/i18n', () => ({
@@ -43,7 +44,11 @@ vi.mock('@/store/notifications', () => ({
 
 vi.mock('../hooks/use-config-record', () => ({
   setAnakotConfigCache: (config: Record<string, unknown>) => mocks.cache(config),
-  useAnakotConfigRecord: () => ({ data: mocks.loadedConfig, dataUpdatedAt: mocks.configUpdatedAt })
+  useAnakotConfigRecord: () => ({
+    data: mocks.loadedConfig,
+    dataUpdatedAt: mocks.configUpdatedAt,
+    writeScope: mocks.writeScope
+  })
 }))
 
 vi.mock('../hooks/use-on-profile-switch', () => ({
@@ -84,7 +89,10 @@ describe('ChatFontSetting', () => {
 
     await flushAutosave()
 
-    expect(mocks.save).toHaveBeenCalledWith({ desktop: { font_family: 'OpenDyslexic' } })
+    expect(mocks.save).toHaveBeenCalledWith(
+      { desktop: { font_family: 'OpenDyslexic' } },
+      { connectionId: 'connection-a', profile: 'default' }
+    )
     expect(mocks.cache).toHaveBeenCalledWith({ desktop: { font_family: 'OpenDyslexic', repo_scan_enabled: true } })
   })
 
@@ -127,6 +135,8 @@ describe('resolveChatFontFamily', () => {
     expect(resolveChatFontFamily('', theme)).toBe(theme)
     expect(resolveChatFontFamily('  ', theme)).toBe(theme)
     expect(resolveChatFontFamily('OpenDyslexic', theme)).toBe(`'OpenDyslexic', ${theme}`)
-    expect(resolveChatFontFamily("'Atkinson Hyperlegible', serif", theme)).toBe(`'Atkinson Hyperlegible', serif, ${theme}`)
+    expect(resolveChatFontFamily("'Atkinson Hyperlegible', serif", theme)).toBe(
+      `'Atkinson Hyperlegible', serif, ${theme}`
+    )
   })
 })

@@ -1,0 +1,45 @@
+/**
+ * Which profile the PRIMARY (window) backend answers for.
+ *
+ * Two signals exist and they legitimately disagree mid-session:
+ *
+ *   - the stored preference (active-profile.json) — the profile Desktop should
+ *     boot into on the NEXT launch. The rail's live workspace switch rewrites
+ *     it via `anakot:profile:remember` without re-homing the primary.
+ *   - the profile the live primary child was actually spawned with.
+ *
+ * Routing (`resolveProfileBackendRoute`, `ensureBackend`, the pool) must use
+ * the second while a primary is up. Reading the preference instead made a
+ * request for the booted profile (e.g. "default") stop matching
+ * `primaryProfile`, fall through to the pool, and spawn a second backend for
+ * the same ANAKOT_HOME. That duplicate held a pool slot and starved every other
+ * profile into "timed out while waiting for a free slot".
+ *
+ * Pure: main.ts owns the file read and the start/teardown call sites.
+ */
+export class PrimaryProfilePin {
+    #booted = null;
+    /** Called by startAnakot() with the profile the primary is launching as. */
+    pin(profile) {
+        const value = String(profile ?? '').trim() || 'default';
+        this.#booted = value;
+        return value;
+    }
+    /** Called when the primary is torn down; the next start re-reads the preference. */
+    clear() {
+        this.#booted = null;
+    }
+    get booted() {
+        return this.#booted;
+    }
+    /**
+     * The key routing should treat as "primary": the live primary's profile when
+     * one is pinned, else the stored preference, else 'default'.
+     */
+    resolve(readPreference) {
+        if (this.#booted) {
+            return this.#booted;
+        }
+        return String(readPreference() ?? '').trim() || 'default';
+    }
+}

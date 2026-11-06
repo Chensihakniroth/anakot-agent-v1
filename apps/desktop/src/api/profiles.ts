@@ -16,8 +16,20 @@ export function getProfiles(scope?: ProfileScope): Promise<ProfilesResponse> {
   })
 }
 
-export function createProfile(body: ProfileCreatePayload): Promise<{ name: string; ok: boolean; path: string }> {
-  return anakotApi<{ name: string; ok: boolean; path: string }>({
+/**
+ * A connection's unscoped `/api/status`. `/api/profiles` lists every INSTALLED
+ * profile; `gateway_shared_with` here is the set its gateway actually serves.
+ */
+export function getConnectionServedProfiles(connectionId: string): Promise<{ gateway_shared_with?: null | string[] }> {
+  return anakotApi<{ gateway_shared_with?: null | string[] }>({
+    ...capabilityScoped({ connectionId }),
+    path: '/api/status',
+    timeoutMs: STARTUP_REQUEST_TIMEOUT_MS
+  })
+}
+
+export function createProfile(body: ProfileCreatePayload): Promise<{ name: string; ok: boolean; path: string; soul_set?: boolean }> {
+  return anakotApi<{ name: string; ok: boolean; path: string; soul_set?: boolean }>({
     path: '/api/profiles',
     method: 'POST',
     body
