@@ -1,0 +1,29 @@
+name: traceverse_anakot_otel
+repo: https://github.com/Mandark-droid/anakot-otel-plugin
+sha: "701c021808c20b15017f7297a3577157e5faa401"
+description: "Anakot Agent OpenTelemetry traces and dashboard logs, with local-model cost estimates and optional in-process evaluation, GPU, energy, and CO2 metrics via genai-otel-instrument. Disclosure — Sends OpenTelemetry traces and log records for every turn, LLM call and tool call (session ids, models, token counts, costs, tool names, errors) to an OTLP endpoint, `http://localhost:4318` unless `ANAKOT_OTEL_ENDPOINT` points elsewhere; prompt, response and tool argument/result text is included only when `ANAKOT_OTEL_CAPTURE_CONTENT=true`; if `genai-otel-instrument` is installed it is activated in-process and instruments the LLM client libraries Anakot uses."
+maintainer: Mandark-droid
+tier: community
+category: general
+requires_anakot: ">=0.19"
+docs_url: https://github.com/Mandark-droid/anakot-otel-plugin/blob/main/README.md
+version: "2.0.0"
+screenshots:
+  - https://raw.githubusercontent.com/Mandark-droid/anakot-otel-plugin/701c021808c20b15017f7297a3577157e5faa401/docs/img/anakot-jaeger-waterfall.png
+  - https://raw.githubusercontent.com/Mandark-droid/anakot-otel-plugin/701c021808c20b15017f7297a3577157e5faa401/docs/img/genai-otel-anakot.png
+readme: true
+platforms: []
+title: "Anakot OTel + Eval Metrics"
+capabilities:
+  provides_tools: []
+  provides_hooks:
+    - on_session_start
+    - on_session_end
+    - on_session_finalize
+    - on_session_reset
+    - pre_llm_call
+    - transform_llm_output
+    - post_api_request
+    - post_tool_call
+  provides_middleware: []
+  requires_env: []

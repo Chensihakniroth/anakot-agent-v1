@@ -1,0 +1,112 @@
+"""Launch the packaged desktop with a competing mutable install."""
+import contextlib
+import os
+from pathlib import Path
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+
+def _processes_under(home: Path) -> list[int]:
+    """PIDs whose environment or cwd binds them to this throwaway HOME (Linux /proc)."""
+    needle = str(home).encode()
+    found = []
+    for entry in os.listdir("/proc"):
+        if not entry.isdigit() or int(entry) == os.getpid():
+            continue
+        try:
+            environ = Path("/proc", entry, "environ").read_bytes()
+            cwd = os.readlink(f"/proc/{entry}/cwd").encode()
+        except OSError:
+            continue
+        if needle in environ or cwd.startswith(needle):
+            found.append(int(entry))
+    return found
+
+
+desktop, expected = sys.argv[1:]
+with tempfile.TemporaryDirectory(prefix="anakot-desktop-backend-") as temporary:
+    home = Path(temporary)
+    anakot_home = home / ".anakot"
+    legacy = anakot_home / "anakot-agent"
+    (legacy / "anakot_cli").mkdir(parents=True)
+    (legacy / "anakot_cli" / "main.py").touch()
+    launcher = legacy / "venv" / "bin" / "anakot"
+    launcher.parent.mkdir(parents=True)
+    # The old runtime passes discovery but cannot initialize a session. It
+    # must not win merely because it was installed before the Nix desktop.
+    launcher.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\n"
+        "if '--version' in sys.argv:\n"
+        "    print('Anakot legacy fixture')\n"
+        "    sys.exit(0)\n"
+        "print('WRONG_BACKEND_SELECTED', flush=True)\n"
+        "sys.exit(73)\n"
+    )
+    launcher.chmod(0o755)
+    runtime = home / "runtime"
+    runtime.mkdir(mode=0o700)
+    env = {
+        "PATH": os.environ["PATH"],
+        "HOME": str(home),
+        "ANAKOT_HOME": str(anakot_home),
+        "ANAKOT_DESKTOP_USER_DATA_DIR": str(home / "electron"),
+        "XDG_RUNTIME_DIR": str(runtime),
+        "XDG_CONFIG_HOME": str(home / ".config"),
+        "XDG_CACHE_HOME": str(home / ".cache"),
+        "WLR_BACKENDS": "headless",
+        "WLR_RENDERER": "pixman",
+        "WLR_NO_HARDWARE_CURSORS": "1",
+        "LANG": "C.UTF-8",
+        "TZ": "UTC",
+    }
+    log_path = home / "desktop-output.log"
+    with log_path.open("w") as log:
+        child = subprocess.Popen(
+            ["cage", "--", desktop, "--no-sandbox", "--disable-gpu", "--ozone-platform=wayland"],
+            cwd=home, env=env, stdout=log, stderr=subprocess.STDOUT,
+            start_new_session=True,
+        )
+        try:
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                output = log_path.read_text()
+                desktop_log = anakot_home / "logs" / "desktop.log"
+                if desktop_log.exists():
+                    output += desktop_log.read_text()
+                assert "WRONG_BACKEND_SELECTED" not in output, output
+                assert child.poll() is None, output
+                # Desktop attaches to `anakot gateway ensure` (the daemon serves the dashboard), so
+                # readiness is Desktop's own attach line, not a spawned `anakot serve` sentinel.
+                if "[backend] Anakot gateway is ready" in output:
+                    assert f"[backend] using existing Anakot CLI at {expected}" in output, output
+                    print("PASS: packaged desktop selected its pinned backend over the mutable install")
+                    break
+                time.sleep(0.1)
+            else:
+                raise AssertionError(f"Desktop did not start its backend:\n{log_path.read_text()}")
+        finally:
+            os.killpg(child.pid, signal.SIGTERM)
+            try:
+                child.wait(timeout=15)
+            except subprocess.TimeoutExpired:
+                os.killpg(child.pid, signal.SIGKILL)
+                child.wait(timeout=5)
+            # The desktop spawns its backend in its own session (anakot serve outlives a
+            # window close on purpose), so killing cage's group leaves that gateway writing
+            # under ANAKOT_HOME while the tempdir is removed. Stop everything still rooted
+            # in this home before cleanup; the sandbox has no other processes to confuse.
+            survivors = _processes_under(home)
+            for pid in survivors:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.kill(pid, signal.SIGTERM)
+            deadline = time.monotonic() + 15
+            while survivors and time.monotonic() < deadline:
+                time.sleep(0.2)
+                survivors = _processes_under(home)
+            for pid in survivors:
+                with contextlib.suppress(ProcessLookupError, PermissionError):
+                    os.kill(pid, signal.SIGKILL)

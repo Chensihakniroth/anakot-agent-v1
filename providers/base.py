@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
@@ -48,6 +48,9 @@ class ProviderProfile:
     display_name: str = ""       # e.g. "GMI Cloud" — shown in picker/labels
     description: str = ""        # e.g. "GMI Cloud (multi-model direct API)" — picker subtitle
     signup_url: str = ""         # e.g. "https://www.gmicloud.ai/" — shown during setup
+    # Pre-release profile: hidden from discovery until the user opts in by name (a credential
+    # pool row), so a not-yet-announced provider does not appear in every picker.
+    hidden: bool = False
 
     # ── Auth & endpoints ─────────────────────────────────────
     env_vars: tuple = ()
@@ -57,6 +60,17 @@ class ProviderProfile:
     supports_health_check: bool = True  # False → doctor skips /models probe for this provider
     # False → fetch_models returns None without a network call (catalog comes from an SDK/subprocess).
     supports_model_listing: bool = True
+
+    # ── Provider-owned auth (optional; non-api_key plugins) ──────────
+    # ``auth_handler(action, args) -> bool``: ``anakot auth add|status|logout|refresh <name>`` calls
+    # it FIRST with the parsed CLI namespace; truthy = the plugin owned the action, falsy = built-in
+    # path. ``refresh_credential(entry) -> Mapping | None``: the credential pool's refresh of a
+    # pooled OAuth row — return the rotated fields or raise. Both own their own token endpoints.
+    # ``classify_api_error(error, ...)``: provider-specific failure classification, consulted after
+    # the generic plugin hooks and before the built-in pipeline.
+    auth_handler: Callable[[str, Any], Any] | None = None
+    refresh_credential: Callable[[Any], Any] | None = None
+    classify_api_error: Callable[..., Any] | None = None
 
     # ── Vision support ────────────────────────────────────────
     # True when the provider's API accepts image content inside
@@ -245,6 +259,18 @@ class ProviderProfile:
         cold.
         """
         return None
+
+    def listed(self) -> bool:
+        """Whether discovery surfaces may offer this provider.
+
+        Every non-``hidden`` profile is listed. A ``hidden`` (pre-release) one surfaces once the user
+        opted in by name (``anakot auth add <name>`` put a row in its credential pool), so the
+        pickers can then offer it. Reads auth.json only: it runs on every picker build.
+        """
+        if not self.hidden:
+            return True
+        from anakot_cli.auth import read_credential_pool  # lazy: providers/ must not import anakot_cli at load
+        return bool(read_credential_pool(self.name))
 
     def create_client(self, **client_kwargs: Any) -> Any | None:
         """Return a provider-specific client, or ``None`` for the standard one.

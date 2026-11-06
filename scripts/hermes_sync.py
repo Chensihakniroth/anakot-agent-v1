@@ -93,14 +93,14 @@ def rebrand(text: str) -> str:
 
 def hermes_source(rel: str) -> list[str]:
     """Map an Anakot-relative path back to its Hermes-tree path (reverse rebrand)."""
-    candidates = [rel]
-    # hermes_cli/ <- anakot_cli/
-    if rel.startswith("anakot_cli/"):
-        candidates.append("hermes_cli/" + rel[len("anakot_cli/"):])
+    candidates = [rel, _to_hermes_dir(rel)]
     # anakot_foo.py <- hermes_foo.py
     base = os.path.basename(rel)
     if base.startswith("anakot_") and base.endswith(".py"):
         candidates.append(rel[: -len(base)] + "hermes_" + base[len("anakot_"):])
+    # setup-anakot.ps1 <- setup-hermes.ps1
+    if base.startswith("anakot-"):
+        candidates.append(rel[: -len(base)] + "hermes-" + base[len("anakot-"):])
     return candidates
 
 
@@ -170,22 +170,60 @@ def _write(src: str, dst: str) -> None:
     if os.path.splitext(dst)[1].lower() in BINARY_SUFFIXES:
         shutil.copyfile(src, dst)
         return
-    text = open(src, encoding="utf-8").read()
+    try:
+        text = open(src, encoding="utf-8").read()
+    except UnicodeDecodeError:
+        # Not UTF-8 (legacy Latin-1/Windows-1252 source, or a mislabelled binary): copy the
+        # bytes verbatim rather than aborting the whole sync over one file.
+        shutil.copyfile(src, dst)
+        return
     open(dst, "w", encoding="utf-8").write(rebrand(text))
 
 
-def expand_targets(targets: list[str]) -> list[str]:
-    """Accept files or directories; directories expand to their Anakot-tracked-ish files."""
+def expand_targets(tree: str, targets: list[str]) -> list[str]:
+    """Accept Anakot-relative files or directories; directories expand against the HERMES tree.
+
+    Expansion is driven by the source tree, because the question is "which Hermes files under
+    this path are not in Anakot yet" — walking Anakot's copy would answer the wrong direction.
+    """
     out: list[str] = []
     for t in targets:
-        path = os.path.join(REPO_ROOT, t)
-        if os.path.isfile(path):
+        src_dir = os.path.join(tree, _to_hermes_dir(t))
+        if os.path.isdir(src_dir):
+            for rel in collect(tree, src_dir):
+                out.append(_to_anakot_rel(rel))
+        elif os.path.isfile(os.path.join(tree, _to_hermes_dir(t))):
             out.append(t)
-        elif os.path.isdir(path):
-            out.extend(collect(REPO_ROOT, path))
         else:
             out.append(t)
     return sorted(set(out))
+
+
+def _to_hermes_dir(rel: str) -> str:
+    """Reverse the rebrand for a directory path (``anakot_cli/`` -> ``hermes_cli/``)."""
+    parts = rel.split("/")
+    head = parts[0]
+    if head.startswith("anakot_"):
+        parts[0] = "hermes_" + head[len("anakot_"):]
+    return "/".join(parts)
+
+
+def _to_anakot_rel(hermes_rel: str) -> str:
+    """Rebrand a Hermes-tree relative path to its Anakot path."""
+    out = hermes_rel
+    if out.startswith("hermes_cli/"):
+        out = "anakot_cli/" + out[len("hermes_cli/"):]
+    elif out == "hermes_cli":
+        out = "anakot_cli"
+    base = os.path.basename(out)
+    if base.startswith("hermes_") and base.endswith(".py"):
+        out = out[: -len(base)] + "anakot_" + base[len("hermes_"):]
+    else:
+        parts = out.split("/")
+        if parts[0].startswith("hermes_"):
+            parts[0] = "anakot_" + parts[0][len("hermes_"):]
+        out = "/".join(parts)
+    return out
 
 
 def main(argv: list[str]) -> int:
@@ -203,7 +241,7 @@ def main(argv: list[str]) -> int:
         print(f"hermes tree not found: {args.hermes_tree}", file=sys.stderr)
         return 2
 
-    rels = expand_targets(args.targets)
+    rels = expand_targets(args.hermes_tree, args.targets)
     new, updated, missing = plan(args.hermes_tree, rels, only_new=args.only_new)
 
     if args.list or args.plan:

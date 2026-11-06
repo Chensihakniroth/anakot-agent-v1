@@ -49,6 +49,9 @@ data/
 # deploy with "Can't resolve '@site/src/data/userStories.json'". Any future
 # data/ dir in the tree needs an explicit negation here.
 !website/src/data/
+# The Connectors page's wire layer (apps/desktop/src/app/capabilities/connectors/data/)
+# — same reason: the bare `data/` pattern above would otherwise swallow it.
+!apps/desktop/src/app/capabilities/connectors/data/
 .pytest_cache/
 test_durations.json
 .pytest-cache/
@@ -56,6 +59,9 @@ tmp/
 temp_vision_images/
 hermes-*/*
 examples/
+# Skills ship worked examples as support files; the bare pattern above is for dataset dumps.
+!optional-skills/**/examples/
+!skills/**/examples/
 tests/quick_test_dataset.jsonl
 tests/sample_dataset.jsonl
 run_datagen_kimik2-thinking.sh

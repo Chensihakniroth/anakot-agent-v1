@@ -27,6 +27,9 @@ EFFORT_LADDER: tuple[str, ...] = ("none", "minimal", "low", "medium", "high", "x
 #: Widest OpenAI-compatible wire vocabulary (OpenRouter, Nous Portal).
 OPENAI_COMPAT_WIRE_EFFORTS: tuple[str, ...] = ("none", "minimal", "low", "medium", "high", "xhigh", "max")
 
+#: TokenHub's top-level ``reasoning_effort`` vocabulary; it defaults to ``high`` when unset.
+TOKENHUB_EFFORTS: tuple[str, ...] = ("low", "medium", "high")
+
 #: OpenAI/Codex Responses per model generation (live-verified): ``minimal`` is rejected by
 #: both (clamps to low); ``max`` is gpt-5.6-only.
 CODEX_GPT56_EFFORTS: tuple[str, ...] = ("none", "low", "medium", "high", "xhigh", "max")
@@ -149,6 +152,26 @@ def clamp_effort(
     requested_idx = EFFORT_LADDER.index(requested)
     below = [level for level in candidates if EFFORT_LADDER.index(level) < requested_idx]
     return max(below, key=EFFORT_LADDER.index) if below else min(candidates, key=EFFORT_LADDER.index)
+
+
+def tokenhub_effort(requested: Optional[str]) -> str:
+    """TokenHub's top-level ``reasoning_effort``: ``high`` when no level was chosen, else the
+    request clamped to low/medium/high. Shared by the tencent-tokenhub profile and the host-based
+    branch base_url-only agents take; callers handle thinking-off themselves."""
+    return "high" if requested is None else clamp_effort(requested, TOKENHUB_EFFORTS)
+
+
+def generic_nested_reasoning(reasoning_config: Optional[dict]) -> dict:
+    """The OpenAI-compatible ``extra_body`` fallback for a route whose profile declares no
+    reasoning shape: ``{}`` with no config, ``{"reasoning": {"enabled": False}}`` when disabled,
+    else ``{"reasoning": {"enabled": True, "effort": <effort or medium>}}``. Used by auxiliary
+    calls, and by a profile hook that wants that fallback (``handles_reasoning`` skips it for any
+    profile overriding ``build_api_kwargs_extras``)."""
+    if not reasoning_config or not isinstance(reasoning_config, dict):
+        return {}
+    if reasoning_config.get("enabled") is False:
+        return {"reasoning": {"enabled": False}}
+    return {"reasoning": {"enabled": True, "effort": reasoning_config.get("effort") or "medium"}}
 
 
 def route_supported_efforts(provider: Optional[str], model: Optional[str]) -> tuple[str, ...]:
