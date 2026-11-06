@@ -103,8 +103,8 @@ _BUILTIN_SKINS: Dict[str, Dict[str, Any]] = {
         "branding": _ANAKOT_BRANDING,
         "tool_prefix": "\u250a"},
 
-    "hermes": {
-        "name": "hermes", "description": "Hermes classic — gold and kawaii (the former default)",
+    "anakot": {
+        "name": "anakot", "description": "Anakot classic — gold and kawaii (the former default)",
         # Dark-authored; values match the TUI's DARK_THEME so both render the same gold.
         "colors": {
             "banner_border": "#CD7F32", "banner_title": "#FFD700", "banner_accent": "#FFBF00",
@@ -385,7 +385,9 @@ def list_skins() -> List[Dict[str, str]]:
 _SKIN_ALIASES: Dict[str, str] = {
     "catppuccin": "default",
     "mocha": "default",
-    "gold": "hermes",
+    "gold": "anakot",
+    # Pre-rebrand skin name: the "hermes" skin became "anakot"; keep old configs working.
+    "hermes": "anakot",
 }
 
 

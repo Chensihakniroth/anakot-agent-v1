@@ -13,7 +13,7 @@ const baseUrl = process.env.BASE_URL || '/docs/';
 // installers in this repo install the fork — so releases are the honest target.
 const repoUrl = 'https://github.com/Chensihakniroth/anakot-agent-v1';
 const releasesUrl = `${repoUrl}/releases`;
-const upstreamUrl = 'https://github.com/NousResearch/hermes-agent';
+const upstreamUrl = 'https://github.com/NousResearch/anakot-agent';
 
 const config: Config = {
   title: 'Anakot Agent',
@@ -175,11 +175,11 @@ const config: Config = {
             // Skills Hub is the agentskills.io open standard and is shared with
             // upstream — deliberately kept as-is.
             { label: 'Skills Hub', href: 'https://agentskills.io' },
-            { label: 'Upstream — Hermes', href: upstreamUrl },
+            { label: 'Upstream — Anakot', href: upstreamUrl },
           ],
         },
       ],
-      copyright: `Anakot Agent · MIT License · ${new Date().getFullYear()} · Fork of <a href="${upstreamUrl}">Hermes</a> by <a href="https://nousresearch.com">Nous Research</a>`,
+      copyright: `Anakot Agent · MIT License · ${new Date().getFullYear()} · Fork of <a href="${upstreamUrl}">Anakot</a> by <a href="https://nousresearch.com">Nous Research</a>`,
     },
     prism: {
       theme: prismThemes.github,

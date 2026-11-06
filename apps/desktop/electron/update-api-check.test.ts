@@ -89,7 +89,7 @@ test('compare payload maps to the behind count and a newest-first commit list; m
   assert.equal(githubRepoSlug('https://gitlab.example/x/y.git'), null)
   assert.equal(
     branchTipApiUrl('nousresearch/anakot-agent', 'bb/gui'),
-    'https://api.github.com/repos/nousresearch/hermes-agent/commits/bb%2Fgui'
+    'https://api.github.com/repos/nousresearch/anakot-agent/commits/bb%2Fgui'
   )
 })
 

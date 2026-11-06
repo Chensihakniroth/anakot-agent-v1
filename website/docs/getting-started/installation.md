@@ -6,9 +6,9 @@ description: "Install Anakot Agent on Linux, macOS, WSL2, native Windows, or And
 
 # Installation
 
-Anakot is a fork of [Hermes](https://github.com/NousResearch/hermes-agent), so the
+Anakot is a fork of [Anakot](https://github.com/NousResearch/anakot-agent), so the
 commands here are `anakot`, the config lives in `~/.anakot/`, and the environment
-variable is `ANAKOT_HOME`. If you have used Hermes before, everything you know
+variable is `ANAKOT_HOME`. If you have used Anakot before, everything you know
 applies — this page names the Anakot equivalents.
 
 Get Anakot Agent up and running in under two minutes.

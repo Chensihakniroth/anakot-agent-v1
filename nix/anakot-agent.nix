@@ -1,9 +1,9 @@
-# nix/hermes-agent.nix — Overridable Hermes Agent package
+# nix/anakot-agent.nix — Overridable Anakot Agent package
 #
 # callPackage auto-wires nixpkgs args; flake inputs are passed explicitly.
 # Users override via:
-#   pkgs.hermes-agent.override { extraPythonPackages = [...]; }
-#   pkgs.hermes-agent.override { extraDependencyGroups = [ "hindsight" ]; }
+#   pkgs.anakot-agent.override { extraPythonPackages = [...]; }
+#   pkgs.anakot-agent.override { extraDependencyGroups = [ "hindsight" ]; }
 {
   lib,
   stdenv,
@@ -38,26 +38,26 @@
   extraDependencyGroups ? [ ],
 }:
 let
-  mkHermesVenv =
+  mkAnakotVenv =
     extraDependencyGroups:
     callPackage ./python.nix {
       inherit uv2nix pyproject-nix pyproject-build-systems;
-      pythonSrc = hermesNpmLib.pythonSrc;
+      pythonSrc = anakotNpmLib.pythonSrc;
       dependency-groups = [ "all" ] ++ extraDependencyGroups;
     };
 
-  hermesVenv = (mkHermesVenv extraDependencyGroups).venv;
+  anakotVenv = (mkAnakotVenv extraDependencyGroups).venv;
 
-  hermesNpmLib = callPackage ./lib.nix {
+  anakotNpmLib = callPackage ./lib.nix {
     inherit npm-lockfile-fix;
   };
 
-  hermesTui = callPackage ./tui.nix {
-    inherit hermesNpmLib;
+  anakotTui = callPackage ./tui.nix {
+    inherit anakotNpmLib;
   };
 
-  hermesWeb = callPackage ./web.nix {
-    inherit hermesNpmLib;
+  anakotWeb = callPackage ./web.nix {
+    inherit anakotNpmLib;
   };
 
   bundledSkills = lib.cleanSourceWith {
@@ -66,7 +66,7 @@ let
   };
 
   # Optional skills are NOT in the wheel (pythonSrc excludes them, see
-  # lib.nix) — the wrapper exposes them via HERMES_OPTIONAL_SKILLS, the
+  # lib.nix) — the wrapper exposes them via ANAKOT_OPTIONAL_SKILLS, the
   # same mechanism Homebrew packaging uses.
   bundledOptionalSkills = lib.cleanSourceWith {
     src = ../optional-skills;
@@ -75,27 +75,27 @@ let
 
   # Import bundled plugins (memory, context_engine, platforms/*).  Keeping
   # them out of the Python site-packages keeps import semantics identical
-  # to a dev checkout — the loader reads them from HERMES_BUNDLED_PLUGINS.
+  # to a dev checkout — the loader reads them from ANAKOT_BUNDLED_PLUGINS.
   bundledPlugins = lib.cleanSourceWith {
     src = ../plugins;
     filter = path: _type: !(lib.hasInfix "/__pycache__/" path);
   };
 
   # i18n locale catalogs (locales/*.yaml). Shipped into the store and pointed
-  # at by HERMES_BUNDLED_LOCALES so the wrapped binary always resolves human
+  # at by ANAKOT_BUNDLED_LOCALES so the wrapped binary always resolves human
   # strings instead of raw i18n keys (#23943 / #27632 / #35374).
   bundledLocales = lib.cleanSource ../locales;
 
   # Shipped MCP catalog (optional-mcps/<name>/manifest.yaml). Same bare-data-dir
   # case as locales: not a Python package, so it's symlinked into the store and
-  # exposed via HERMES_OPTIONAL_MCPS.
+  # exposed via ANAKOT_OPTIONAL_MCPS.
   bundledOptionalMcps = lib.cleanSourceWith {
     src = ../optional-mcps;
     filter = path: _type: !(lib.hasInfix "/__pycache__/" path);
   };
 
   runtimeDeps = [
-    hermesNpmLib.nodejs
+    anakotNpmLib.nodejs
     ripgrep
     git
     openssh
@@ -126,7 +126,7 @@ let
 
     # Collect core venv package names
     core = set()
-    venv_sp = pathlib.Path('${hermesVenv}/${sitePackagesPath}')
+    venv_sp = pathlib.Path('${anakotVenv}/${sitePackagesPath}')
     for di in venv_sp.glob('*.dist-info'):
         meta = di / 'METADATA'
         if meta.exists():
@@ -149,7 +149,7 @@ let
                 if line.startswith('Name:'):
                     pkg = canonical(line.split(':', 1)[1].strip())
                     if pkg in core:
-                        print(f'ERROR: plugin package \"{pkg}\" collides with a package in hermes sealed venv', file=sys.stderr)
+                        print(f'ERROR: plugin package \"{pkg}\" collides with a package in anakot sealed venv', file=sys.stderr)
                         print(f'  from: {di}', file=sys.stderr)
                         print(f'  Remove this dependency from extraPythonPackages.', file=sys.stderr)
                         sys.exit(1)
@@ -159,7 +159,7 @@ let
   '';
 in
 stdenv.mkDerivation (finalAttrs: {
-  pname = "hermes-agent";
+  pname = "anakot-agent";
   version = (fromTOML (builtins.readFile ../pyproject.toml)).project.version;
 
   dontUnpack = true;
@@ -172,35 +172,35 @@ stdenv.mkDerivation (finalAttrs: {
     # Symlinks, not copies: these are all store paths already, and the
     # wrapper env vars just hold paths.  Symlinking keeps this derivation
     # near-instant when only the venv changed, with an identical closure.
-    mkdir -p $out/share/hermes-agent $out/bin
-    ln -s ${bundledSkills} $out/share/hermes-agent/skills
-    ln -s ${bundledOptionalSkills} $out/share/hermes-agent/optional-skills
-    ln -s ${bundledPlugins} $out/share/hermes-agent/plugins
-    ln -s ${bundledLocales} $out/share/hermes-agent/locales
-    ln -s ${bundledOptionalMcps} $out/share/hermes-agent/optional-mcps
-    ln -s ${hermesWeb} $out/share/hermes-agent/web_dist
-    ln -s ${hermesTui}/lib/hermes-tui $out/ui-tui
+    mkdir -p $out/share/anakot-agent $out/bin
+    ln -s ${bundledSkills} $out/share/anakot-agent/skills
+    ln -s ${bundledOptionalSkills} $out/share/anakot-agent/optional-skills
+    ln -s ${bundledPlugins} $out/share/anakot-agent/plugins
+    ln -s ${bundledLocales} $out/share/anakot-agent/locales
+    ln -s ${bundledOptionalMcps} $out/share/anakot-agent/optional-mcps
+    ln -s ${anakotWeb} $out/share/anakot-agent/web_dist
+    ln -s ${anakotTui}/lib/anakot-tui $out/ui-tui
 
     ${lib.concatMapStringsSep "\n"
       (name: ''
-        makeWrapper ${hermesVenv}/bin/${name} $out/bin/${name} \
+        makeWrapper ${anakotVenv}/bin/${name} $out/bin/${name} \
           --suffix PATH : "${runtimePath}" \
-          --set HERMES_BUNDLED_SKILLS $out/share/hermes-agent/skills \
-          --set HERMES_OPTIONAL_SKILLS $out/share/hermes-agent/optional-skills \
-          --set HERMES_BUNDLED_PLUGINS $out/share/hermes-agent/plugins \
-          --set HERMES_BUNDLED_LOCALES $out/share/hermes-agent/locales \
-          --set HERMES_OPTIONAL_MCPS $out/share/hermes-agent/optional-mcps \
-          --set HERMES_WEB_DIST $out/share/hermes-agent/web_dist \
-          --set HERMES_TUI_DIR $out/ui-tui \
-          --set-default HERMES_BIN $out/bin/hermes \
-          --set HERMES_PYTHON ${hermesVenv}/bin/python3 \
-          --set HERMES_NODE ${lib.getExe hermesNpmLib.nodejs}${
+          --set ANAKOT_BUNDLED_SKILLS $out/share/anakot-agent/skills \
+          --set ANAKOT_OPTIONAL_SKILLS $out/share/anakot-agent/optional-skills \
+          --set ANAKOT_BUNDLED_PLUGINS $out/share/anakot-agent/plugins \
+          --set ANAKOT_BUNDLED_LOCALES $out/share/anakot-agent/locales \
+          --set ANAKOT_OPTIONAL_MCPS $out/share/anakot-agent/optional-mcps \
+          --set ANAKOT_WEB_DIST $out/share/anakot-agent/web_dist \
+          --set ANAKOT_TUI_DIR $out/ui-tui \
+          --set-default ANAKOT_BIN $out/bin/anakot \
+          --set ANAKOT_PYTHON ${anakotVenv}/bin/python3 \
+          --set ANAKOT_NODE ${lib.getExe anakotNpmLib.nodejs}${
             # Fold the line continuation INTO the optionalString: a bare
             # `\` on the line above an empty expansion would dangle onto a
             # blank line, ending the makeWrapper command early and running
             # the next flag as its own shell command (`--suffix: command
             # not found`). Only reproduces when rev == null (dirty trees).
-            lib.optionalString (rev != null) " \\\n          --set HERMES_REVISION ${rev}"
+            lib.optionalString (rev != null) " \\\n          --set ANAKOT_REVISION ${rev}"
           }${
             lib.optionalString (
               extraPythonPackages != [ ]
@@ -208,15 +208,15 @@ stdenv.mkDerivation (finalAttrs: {
           }
       '')
       [
-        "hermes"
-        "hermes-agent"
-        "hermes-acp"
+        "anakot"
+        "anakot-agent"
+        "anakot-acp"
       ]
     }
 
     ${lib.optionalString (extraPythonPackages != [ ]) ''
       echo "=== Checking for plugin/core package collisions ==="
-      ${hermesVenv}/bin/python3 -c "${checkPackageCollisions}"
+      ${anakotVenv}/bin/python3 -c "${checkPackageCollisions}"
       echo "=== No collisions ==="
     ''}
 
@@ -225,30 +225,30 @@ stdenv.mkDerivation (finalAttrs: {
 
   passthru =
     let
-      devPython = (mkHermesVenv (extraDependencyGroups ++ [ "dev" ])).editableVenv;
+      devPython = (mkAnakotVenv (extraDependencyGroups ++ [ "dev" ])).editableVenv;
     in
     {
       inherit
-        hermesTui
-        hermesWeb
-        hermesNpmLib
-        hermesVenv
+        anakotTui
+        anakotWeb
+        anakotNpmLib
+        anakotVenv
         ;
 
-      # `hermesDesktop` references `finalAttrs.finalPackage` (this whole
+      # `anakotDesktop` references `finalAttrs.finalPackage` (this whole
       # derivation, after all overrides are applied) so the desktop wrapper
       # can prepend its `/bin` to PATH.  The desktop's resolver step 4
-      # ("existing hermes on PATH") then picks up the fully wrapped
-      # `hermes` binary — venv with all deps, bundled skills/plugins,
+      # ("existing anakot on PATH") then picks up the fully wrapped
+      # `anakot` binary — venv with all deps, bundled skills/plugins,
       # runtime PATH (ripgrep/git/ffmpeg/etc).  No re-implementation
       # of the agent resolution in the desktop wrapper.
-      hermesDesktop = callPackage ./desktop.nix {
-        inherit hermesNpmLib electron;
-        hermesAgent = finalAttrs.finalPackage;
+      anakotDesktop = callPackage ./desktop.nix {
+        inherit anakotNpmLib electron;
+        anakotAgent = finalAttrs.finalPackage;
       };
 
       devShellHook = ''
-        export HERMES_PYTHON=${devPython}/bin/python3
+        export ANAKOT_PYTHON=${devPython}/bin/python3
       '';
 
       devDeps =
@@ -263,8 +263,8 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = with lib; {
     description = "AI agent with advanced tool-calling capabilities";
-    homepage = "https://github.com/NousResearch/hermes-agent";
-    mainProgram = "hermes";
+    homepage = "https://github.com/NousResearch/anakot-agent";
+    mainProgram = "anakot";
     license = licenses.mit;
     platforms = platforms.unix;
   };

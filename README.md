@@ -1,8 +1,8 @@
 # Anakot Agent ☤
 
-> **Anakot is a fork of [Nous Research's Hermes Agent](https://github.com/NousResearch/hermes-agent).** Enormous credit to the Nous Research team — the agent, the self-improving learning loop, the tool ecosystem, the gateway, and the desktop app are all their work. This project would not exist without it.
+> **Anakot is a fork of [Nous Research's Anakot Agent](https://github.com/NousResearch/anakot-agent).** Enormous credit to the Nous Research team — the agent, the self-improving learning loop, the tool ecosystem, the gateway, and the desktop app are all their work. This project would not exist without it.
 >
-> This fork does what forks are for: **cut the weight, and add what upstream doesn't have.** Upstream is not deprecated and not abandoned — if you want the canonical project, use [hermes-agent](https://github.com/NousResearch/hermes-agent). If you want the leaner build with a free-model browser and a connectors layer, you're in the right place.
+> This fork does what forks are for: **cut the weight, and add what upstream doesn't have.** Upstream is not deprecated and not abandoned — if you want the canonical project, use [anakot-agent](https://github.com/NousResearch/anakot-agent). If you want the leaner build with a free-model browser and a connectors layer, you're in the right place.
 
 <p align="center">
   <a href="https://github.com/Chensihakniroth/anakot-agent-v1/releases">⬇ Releases</a> ·
@@ -12,7 +12,7 @@
 </p>
 <p align="center">
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-green?style=for-the-badge" alt="MIT License"></a>
-  <a href="https://github.com/NousResearch/hermes-agent"><img src="https://img.shields.io/badge/fork%20of-hermes--agent-blueviolet?style=for-the-badge" alt="Fork of hermes-agent"></a>
+  <a href="https://github.com/NousResearch/anakot-agent"><img src="https://img.shields.io/badge/fork%20of-anakot--agent-blueviolet?style=for-the-badge" alt="Fork of anakot-agent"></a>
   <a href="README.zh-CN.md"><img src="https://img.shields.io/badge/中文-red?style=for-the-badge" alt="中文"></a>
   <a href="README.ur-pk.md"><img src="https://img.shields.io/badge/اردو-green?style=for-the-badge" alt="اردو"></a>
   <a href="README.es.md"><img src="https://img.shields.io/badge/Español-orange?style=for-the-badge" alt="Español"></a>
@@ -22,7 +22,7 @@
 
 ## What this fork adds
 
-Everything below is fork work. Everything else is upstream Hermes, credited as such.
+Everything below is fork work. Everything else is upstream Anakot, credited as such.
 
 | | |
 |---|---|
