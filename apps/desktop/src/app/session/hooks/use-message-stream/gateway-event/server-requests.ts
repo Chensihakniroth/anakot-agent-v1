@@ -46,7 +46,7 @@ const answerValue = (request: ScopedServerRequest, result: unknown) =>
   request.respond({ value: result ? JSON.stringify(result) : '' })
 
 export interface ServerRequestContext {
-  deps: Pick<GatewayEventDeps, 'activeSessionIdRef' | 'sessionInterrupted' | 'updateSessionState' | 'upsertToolCall'>
+  deps: Pick<GatewayEventDeps, 'activeSessionIdRef' | 'sessionInterrupted' | 'sessionStateByRuntimeIdRef' | 'updateSessionState' | 'upsertToolCall'>
   request: ScopedServerRequest
   /** The session the request names ('' when unscoped). */
   sessionId: string
