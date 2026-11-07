@@ -132,6 +132,271 @@ export interface Translations {
     policyFailed: string
     policyConflict: string
     policyReadOnly: string
+    add: {
+      action: string
+      title: string
+      hint: string
+      pasteLabel: string
+      pastePlaceholder: string
+      pasteNoMatch: string
+      name: string
+      nameTaken: string
+      type: string
+      typeStdio: string
+      typeHttp: string
+      command: string
+      args: string
+      addArg: string
+      envVars: string
+      addEnvVar: string
+      passthrough: string
+      addPassthrough: string
+      cwd: string
+      url: string
+      headers: string
+      addHeader: string
+      auth: string
+      authNone: string
+      authOauth: string
+      authBearer: string
+      keyPlaceholder: string
+      valuePlaceholder: string
+      removeRow: string
+      editJson: string
+      saveFailed: string
+    }
+    dialog: {
+      disconnect: string
+      disconnectTitle: (name: string) => string
+      disconnectBody: string
+      menuRefreshTools: string
+      moreActions: string
+      removeServerTitle: (name: string) => string
+      removeServerBody: string
+      appSwitch: (name: string) => string
+      waysTitle: (name: string) => string
+      wayNotConnected: (name: string) => string
+      wayHosted: string
+      bothOn: (name: string) => string
+      turnOffLocal: string
+      providedByPlugin: (plugin: string) => string
+      openPlugins: string
+      nousLine: string
+      rulesReadOnly: string
+      rulesAppOff: (name: string) => string
+      rulesSignIn: string
+      orgNote: (count: number) => string
+      orgLink: string
+      connectEnded: string
+      connectOpenAgain: string
+      tokensPerCall: string
+      usesPerMonth: string
+      advanced: string
+      advancedHint: string
+    }
+    accounts: ConnectorAccountsTranslations
+    tools: {
+      title: string
+      notInstalledBody: string
+      summaryTitle: (name: string) => string
+      summaryPreviewTitle: (name: string) => string
+      summaryCount: (count: number) => string
+      summaryAllTools: string
+      summaryOther: string
+      allToolsSwitch: string
+      summaryAllOn: string
+      summarySomeOn: (on: number, total: number) => string
+      summaryOff: string
+      showAllTools: (count: number) => string
+      showSummary: string
+      facetSwitch: (facet: string) => string
+      moreHints: (count: number) => string
+      staleSignIn: string
+      searchCountPlaceholder: (count: number) => string
+      toolList: (name: string) => string
+      categorySelect: (count: number) => string
+      showDeprecated: (count: number) => string
+      hideDeprecated: (count: number) => string
+      quickReadOnly: string
+      quickNoDestructive: string
+      quickEverythingOn: string
+      lockedHint: string
+      turnToolOn: (tool: string) => string
+      turnToolOff: (tool: string) => string
+      showDetails: (tool: string) => string
+      hideDetails: (tool: string) => string
+      noMatch: string
+      loading: string
+      unavailableLine: string
+      needsAuthTitle: (name: string) => string
+      needsAuthBody: string
+      retry: string
+      goneTitle: (name: string) => string
+      goneBody: string
+      remove: string
+      offTitle: (name: string) => string
+      offBody: string
+      signedOutTitle: string
+      signedOutBody: string
+      conflictTitle: string
+      conflictBody: (theyOff: number, theyOn: number) => string
+      conflictReload: string
+      conflictSave: string
+      saveFailed: string
+      footerDirty: (off: number, backOn: number) => string
+      discard: string
+      save: string
+      saving: string
+    }
+    vocabulary: Record<
+      | 'facetDestructive'
+      | 'facetRead'
+      | 'facetUnclassified'
+      | 'facetWrite'
+      | 'hintCreate'
+      | 'hintDelete'
+      | 'hintDestructive'
+      | 'hintIdempotent'
+      | 'hintOpenWorld'
+      | 'hintReadOnly'
+      | 'hintUpdate',
+      { label: string; long: string }
+    >
+  }
+  sessionImport: {
+    title: string
+    subtitle: string
+    action: string
+    readingFrom: string
+    connectedComputer: string
+    destination: string
+    all: string
+    search: string
+    scanning: string
+    scanError: string
+    scanHelp: string
+    empty: string
+    emptyHelp: string
+    noMatches: string
+    searchHelp: string
+    skipped: string
+    more: string
+    messages: string
+    choose: string
+    chooseHelp: string
+    previewLoading: string
+    previewError: string
+    previewHelp: string
+    previewLimit: string
+    you: string
+    snapshot: string
+    copyNotice: string
+    importing: string
+    open: string
+    continue: string
+    importError: string
+  }
+  common: {
+    apply: string
+    back: string
+    save: string
+    saving: string
+    cancel: string
+    change: string
+    choose: string
+    clear: string
+    close: string
+    collapse: string
+    confirm: string
+    connect: string
+    connecting: string
+    continue: string
+    bots: string
+    copied: string
+    copy: string
+    copyFailed: string
+    delete: string
+    docs: string
+    done: string
+    error: string
+    expand: string
+    failed: string
+    formatJson: string
+    free: string
+    loading: string
+    notSet: string
+    refresh: string
+    remove: string
+    replace: string
+    retry: string
+    run: string
+    send: string
+    set: string
+    skip: string
+    update: string
+    tryHint: (term: string) => string
+    on: string
+    off: string
+  }
+
+  fileMenu: {
+    revealFinder: string
+    revealExplorer: string
+    revealFileManager: string
+    revealInSidebar: string
+    copyPath: string
+    copyRelativePath: string
+    download: string
+    downloadSaved: string
+    downloadFailed: string
+    rename: string
+    delete: string
+    renameTitle: string
+    renameLabel: string
+    deleteTitle: (name: string) => string
+    deleteBody: string
+    pathCopied: string
+    revealMissing: string
+    revealUnavailable: string
+  }
+
+  boot: BootTranslations
+
+  notifications: {
+    sharedProfileWarning: string
+    region: string
+    hide: string
+    show: string
+    more: (count: number) => string
+    clearAll: string
+    dismiss: string
+    details: string
+    copyDetail: string
+    compressDeferredDone: string
+    copyDetailFailed: string
+    backendOutOfDateTitle: string
+    backendOutOfDateMessage: string
+    desktopOutOfDateTitle: string
+    desktopOutOfDateMessage: string
+    updateDesktopApp: string
+    installMethodUnsupportedTitle: string
+    updateHermes: string
+    updateReadyTitle: string
+    updateReadyMessage: (count: number) => string
+    updateReadyMessageUnknown: string
+    updateReadyMessageAppInstaller: string
+    seeWhatsNew: string
+    mcp: {
+      needsAuthTitle: string
+      needsAuthMessage: (name: string) => string
+      errorTitle: string
+      errorMessage: (name: string) => string
+      signIn: string
+      view: string
+      disable: string
+      disabledMessage: (name: string) => string
+      disableFailed: (name: string) => string
+    }
     accounts: {
       heading: string
       count: (count: number) => string
