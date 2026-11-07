@@ -36,6 +36,28 @@ describe('mergePluginPackages', () => {
     expect(rows[0].agent?.name).toBe('anakot-media-studio')
   })
 
+  it('pairs a desktop half with an agent row whose folder differs from its manifest name', () => {
+    // Electron names the half after the package FOLDER (plugins/<folder>/desktop);
+    // the agent row is named from its manifest. `anakot plugins install` lands a
+    // package at plugins/<manifest name>, but a self-cloned one (the README's
+    // `git clone … ~/.anakot/plugins/anakot-subscription-meter`) keeps the repo
+    // name. The join key has to be the folder or it splits into two rows.
+    const rows = mergePluginPackages(
+      [desktop({ id: 'meter-ui', name: 'Meter', packageName: 'anakot-subscription-meter' })],
+      [
+        agent({
+          name: 'subscription-meter',
+          has_desktop_half: true,
+          install_dir: '/home/u/.anakot/plugins/anakot-subscription-meter'
+        })
+      ]
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ kind: 'both', agentMissingInProfile: false, desktopMissing: false })
+    expect(rows[0].agent?.name).toBe('subscription-meter')
+  })
+
   it('a desktop half whose agent half is absent from THIS profile offers the install-here affordance', () => {
     const rows = mergePluginPackages([desktop({ id: 'media', packageName: 'anakot-media-studio' })], [])
 
@@ -47,6 +69,68 @@ describe('mergePluginPackages', () => {
     const rows = mergePluginPackages([], [agent({ name: 'pkg', has_desktop_half: true })])
 
     expect(rows[0]).toMatchObject({ kind: 'both', desktop: null, desktopMissing: true })
+  })
+
+  // A catalog install used to land the desktop half at
+  // desktop-plugins/<name>/plugin.js with no .anakot-package.json, and the row
+  // sat on "copying…" beside a second, already-enabled desktop row. The join is
+  // the marker, not the folder name: Electron stamps it on install and adopts
+  // marker-less copies on reconcile (see desktop-plugins-root.ts), so the page
+  // pairs on evidence instead of guessing from a path.
+  it('pairs a desktop half with its agent row through the package marker', () => {
+    const rows = mergePluginPackages(
+      [
+        desktop({
+          id: 'anakot-talk',
+          name: 'Anakot Talk',
+          description: 'GPT-Live subscription or explicit API voice, with Anakot task delegation.',
+          packageName: 'anakot-talk',
+          file: '/Users/me/.anakot/desktop-plugins/anakot-talk/plugin.js'
+        })
+      ],
+      [agent({ name: 'anakot-talk', has_desktop_half: true, version: '0.21.0' })]
+    )
+
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({
+      key: 'anakot-talk',
+      name: 'Anakot Talk',
+      kind: 'both',
+      desktopMissing: false,
+      agentMissingInProfile: false
+    })
+    expect(rows[0].desktop?.id).toBe('anakot-talk')
+    expect(rows[0].agent?.name).toBe('anakot-talk')
+  })
+
+  it('keeps an unmarked app-root copy its own row rather than guessing from the folder name', () => {
+    const rows = mergePluginPackages(
+      [
+        desktop({
+          id: 'anakot-talk',
+          name: 'Anakot Talk',
+          file: '/Users/me/.anakot/desktop-plugins/anakot-talk/plugin.js'
+        })
+      ],
+      [agent({ name: 'anakot-talk', has_desktop_half: true })]
+    )
+
+    expect(rows.map(row => [row.key, row.kind])).toEqual([
+      ['anakot-talk', 'both'],
+      ['desktop:anakot-talk', 'desktop']
+    ])
+  })
+
+  it('leaves a same-named standalone desktop plugin alone when the agent package has no desktop half', () => {
+    const rows = mergePluginPackages(
+      [desktop({ id: 'clock', name: 'Clock', file: '/Users/me/.anakot/desktop-plugins/clock/plugin.js' })],
+      [agent({ name: 'clock' })]
+    )
+
+    expect(rows.map(row => [row.key, row.kind])).toEqual([
+      ['clock', 'agent'],
+      ['desktop:clock', 'desktop']
+    ])
   })
 
   it('standalone desktop plugins and agent-only packages keep one empty side; unified rows sort first', () => {

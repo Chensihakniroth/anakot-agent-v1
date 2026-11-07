@@ -678,7 +678,7 @@ export const arSettings = {
       intro:
         'يشغّل Anakot Desktop بوابة محلية خاصة افتراضياً. استخدم بوابة بعيدة عندما تريد أن يتحكم هذا التطبيق بخلفية Anakot تعمل مسبقاً على جهاز آخر أو خلف وكيل موثوق. اتصالات البوابة إعداد على مستوى الجهاز؛ ويتم اكتشاف الملفات الشخصية من البوابات المتصلة.',
       envOverrideTitle: 'متغيرات البيئة تتحكم في جلسة سطح المكتب هذه.',
-      envOverrideDesc: 'أزل ANAKOT_DESKTOP_REMOTE_URL و ANAKOT_DESKTOP_REMOTE_TOKEN لاستخدام الإعداد المحفوظ أدناه.',
+      envOverrideDesc: 'أزل HERMES_DESKTOP_REMOTE_URL و HERMES_DESKTOP_REMOTE_TOKEN لاستخدام الإعداد المحفوظ أدناه.',
       localTitle: 'بوابة محلية',
       localDesc: 'تشغيل خلفية Anakot خاصة على localhost. هذا هو الافتراضي ويعمل دون اتصال.',
       remoteTitle: 'بوابة بعيدة',
@@ -978,6 +978,13 @@ export const arSettings = {
       clearDirFailed: 'تعذر مسح المجلد الافتراضي'
     },
     toolsets: {
+      browserRealProfile: {
+        reimportSignins: 'إعادة استيراد تسجيلات الدخول',
+        signinsImportedTitle: 'تسجيلات الدخول في المتصفح المدمج',
+        signinsImported: count => `تم تسجيل الدخول إلى المتصفح المدمج باستخدام ${count} من ملفات تعريف الارتباط من ملف متصفحك.`,
+        signinsRemote: 'تعمل هذه الواجهة الخلفية على جهاز آخر، لذا لا يُستورد ملف متصفحها إلى المتصفح المدمج.',
+        signinsFailed: 'تعذر استيراد تسجيلات الدخول إلى المتصفح المدمج',
+      },
       loadingConfig: 'جار تحميل الإعدادات',
       savedTitle: 'تم حفظ بيانات الاعتماد',
       savedMessage: key => `تم تحديث ${key}.`,

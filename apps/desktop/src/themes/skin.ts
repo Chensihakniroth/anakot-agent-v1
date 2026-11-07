@@ -1,7 +1,7 @@
 /**
  * Anakot skin → DesktopTheme converter.
  *
- * A "skin" is the CLI/TUI theme unit: a YAML file in `$ANAKOT_HOME/skins/` (or a
+ * A "skin" is the CLI/TUI theme unit: a YAML file in `$HERMES_HOME/skins/` (or a
  * built-in) resolved by `anakot_cli/skin_engine.py` and pushed to every surface
  * over JSON-RPC (`gateway.ready`, `skin.changed`, `config.get skin`). This is the
  * one place the desktop turns that CLI-shaped palette into a `DesktopTheme`, so a
@@ -113,6 +113,9 @@ export function skinToDesktopTheme(skin: AnakotSkin): DesktopTheme | null {
     // Single palette in both slots: a skin is one-mode, so the light/dark toggle
     // shouldn't invert it. renderedModeFor still paints `.dark` from luminance.
     colors: palette,
-    darkColors: palette
+    darkColors: palette,
+    // Pass through raw CSS so the desktop can inject it as a scoped <style>
+    // tag — users put CSS in their skin YAML instead of hacking app.asar.
+    customCSS: skin.customCSS?.trim() || undefined
   }
 }

@@ -10,7 +10,10 @@ export interface FadeEdges {
   below: boolean
 }
 
-/** The mask for a pair of clipped edges, or undefined when nothing is clipped. */
+/**
+ * The mask for a pair of clipped edges, or `undefined` when nothing is clipped
+ * — a list that fits must not be dimmed at all.
+ */
 export function edgeMask({ above, below }: FadeEdges, axis: 'x' | 'y' = 'y'): string | undefined {
   if (!above && !below) {
     return undefined
@@ -33,8 +36,24 @@ export function scrollEdges(el: Pick<HTMLElement, 'clientHeight' | 'scrollHeight
 /**
  * A height-capped scroller whose clipped edges fade out.
  *
- * The fade is a CSS mask driven by scroll position. Unsupported browsers show
- * no fade rather than attaching a React scroll/resize listener to every list.
+ * The fade is a mask-image, not an overlay: it resolves against whatever
+ * background the parent happens to have, so one component works on the chat
+ * backdrop, inside a widget panel, and in a drawer without knowing any of
+ * their fills. Same technique as FadeText, on the other axis.
+ *
+ * The gradient is EDGE-AWARE and pure CSS: the `scroll-fade-y` utility
+ * (styles.css) drives the mask off the scroller's own scroll position with
+ * scroll-driven animations. A side only fades while content is clipped behind
+ * it, a list that fits shows no gradient at all, and a list scrolled to the
+ * bottom stops fading its last row, with no scroll or resize listener and no
+ * React state. A browser without scroll-driven animations (Chromium < 115)
+ * shows no fade rather than a broken one.
+ *
+ * From each edge inward the mask is `pad` of fully hidden content, then `fade`
+ * of gradient. Set `pad` to the scroller's own padding so the gradient starts
+ * at the content instead of spending itself on the empty padding. `deps`
+ * re-pins the scroller to the bottom when it changes — newest-at-bottom feeds
+ * want that; a plain list should leave it unset.
  */
 export function FadeScroll({
   children,

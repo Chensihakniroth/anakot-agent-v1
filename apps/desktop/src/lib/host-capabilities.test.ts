@@ -5,8 +5,8 @@ import { hostHas } from './host-capabilities'
 import { isBrowserHostedDesktop } from './platform'
 
 interface HostGlobals {
-  __ANAKOT_AUTH_REQUIRED__?: boolean
-  __ANAKOT_UI_SURFACE__?: string
+  __HERMES_AUTH_REQUIRED__?: boolean
+  __HERMES_UI_SURFACE__?: string
   anakotDesktop?: unknown
 }
 
@@ -14,23 +14,23 @@ const win = window as unknown as HostGlobals
 
 function reset() {
   document.documentElement.removeAttribute('data-anakot-desktop-host')
-  delete win.__ANAKOT_AUTH_REQUIRED__
-  delete win.__ANAKOT_UI_SURFACE__
+  delete win.__HERMES_AUTH_REQUIRED__
+  delete win.__HERMES_UI_SURFACE__
   delete win.anakotDesktop
 }
 
 // Every way the renderer meets its host: before and after the bridge writes the marker.
 const HOST_STATES: { browser: boolean; name: string; setup: () => void }[] = [
   { browser: true, name: 'browser marker', setup: () => (document.documentElement.dataset.anakotDesktopHost = 'browser') },
-  { browser: true, name: 'gated host before the marker', setup: () => (win.__ANAKOT_AUTH_REQUIRED__ = true) },
-  { browser: true, name: 'Webapp surface before the marker', setup: () => (win.__ANAKOT_UI_SURFACE__ = 'webapp') },
+  { browser: true, name: 'gated host before the marker', setup: () => (win.__HERMES_AUTH_REQUIRED__ = true) },
+  { browser: true, name: 'Webapp surface before the marker', setup: () => (win.__HERMES_UI_SURFACE__ = 'webapp') },
   { browser: false, name: 'electron marker', setup: () => (document.documentElement.dataset.anakotDesktopHost = 'electron') },
   {
     browser: false,
     name: 'Electron preload with a stale Webapp global',
     setup: () => {
       win.anakotDesktop = {}
-      win.__ANAKOT_UI_SURFACE__ = 'webapp'
+      win.__HERMES_UI_SURFACE__ = 'webapp'
     }
   },
   { browser: false, name: 'no host signal', setup: () => undefined }

@@ -7,17 +7,17 @@ import { installBrowserDesktopBridge } from './browser-desktop-bridge'
 import { readWebappSession, WEBAPP_LAUNCH_REQUIRED, webappSessionKey } from './browser-launch-session'
 
 const win = window as Window & {
-  __ANAKOT_UI_SURFACE__?: string
-  __ANAKOT_BASE_PATH__?: string
-  __ANAKOT_AUTH_REQUIRED__?: boolean
+  __HERMES_UI_SURFACE__?: string
+  __HERMES_BASE_PATH__?: string
+  __HERMES_AUTH_REQUIRED__?: boolean
 }
 
 afterEach(() => {
   window.dispatchEvent(new Event('beforeunload'))
   Reflect.deleteProperty(window, 'anakotDesktop')
-  delete win.__ANAKOT_UI_SURFACE__
-  delete win.__ANAKOT_BASE_PATH__
-  delete win.__ANAKOT_AUTH_REQUIRED__
+  delete win.__HERMES_UI_SURFACE__
+  delete win.__HERMES_BASE_PATH__
+  delete win.__HERMES_AUTH_REQUIRED__
   sessionStorage.clear()
   localStorage.clear()
   window.history.replaceState(null, '', '/')
@@ -27,8 +27,8 @@ afterEach(() => {
 
 it('uses one private session for REST, RPC and terminal across reload without losing the profile', async () => {
   const token = 'a'.repeat(43)
-  win.__ANAKOT_UI_SURFACE__ = 'webapp'
-  win.__ANAKOT_BASE_PATH__ = '/one'
+  win.__HERMES_UI_SURFACE__ = 'webapp'
+  win.__HERMES_BASE_PATH__ = '/one'
   // Where /webapp/launch leaves the credential before it opens /one/?profile=coder.
   sessionStorage.setItem(webappSessionKey('/one'), token)
   window.history.replaceState(null, '', '/one/?profile=coder')
@@ -38,7 +38,7 @@ it('uses one private session for REST, RPC and terminal across reload without lo
     onmessage: ((event: { data: string }) => void) | null = null
     constructor(url: URL) {
       urls.push(new URL(url))
-      queueMicrotask(() => this.onmessage?.({ data: '\0ANAKOT_TERMINAL_META:{"terminalId":"shell","pid":1,"cwd":"/work","shell":"sh","reconnected":false}' }))
+      queueMicrotask(() => this.onmessage?.({ data: '\0HERMES_TERMINAL_META:{"terminalId":"shell","pid":1,"cwd":"/work","shell":"sh","reconnected":false}' }))
     }
     close() {}
   }
@@ -104,7 +104,7 @@ it('uses one private session for REST, RPC and terminal across reload without lo
 })
 
 it('fails closed with actionable launch instructions in a fresh tab and ignores local grants under OAuth', async () => {
-  win.__ANAKOT_UI_SURFACE__ = 'webapp'
+  win.__HERMES_UI_SURFACE__ = 'webapp'
   const fetchMock = vi.fn()
   vi.stubGlobal('fetch', fetchMock)
   expect(installBrowserDesktopBridge()).toBe(true)
@@ -117,7 +117,7 @@ it('fails closed with actionable launch instructions in a fresh tab and ignores 
   expect(readWebappSession('')).toHaveLength(43)
   sessionStorage.clear()
   expect(readWebappSession('')).toBe('')
-  win.__ANAKOT_AUTH_REQUIRED__ = true
+  win.__HERMES_AUTH_REQUIRED__ = true
   expect(installBrowserDesktopBridge()).toBe(true)
   expect((await window.anakotDesktop!.getConnection()).authMode).toBe('oauth')
   expect((await window.anakotDesktop!.getConnection()).token).toBe('')
@@ -125,7 +125,7 @@ it('fails closed with actionable launch instructions in a fresh tab and ignores 
 
 it('takes the credential only from the tab storage the launch page fills, never from the address', () => {
   // The browser records every address in its history, where a credential would outlive the tab.
-  win.__ANAKOT_UI_SURFACE__ = 'webapp'
+  win.__HERMES_UI_SURFACE__ = 'webapp'
   window.history.replaceState(null, '', `/?profile=coder#anakot-session=${'c'.repeat(43)}`)
   expect(readWebappSession('')).toBe('')
   expect(installBrowserDesktopBridge()).toBe(true)
@@ -137,8 +137,8 @@ it('takes the credential only from the tab storage the launch page fills, never 
 it.each(['window', 'session'] as const)('hands off a private %s through a one-use ticket without sharing its session token', async kind => {
   const token = 'a'.repeat(43)
   const ticket = 'b'.repeat(43)
-  win.__ANAKOT_UI_SURFACE__ = 'webapp'
-  win.__ANAKOT_BASE_PATH__ = '/one'
+  win.__HERMES_UI_SURFACE__ = 'webapp'
+  win.__HERMES_BASE_PATH__ = '/one'
   sessionStorage.setItem(webappSessionKey('/one'), token)
   window.history.replaceState(null, '', '/one/?profile=coder')
   const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ticket })))
@@ -202,7 +202,7 @@ it('asks a tab without a working credential to sign in, so reconnecting stops', 
   // The reconnect loop stops retrying only for an error that reads as a sign-in requirement;
   // the startup overlay then shows the Webapp sign-in view for this message.
   const failure = (request: Promise<unknown>) => request.then(() => null, (error: unknown) => error)
-  win.__ANAKOT_UI_SURFACE__ = 'webapp'
+  win.__HERMES_UI_SURFACE__ = 'webapp'
   vi.stubGlobal('fetch', vi.fn(async () => new Response('Unauthorized', { status: 401 })))
   expect(installBrowserDesktopBridge()).toBe(true)
 

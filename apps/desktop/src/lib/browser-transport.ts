@@ -31,9 +31,9 @@ export function browserBootstrap(): BrowserBootstrap | null {
   if (!hasBrowserHostBootstrap()) {return null}
 
   const win = window as Window & BrowserHostGlobals
-  const authRequired = win.__ANAKOT_AUTH_REQUIRED__ === true
-  const basePath = normalizeBasePath(win.__ANAKOT_BASE_PATH__)
-  const privateSession = !authRequired && win.__ANAKOT_UI_SURFACE__ === 'webapp'
+  const authRequired = win.__HERMES_AUTH_REQUIRED__ === true
+  const basePath = normalizeBasePath(win.__HERMES_BASE_PATH__)
+  const privateSession = !authRequired && win.__HERMES_UI_SURFACE__ === 'webapp'
   const token = privateSession ? readWebappSession(basePath) : ''
 
   return {

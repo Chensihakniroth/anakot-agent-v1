@@ -19,7 +19,7 @@ export function runGatewayEnsure(
   return new Promise((resolve, reject) => {
     // The gateway this starts outlives a dev session and Desktop reaches it without an Origin
     // (main-process HTTP, Origin-stripped socket dials): it never trusts the dev renderer.
-    const { ANAKOT_DESKTOP_DEV_SERVER: _devServer, ...env } = { ...parentEnv, ANAKOT_HOME: home, ...backend.env }
+    const { HERMES_DESKTOP_DEV_SERVER: _devServer, ...env } = { ...parentEnv, HERMES_HOME: home, ...backend.env }
     // shell: true hands cmd.exe one command line it cuts at the first unquoted space,
     // so an install under `C:\Users\John Doe\...` must arrive quoted (#74064).
     const child = spawn(windowsShellCommand(backend.command, Boolean(backend.shell)), backend.args, hiddenWindowsChildOptions({ cwd, env, shell: backend.shell, stdio: ['ignore', 'pipe', 'pipe'] }))
@@ -380,7 +380,7 @@ export function createLocalGatewayDials() {
   }
 }
 
-// A profile home keeps the operator's mode (Python `home_mode_unsafe`: ANAKOT_HOME_MODE 0750/0701,
+// A profile home keeps the operator's mode (Python `home_mode_unsafe`: HERMES_HOME_MODE 0750/0701,
 // a 0755 home): read/search bits grant nothing against the 0600 socket; only write by another user
 // could swap it. Group-write is safe only for a proven-private group without an ACL, which Node
 // cannot establish (no xattrs/NSS): a group-writable home returns true so the caller hands the
@@ -457,7 +457,7 @@ export function routedGatewayEndpoint(endpoint: GatewayEndpoint, urlOrProfile: s
   if (profile === ownName) {return endpoint}
 
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(profile)) {throw new Error('Invalid profile route')}
-  // The root home is the endpoint's own profile_id (Python resolved it); the raw launch ANAKOT_HOME
+  // The root home is the endpoint's own profile_id (Python resolved it); the raw launch HERMES_HOME
   // may be a symlink, and a ticket for an unresolved sibling home fails 'Noncanonical' (B2-17).
   const root = path.basename(path.dirname(endpoint.profile_id)) === 'profiles' ? path.dirname(path.dirname(endpoint.profile_id)) : endpoint.profile_id
   const home = profile === 'default' ? root : path.join(root, 'profiles', profile)

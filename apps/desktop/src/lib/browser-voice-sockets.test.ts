@@ -13,8 +13,8 @@ import { resolveSpeakStreamUrl } from './voice-playback'
 // sent streaming voice to its whole-reply fallback every time.
 
 type MutableWindow = Window & {
-  __ANAKOT_AUTH_REQUIRED__?: boolean
-  __ANAKOT_BASE_PATH__?: string
+  __HERMES_AUTH_REQUIRED__?: boolean
+  __HERMES_BASE_PATH__?: string
   anakotDesktop?: Window['anakotDesktop']
 }
 
@@ -42,8 +42,8 @@ const minted = (fetchMock: ReturnType<typeof serveTickets>) =>
 
 afterEach(() => {
   const win = mutableWindow()
-  delete win.__ANAKOT_AUTH_REQUIRED__
-  delete win.__ANAKOT_BASE_PATH__
+  delete win.__HERMES_AUTH_REQUIRED__
+  delete win.__HERMES_BASE_PATH__
   clearWebappSession()
   Reflect.deleteProperty(win, 'anakotDesktop')
   document.documentElement.removeAttribute('data-anakot-desktop-host')
@@ -56,8 +56,8 @@ afterEach(() => {
 describe('browser-hosted Desktop voice streams', () => {
   it('speaks on a ticket minted for the speech stream, never the gateway ticket', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_AUTH_REQUIRED__ = true
+    win.__HERMES_BASE_PATH__ = '/anakot'
     const fetchMock = serveTickets()
     expect(installBrowserDesktopBridge()).toBe(true)
     setApiRequestProfile('worker-a')
@@ -98,7 +98,7 @@ describe('browser-hosted Desktop voice streams', () => {
 
   it('leaves the gateway socket on its own ticket', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
+    win.__HERMES_AUTH_REQUIRED__ = true
     const fetchMock = serveTickets()
     expect(installBrowserDesktopBridge()).toBe(true)
 

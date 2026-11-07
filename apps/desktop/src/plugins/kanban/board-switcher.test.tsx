@@ -123,12 +123,35 @@ describe('board switcher', () => {
     expect((await screen.findByRole('group', { name: 'Pinned boards' })).textContent).toBe('Research')
   })
 
-  // The trigger is projected into the Kanban page header as the board's
-  // display title. It must have an accessible name that names both the control
-  // and the board so screen readers describe it as an action, not plain text.
-  it('labels the trigger with both the control kind and current board', async () => {
-    mount()
+  it('keeps pins per connection and drops a drag that crossed a connection switch', async () => {
+    const storage = bindPersistence()
+    const remote = () => act(() => setConnection({ connectionId: 'remote-test', mode: 'remote' } as never))
+    const local = () => act(() => setConnection({ mode: 'local' } as never))
 
-    expect(await screen.findByRole('button', { name: 'Board: Shipping' })).toBeTruthy()
+    const pinBoth = async () => {
+      await chooseFromMenu('Pin board')
+      await chooseFromMenu(/^Research/)
+      await chooseFromMenu('Pin board')
+    }
+
+    mount()
+    await pinBoth()
+    remote()
+    expect(screen.queryByRole('group', { name: 'Pinned boards' })).toBeNull()
+    await pinBoth()
+    expect(storage.get('pinnedBoards.remote-test', [])).toEqual(['shipping', 'research'])
+
+    // Both board lists are cached now, so the tabs stay mounted across the
+    // switch and the drag's start survives it.
+    local()
+    expect(tabNames()).toEqual(['Shipping', 'Research'])
+    const dataTransfer = { dropEffect: '', effectAllowed: '' }
+    fireEvent.dragStart(tab('Research'), { dataTransfer })
+    remote()
+    fireEvent.dragOver(tab('Shipping'), { dataTransfer })
+    fireEvent.drop(tab('Shipping'), { dataTransfer })
+    expect(tabNames()).toEqual(['Shipping', 'Research'])
+    expect(storage.get('pinnedBoards.remote-test', [])).toEqual(['shipping', 'research'])
+    expect(storage.get('pinnedBoards', [])).toEqual(['shipping', 'research'])
   })
 })

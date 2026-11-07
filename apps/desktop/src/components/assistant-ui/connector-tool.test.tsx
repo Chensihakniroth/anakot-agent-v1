@@ -1,6 +1,7 @@
 import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { atom } from 'nanostores'
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { type SessionView, SessionViewProvider } from '@/app/chat/session-view'
@@ -12,7 +13,7 @@ import {
   type ConnectionTarget,
   setConnectionRequest
 } from '@/store/connection-request'
-import { $gateway, setPrimaryGateway } from '@/store/gateway'
+import { $gateway, setPrimaryGateway, setPrimaryGatewayConnectionId } from '@/store/gateway'
 import { $notifications } from '@/store/notifications'
 import { _resetSessionOwnerHintsForTests, setSessionOwnerHint } from '@/store/session'
 
@@ -24,9 +25,13 @@ const PRIMARY_OWNER = { connectionId: null, profile: 'default' }
 const GMAIL: ConnectionTarget = {
   action: 'connect',
   connectUrl: 'https://connect.example/gmail',
+  connectionId: '',
   detail: '',
+  discoveryError: null,
   kind: 'connector',
+  instructions: null,
   name: 'gmail',
+  requiredEnv: [],
   state: 'pending',
   tools: []
 }
@@ -72,6 +77,8 @@ function view(sessionId: string): SessionView {
     $model: atom(''),
     $provider: atom(''),
     $reasoningEffort: atom(''),
+    $reasoningEffortPending: atom(false),
+    $reasoningEffortWire: atom(''),
     $runtimeId: atom(sessionId),
     $storedId: atom(sessionId),
     $turnStartedAt: atom(null),
@@ -80,6 +87,8 @@ function view(sessionId: string): SessionView {
 }
 
 function renderOffer(request = REQUEST) {
+  setConnectionRequest(request)
+
   return render(
     <I18nProvider configClient={null} initialLocale="en">
       <ConnectorOffer owner={PRIMARY_OWNER} request={request} />
@@ -111,19 +120,43 @@ afterEach(() => {
   vi.clearAllMocks()
 })
 
-describe('ConnectorTool operation card', () => {
-  it('does not call connectors.list or create a timer on mount', () => {
-    vi.useFakeTimers()
-    const request = vi.fn()
-    // SAFETY: the store calls only `request`; the rest of the client is never touched in these tests.
-    $gateway.set({ request } as never)
+function Where() {
+  const { pathname, search } = useLocation()
 
-    renderOffer()
+  return <output data-testid="where">{`${pathname}${search}`}</output>
+}
 
-    expect(request).not.toHaveBeenCalledWith('connectors.list', expect.anything())
-    expect(vi.getTimerCount()).toBe(0)
+describe('ConnectorOffer named-account notice', () => {
+  it('says which name Anakot chose once the account connected, and Rename opens that account (by id) on the Connectors tab', () => {
+    const request = {
+      ...REQUEST,
+      settled: true,
+      targets: [{ ...GMAIL, alias: 'work', connectionId: 'ca_work', state: 'connected' as const }]
+    }
+
+    setConnectionRequest(request)
+    render(
+      <I18nProvider configClient={null} initialLocale="en">
+        <MemoryRouter initialEntries={['/chat']}>
+          <Routes>
+            <Route element={<ConnectorOffer owner={PRIMARY_OWNER} request={request} />} path="/chat" />
+            <Route element={<Where />} path="*" />
+          </Routes>
+        </MemoryRouter>
+      </I18nProvider>
+    )
+
+    expect(screen.getAllByText('Anakot named this Gmail account work.')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+
+    expect(screen.getByTestId('where').textContent).toBe(
+      '/capabilities?tab=connectors&connector=gmail&profile=default&rename=ca_work'
+    )
   })
+})
 
+describe('ConnectorTool operation card', () => {
   it('offers one verb per row and Continue below; nothing per row says no', () => {
     renderOffer({
       ...REQUEST,
@@ -134,7 +167,11 @@ describe('ConnectorTool operation card', () => {
       ]
     })
 
-    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual(['Connect', 'Try again', 'Continue'])
+    expect(screen.getAllByRole('button').map(button => button.textContent)).toEqual([
+      'Connect',
+      'Try again',
+      'Continue'
+    ])
     expect(screen.queryByRole('button', { name: 'Not now' })).toBeNull()
   })
 
@@ -156,7 +193,7 @@ describe('ConnectorTool operation card', () => {
     expect(request).not.toHaveBeenCalledWith('connectors.connect', expect.anything())
   })
 
-  it('Try again mints a fresh link on the open operation and opens it at once', async () => {
+  it('Try again mints a fresh link on the open operation and never opens a browser by itself', async () => {
     const openExternal = vi.fn()
     // SAFETY: the card reads only `openExternal` from the preload bridge.
     window.anakotDesktop = { openExternal } as never
@@ -172,8 +209,9 @@ describe('ConnectorTool operation card', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }))
 
     await waitFor(() => {
-      expect(openExternal).toHaveBeenCalledWith('https://connect.example/gmail-2')
+      expect(request).toHaveBeenCalledTimes(1)
     })
+    expect(openExternal).not.toHaveBeenCalled()
     expect(request).toHaveBeenCalledWith(
       'connectors.connect',
       { connectors: ['gmail'], owner: { session_id: SESSION_ID, type: 'session' }, reconnect: true },
@@ -201,8 +239,9 @@ describe('ConnectorTool operation card', () => {
 
   it('Continue settles the whole operation', async () => {
     const request = vi.fn().mockResolvedValue({ status: 'ok' })
-    // SAFETY: the store calls only `request`; the rest of the client is never touched in these tests.
-    $gateway.set({ request } as never)
+    // SAFETY: the card calls only `request`; the rest of the client is never touched in this test.
+    setPrimaryGateway({ request } as never)
+    setPrimaryGatewayConnectionId('connection-1')
 
     renderConnector()
 
@@ -212,7 +251,7 @@ describe('ConnectorTool operation card', () => {
       expect(request).toHaveBeenCalledWith('connection.respond', {
         op_id: 'operation-1',
         owner: { session_id: SESSION_ID, type: 'session' },
-        result: { settled_by: 'continue' },
+        result: { settled_by: 'continue' }
       })
     })
   })
@@ -220,7 +259,9 @@ describe('ConnectorTool operation card', () => {
   it('never binds to a tool row from a different call, even for the same apps', () => {
     // A second connect for gmail opens a new operation on a new tool_call_id. The old row must stay
     // dead: it is matched by id only, never by connector names.
-    expect(connectionRequestOwnsPart(props(), { ...REQUEST, opId: 'operation-2', toolCallId: 'connector-call-2' })).toBe(false)
+    expect(
+      connectionRequestOwnsPart(props(), { ...REQUEST, opId: 'operation-2', toolCallId: 'connector-call-2' })
+    ).toBe(false)
     expect(connectionRequestOwnsPart(props(), REQUEST)).toBe(true)
   })
 

@@ -12,9 +12,9 @@ import { resolveDesktopGatewayWsUrl } from './gateway-ws-url'
 import { downloadGatewayMediaFile, resolveMediaPlaybackSrc } from './media'
 
 type MutableWindow = Window & {
-  __ANAKOT_AUTH_REQUIRED__?: boolean
-  __ANAKOT_BASE_PATH__?: string
-  __ANAKOT_DASHBOARD_PROFILE__?: string
+  __HERMES_AUTH_REQUIRED__?: boolean
+  __HERMES_BASE_PATH__?: string
+  __HERMES_DASHBOARD_PROFILE__?: string
   anakotDesktop?: Window['anakotDesktop']
 }
 
@@ -22,9 +22,9 @@ const mutableWindow = () => window as unknown as MutableWindow
 
 afterEach(() => {
   const win = mutableWindow()
-  delete win.__ANAKOT_AUTH_REQUIRED__
-  delete win.__ANAKOT_BASE_PATH__
-  delete win.__ANAKOT_DASHBOARD_PROFILE__
+  delete win.__HERMES_AUTH_REQUIRED__
+  delete win.__HERMES_BASE_PATH__
+  delete win.__HERMES_DASHBOARD_PROFILE__
   clearWebappSession()
   Reflect.deleteProperty(win, 'anakotDesktop')
   document.documentElement.removeAttribute('data-anakot-desktop-host')
@@ -87,8 +87,8 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('installs behind the authenticated non-loopback server gate without exposing a token', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_AUTH_REQUIRED__ = true
+    win.__HERMES_BASE_PATH__ = '/anakot'
 
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -124,8 +124,8 @@ describe('browser-hosted Desktop bridge', () => {
   // serving host's release, never a host-kind label.
   it('reports the serving host version, unknown when the host cannot say', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_AUTH_REQUIRED__ = true
+    win.__HERMES_BASE_PATH__ = '/anakot'
 
     const fetchMock = vi
       .fn()
@@ -143,8 +143,8 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('mints a fresh gateway ticket for each WebSocket dial', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_AUTH_REQUIRED__ = true
+    win.__HERMES_BASE_PATH__ = '/anakot'
 
     const fetchMock = vi
       .fn()
@@ -182,8 +182,8 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('returns an actionable reauth result when the gated cookie expires', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_AUTH_REQUIRED__ = true
+    win.__HERMES_BASE_PATH__ = '/anakot'
     let loginUrl = ''
     window.addEventListener(
       'anakot:browser-reauth-required',
@@ -218,8 +218,8 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('signs out through the server before navigating to the gated login page', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_AUTH_REQUIRED__ = true
+    win.__HERMES_BASE_PATH__ = '/anakot'
     let loginUrl = ''
     window.addEventListener(
       'anakot:browser-reauth-required',
@@ -328,7 +328,7 @@ describe('browser-hosted Desktop bridge', () => {
   it('opens session windows on the owning profile HashRouter route with spectator flags before the hash', async () => {
     const win = mutableWindow()
     // A gated host opens the window directly; a launch-link tab hands it a session first.
-    win.__ANAKOT_AUTH_REQUIRED__ = true
+    win.__HERMES_AUTH_REQUIRED__ = true
     window.history.replaceState(null, '', '/?profile=work#/existing')
     const { open } = browserOpensWebappWindows()
 
@@ -394,7 +394,7 @@ describe('browser-hosted Desktop bridge', () => {
   ])('resolves a $name session-window profile against the ambient launch URL', async ({ expectedProfile, opts }) => {
     const win = mutableWindow()
     // A gated host opens the window directly; a launch-link tab hands it a session first.
-    win.__ANAKOT_AUTH_REQUIRED__ = true
+    win.__HERMES_AUTH_REQUIRED__ = true
     window.history.replaceState(null, '', '/?profile=work#/existing')
     const { open } = browserOpensWebappWindows()
 
@@ -407,7 +407,7 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('exposes one same-origin registry source for Bot profile routing', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
     seedWebappSession('served-token')
     vi.stubGlobal(
       'fetch',
@@ -457,7 +457,7 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('maps REST requests to the loopback API with token and profile scoping', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
     seedWebappSession('served-token')
 
     const fetchMock = vi.fn().mockResolvedValue(
@@ -485,7 +485,7 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('routes Git through the browser transport and resolves the profile at call time', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
     seedWebappSession('served-token')
     $connection.set({ profile: 'launch-profile' } as never)
 
@@ -585,10 +585,10 @@ describe('browser-hosted Desktop bridge', () => {
   it.each(['token', 'cookie'])('downloads browser files with %s auth on the original profile', async auth => {
     const win = mutableWindow()
     const token = auth === 'token' ? 'served / token' : ''
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
 
     if (auth === 'cookie') {
-      win.__ANAKOT_AUTH_REQUIRED__ = true
+      win.__HERMES_AUTH_REQUIRED__ = true
     } else {
       seedWebappSession(token)
     }
@@ -643,10 +643,10 @@ describe('browser-hosted Desktop bridge', () => {
   it.each(['token', 'cookie'])('streams browser audio/video over HTTP with %s auth', async auth => {
     const win = mutableWindow()
     const token = auth === 'token' ? 'served / token' : ''
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
 
     if (auth === 'cookie') {
-      win.__ANAKOT_AUTH_REQUIRED__ = true
+      win.__HERMES_AUTH_REQUIRED__ = true
     } else {
       seedWebappSession(token)
     }
@@ -948,7 +948,7 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('rejects API paths that escape the configured base path', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
     seedWebappSession('served-token')
     const fetchMock = vi.fn()
     vi.stubGlobal('fetch', fetchMock)
@@ -963,7 +963,7 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('maps the browser-hosted terminal rail onto an authenticated host-shell PTY socket', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
     seedWebappSession('served-token')
     $connection.set({ profile: 'active-terminal' } as never)
 
@@ -992,7 +992,7 @@ describe('browser-hosted Desktop bridge', () => {
           this.readyState = FakeWebSocket.OPEN
           this.onopen?.()
           this.onmessage?.({
-            data: '\u0000ANAKOT_TERMINAL_META:{"shell":"powershell.exe"}'
+            data: '\u0000HERMES_TERMINAL_META:{"shell":"powershell.exe"}'
           } as MessageEvent)
         })
       }
@@ -1062,7 +1062,7 @@ describe('browser-hosted Desktop bridge', () => {
 
   it('opens the host shell of a signed-in browser with a terminal ticket from its cookie session', async () => {
     const win = mutableWindow()
-    win.__ANAKOT_AUTH_REQUIRED__ = true
+    win.__HERMES_AUTH_REQUIRED__ = true
     const fetchMock = vi.fn().mockImplementation(async () => new Response(JSON.stringify({ ticket: 'shell-ticket' })))
     vi.stubGlobal('fetch', fetchMock)
     const dialed: string[] = []
@@ -1080,7 +1080,7 @@ describe('browser-hosted Desktop bridge', () => {
         queueMicrotask(() => {
           this.readyState = 1
           this.onopen?.()
-          this.onmessage?.({ data: '\u0000ANAKOT_TERMINAL_META:{"shell":"sh"}' } as MessageEvent)
+          this.onmessage?.({ data: '\u0000HERMES_TERMINAL_META:{"shell":"sh"}' } as MessageEvent)
         })
       }
 
@@ -1120,7 +1120,7 @@ describe('browser-hosted Desktop bridge', () => {
           this.readyState = PromptWebSocket.OPEN
           this.onopen?.()
           this.onmessage?.({
-            data: '\u0000ANAKOT_TERMINAL_META:{"shell":"fish"}'
+            data: '\u0000HERMES_TERMINAL_META:{"shell":"fish"}'
           } as MessageEvent)
           const bytes = new TextEncoder().encode('host shell ready')
           this.onmessage?.({ data: bytes.buffer } as MessageEvent)
@@ -1170,7 +1170,7 @@ describe('browser-hosted Desktop bridge', () => {
     { launch: 'work', other: 'default' }
   ])("keeps the $launch launch profile as the tab's own connection on ?profile=$other", async ({ launch, other }) => {
     const win = mutableWindow()
-    win.__ANAKOT_DASHBOARD_PROFILE__ = launch
+    win.__HERMES_DASHBOARD_PROFILE__ = launch
     seedWebappSession('served-token')
     window.history.replaceState(null, '', `/?profile=${other}#/`)
     const fetchMock = vi.fn(async (_url: URL) => new Response(JSON.stringify({ ticket: 'one-use' }), { status: 200 }))

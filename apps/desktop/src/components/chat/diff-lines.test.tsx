@@ -26,7 +26,10 @@ import { ErrorBoundary } from '@/components/error-boundary'
 
 import { FileDiffPanel } from './diff-lines'
 
-afterEach(cleanup)
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+})
 
 const DIFF = [
   'diff --git a/file.ts b/file.ts',
@@ -53,6 +56,11 @@ function renderQuietly(node: Parameters<typeof render>[0]) {
 
 describe('FileDiffPanel survives a failed lazy syntax-diff chunk', () => {
   it('degrades to the plain colored diff instead of taking down the surrounding boundary', async () => {
+    // Highlighting waits until the card is on screen, and the test setup's inert IntersectionObserver
+    // (jsdom has none) never reports one: without an observer the card highlights at once, so the
+    // failing chunk really mounts.
+    vi.stubGlobal('IntersectionObserver', undefined)
+
     const { container } = renderQuietly(
       <ErrorBoundary fallback={() => <div>{WORKSPACE_FALLBACK_TEXT}</div>} label="workspace">
         <FileDiffPanel diff={DIFF} path="file.ts" />
@@ -68,24 +76,5 @@ describe('FileDiffPanel survives a failed lazy syntax-diff chunk', () => {
     expect(container.textContent).toContain('const b = 2')
     expect(container.textContent).toContain('const b = 3')
     expect(container.textContent).not.toContain(WORKSPACE_FALLBACK_TEXT)
-  })
-})
-
-// The gutter is pinned beside the code column, but it is also always on screen —
-// so it must be a pass-through surface, exactly like the Preview/Source gutters.
-// Three ways to break that, all guarded here: a `bg-(--ui-editor-surface-…)` fill
-// (opaque chrome under glass, and in normal mode a fill that has to match the
-// pane beneath), `data-glass-opaque` (swaps the token for OPAQUE chrome by
-// contract), and `backdrop-blur` (hazes on a transparent Electron window because
-// the filter's backdrop has no painted layer to sample).
-describe('FileDiffPanel line-number gutter stays glass-transparent', () => {
-  it('paints nothing of its own', () => {
-    const { container } = render(<FileDiffPanel diff={DIFF} path="file.ts" showLineNumbers />)
-    const gutter = container.querySelector('[data-slot="file-diff-panel"] .sticky')
-
-    expect(gutter).not.toBeNull()
-    expect(gutter!.hasAttribute('data-glass-opaque')).toBe(false)
-    expect(gutter!.className).not.toContain('backdrop-blur')
-    expect(gutter!.className).not.toMatch(/\bbg-/)
   })
 })

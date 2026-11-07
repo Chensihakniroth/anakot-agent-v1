@@ -129,7 +129,7 @@ describe('browser-hosted shortcut defaults', () => {
         } else {
           vi.stubGlobal('anakotDesktop', undefined)
           vi.stubGlobal(
-            host === 'webapp' ? '__ANAKOT_UI_SURFACE__' : '__ANAKOT_AUTH_REQUIRED__',
+            host === 'webapp' ? '__HERMES_UI_SURFACE__' : '__HERMES_AUTH_REQUIRED__',
             host === 'webapp' ? 'webapp' : true
           )
         }

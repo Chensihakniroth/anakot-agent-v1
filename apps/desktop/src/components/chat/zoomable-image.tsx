@@ -1,7 +1,7 @@
 'use client'
 
 import { useStore } from '@nanostores/react'
-import { type ComponentProps, useEffect } from 'react'
+import { type ComponentProps, useEffect, useRef } from 'react'
 
 import { Dialog, DialogContent } from '@/components/ui/dialog'
 import { useZoomPan } from '@/components/ui/use-zoom-pan'
@@ -14,7 +14,10 @@ import { $transcriptLightbox, closeTranscriptLightbox, openTranscriptLightbox } 
 export interface ZoomableImageProps extends ComponentProps<'img'> {
   containerClassName?: string
   slot?: string
-  /** Full-resolution source for the lightbox and download. */
+  /** Full-resolution source for the lightbox and download. When set, the inline
+   * `<img>` keeps its bounded `src` (avoiding heavy inline paints) while the
+   * zoom view and Save action use the original — so a click-to-zoom shows real
+   * detail instead of an upscaled thumbnail. Defaults to `src`. */
   zoomSrc?: string
 }
 
@@ -37,8 +40,16 @@ export function ZoomableImage({
 }: ZoomableImageProps) {
   const { t } = useI18n()
   const copy = t.desktop
+  // The lightbox and Save action prefer the full-resolution source; the inline
+  // thumbnail (`src`) stays the cheap paint.
   const fullSrc = zoomSrc || src || ''
   const { download, saving } = useImageDownload(fullSrc)
+  // The open flag lives in a store keyed by source identity, not local state:
+  // transcript rows (and the markdown leaves inside them) remount routinely
+  // while a turn streams — the render-budget slice can drop the row, and the
+  // streaming re-parse re-mounts AST leaves — which used to close a
+  // user-opened lightbox with no gesture (#123018). A remounted row reads the
+  // same store and re-presents its own open dialog.
   const openSrc = useStore($transcriptLightbox)
   const lightboxOpen = openSrc !== null && openSrc === fullSrc
   const canOpen = Boolean(src)
@@ -51,7 +62,7 @@ export function ZoomableImage({
       >
         <button
           aria-label={canOpen ? copy.openImage : undefined}
-          className="contents"
+          className="block max-w-full focus-visible:outline-2 focus-visible:outline-ring focus-visible:-outline-offset-2"
           disabled={!canOpen}
           onClick={() => canOpen && openTranscriptLightbox(fullSrc)}
           type="button"
@@ -94,10 +105,17 @@ export function ImageLightbox({
   saving: boolean
   src: string
 }) {
+  const openerRef = useRef<HTMLElement | null>(null)
+
+  // Shared pan/zoom mechanics (wheel zoom, drag pan, pinch) come from
+  // useZoomPan — the same hook the diagram/artifact viewer uses, so there is a
+  // single source of truth for this gesture math. `moved` lets us close the
+  // lightbox on a clean click while leaving pans/pinches alone.
   const { moved, panning, ref, reset, scale, stageProps, style, zoomIn, zoomOut } = useZoomPan<HTMLImageElement>({
     enabled: open
   })
 
+  // Reset zoom whenever the lightbox opens.
   useEffect(() => {
     if (open) {
       reset()
@@ -105,6 +123,7 @@ export function ImageLightbox({
   }, [open, reset])
 
   const onImageClick = () => {
+    // A pan/pinch gesture must not close the lightbox; only a clean click.
     if (!moved) {
       onOpenChange(false)
     }
@@ -153,7 +172,30 @@ export function ImageLightbox({
           )
         }
         className="w-auto max-h-[calc(100vh-12rem)] max-w-[calc(100vw-12rem)] border-0 bg-transparent! shadow-none!"
+        // The media-lightbox shell variant. styles.css paints every
+        // [data-slot='dialog-content'] with the themed elevated background +
+        // --shadow-md — fine for opaque dialogs, but this shell is meant to be
+        // an invisible frame around the image: when a zoomed/panned image moves
+        // inside it, that paint shows as a stray box of shell area the image
+        // no longer covers. tailwind-merge cannot drop the base `shadow-nous`
+        // (unknown class group, so it survives next to `shadow-none`), and the
+        // attribute selector out-specifies the plain utilities — hence the
+        // important utilities and the data-variant opt-out in styles.css.
         data-variant="media-lightbox"
+        // These viewers open through state rather than DialogTrigger. Preserve
+        // the real opener instead of letting Radix's missing trigger lose focus.
+        onCloseAutoFocus={event => {
+          event.preventDefault()
+          const opener = openerRef.current
+
+          if (opener?.isConnected) {
+            opener.focus({ preventScroll: true })
+          }
+        }}
+        onOpenAutoFocus={() => {
+          const opener = globalThis.document.activeElement
+          openerRef.current = opener instanceof HTMLElement ? opener : null
+        }}
         overlayClassName="bg-black/60"
         showCloseButton={false}
       >

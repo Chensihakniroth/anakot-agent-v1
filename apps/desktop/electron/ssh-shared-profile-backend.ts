@@ -4,7 +4,7 @@
  * A registry SSH source used to spawn `anakot --profile <p> serve --isolated`
  * on the remote for EACH profile opened (one tunnel + one remote process per
  * (connection, profile)). The remote `anakot serve` already multiplexes every
- * profile under its ANAKOT_HOME the way a URL remote or the local host backend
+ * profile under its HERMES_HOME the way a URL remote or the local host backend
  * does (REST `?profile=`, a host-scoped `/api/ws`), so a named profile rides the
  * connection's default backend as a `sharedRemote` descriptor instead: the
  * first click needs no remote spawn, and a hover/roster sweep cannot fan out

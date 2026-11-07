@@ -1710,7 +1710,7 @@ export const frOverrides = {
         'Local par défaut. Utilisez distant quand cette application doit piloter un backend Anakot ailleurs. Remplacements par profil ci-dessous.',
       envOverrideTitle: "Des variables d'environnement contrôlent cette session desktop.",
       envOverrideDesc:
-        'Supprimez les variables ANAKOT_DESKTOP_REMOTE_URL et ANAKOT_DESKTOP_REMOTE_TOKEN pour utiliser le paramètre enregistré ci-dessous.',
+        'Supprimez les variables HERMES_DESKTOP_REMOTE_URL et HERMES_DESKTOP_REMOTE_TOKEN pour utiliser le paramètre enregistré ci-dessous.',
       modeTitle: 'Mode de connexion',
       localTitle: 'Gateway local',
       localDesc:
@@ -1851,7 +1851,7 @@ export const frOverrides = {
       sshErrHostKey:
         "La clé de l'hôte a changé depuis votre dernière connexion. Vérifiez que ce changement est attendu, puis exécutez ssh-keygen -R <host> et reconnectez-vous.",
       sshErrNotInstalled:
-        "Anakot n'est pas installé sur l'hôte distant. Installez-le là-bas (curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh) ou définissez le chemin Anakot.",
+        "Anakot n'est pas installé sur l'hôte distant. Installez-le là-bas (curl -fsSL https://anakot-agent.nousresearch.com/install.sh | sh) ou définissez le chemin Anakot.",
       sshErrPlatform:
         'Plateforme distante non prise en charge. Le mode SSH de Anakot Desktop supporte les hôtes distants Linux, macOS et Windows.',
       sshErrTimeout: "Expiration de la connexion SSH. L'hôte peut être inaccessible ou en veille.",
@@ -2392,16 +2392,21 @@ export const frOverrides = {
       browserRealProfile: {
         label: 'Utiliser mon profil de navigateur réel',
         description:
-          "Copie les identifiants de connexion et les cookies de votre navigateur par défaut dans un instantané géré que l'agent utilise pour naviguer. Votre profil actif n'est jamais ouvert directement. S'applique aux nouvelles sessions.",
+          'Copie les identifiants de connexion et les cookies de votre navigateur par défaut dans un instantané géré que l\'agent utilise pour naviguer, et connecte aussi le navigateur intégré avec eux. Votre profil actif n\'est jamais ouvert directement. S\'applique aux nouvelles sessions.',
         enabledTitle: 'Navigation avec le profil réel activée',
         enabledMessage: 'Les nouvelles sessions utiliseront un instantané de votre profil de navigateur par défaut.',
         disabledTitle: 'Navigation avec le profil réel désactivée',
         disabledMessage:
-          "L'instantané du profil sera supprimé ; les nouvelles sessions utiliseront un navigateur vierge.",
+          'L\'instantané du profil sera supprimé et le navigateur intégré en sera déconnecté ; les nouvelles sessions utiliseront un navigateur vierge.',
         failedSave: "Impossible d'enregistrer le paramètre du profil réel",
+        reimportSignins: 'Réimporter les connexions',
+        signinsImportedTitle: 'Connexions du navigateur intégré',
+        signinsImported: count => `Navigateur intégré connecté avec ${count} cookie${count === 1 ? '' : 's'} de votre profil de navigateur.`,
+        signinsRemote: 'Ce backend s\'exécute sur une autre machine, son profil de navigateur n\'est donc pas importé dans le navigateur intégré.',
+        signinsFailed: 'Impossible d\'importer les connexions dans le navigateur intégré',
         prompt: {
           title: 'Restez connecté à vos sites',
-          body: "Autorisez Anakot à naviguer avec un instantané de votre profil de navigateur par défaut afin que les sites s'ouvrent avec vos sessions déjà connectées.",
+          body: 'Autorisez Anakot à naviguer avec un instantané de votre profil de navigateur par défaut afin que les sites s\'ouvrent avec vos sessions déjà connectées, pour l\'agent et dans le navigateur intégré.',
           bulletSnapshot: 'Les cookies et identifiants de connexion sont copiés dans un instantané géré.',
           bulletLiveProfile: "Votre profil de navigateur actif n'est jamais ouvert directement.",
           bulletLocal: 'Rien ne quitte cet ordinateur.',
@@ -5119,6 +5124,7 @@ export const frOverrides = {
       readAloud: 'Lire à voix haute',
       copyFullResponse: 'Copier la réponse complète',
       readAloudFullResponseHint: 'Maj+clic : lire la réponse complète',
+      contentRefusedNotice: 'Ce message a été refusé par le filtre de sécurité du modèle — essayez une autre requête.',
       editMessage: 'Modifier le message',
       expandMessage: 'Développer le message',
       scrollToBottom: 'Défiler vers le bas',

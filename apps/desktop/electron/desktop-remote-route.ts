@@ -125,7 +125,7 @@ export function resolveDesktopRemoteRoute({
 
     if (!envToken) {
       throw new Error(
-        'ANAKOT_DESKTOP_REMOTE_URL is set but ANAKOT_DESKTOP_REMOTE_TOKEN is not. ' +
+        'HERMES_DESKTOP_REMOTE_URL is set but HERMES_DESKTOP_REMOTE_TOKEN is not. ' +
           'Both must be provided to connect to a remote Anakot backend.'
       )
     }
@@ -225,4 +225,17 @@ function resolveRegistryPrimaryRoute(registry: ConnectionRegistry): DesktopRemot
     token: entry.token,
     url
   }
+}
+
+/**
+ * Boot target when the user asked to launch the registry primary. Returns null
+ * for last-used mode and for a local primary — those keep the local spawn.
+ * Ignores legacy connection.json mode, which must not override this choice.
+ */
+export function registryPrimaryBootRoute(registry: ConnectionRegistry): DesktopRemoteRoute | null {
+  if (registry?.launchMode !== 'primary') {
+    return null
+  }
+
+  return resolveRegistryPrimaryRoute(registry)
 }

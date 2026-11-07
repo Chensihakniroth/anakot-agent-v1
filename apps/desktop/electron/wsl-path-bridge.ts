@@ -12,6 +12,7 @@ const IS_WINDOWS = process.platform === 'win32'
 const WIN_DRIVE_RE = /^([A-Za-z]):[\\/]/
 // `/mnt/c` and `/mnt/c/...` (drvfs default automount root).
 const WSL_MOUNT_RE = /^\/mnt\/([a-z])(?:\/(.*))?$/i
+
 // `/c/...`, `/cygdrive/c/...`, `/mnt/c/...` (Git Bash, Cygwin, drvfs).
 const SHELL_DRIVE_RE = /^\/(?:cygdrive\/|mnt\/)?([a-z])(?:\/|$)/i
 
@@ -160,6 +161,7 @@ export function wslPosixToWindowsAccessible(
   return `${wslUncBase(distro ?? resolveDistro())}\\${relative}`
 }
 
+/** Native folder dialog `defaultPath`: open a WSL cwd in the Windows picker. */
 export function resolvePickerDefaultPath(
   defaultPath: string | undefined,
   distro?: string,
@@ -183,12 +185,14 @@ export function resolvePickerDefaultPath(
 
 /**
  * Git Bash / Cygwin / drvfs drive spelling (`/c/...`, `/cygdrive/c/...`,
- * `/mnt/c/...`) → native `C:/...`, but only when the native file exists.
- * A real single-letter WSL directory stays on the WSL bridge when no native
- * twin exists.
+ * `/mnt/c/...`) → the native `C:/...` path, but only when that native file
+ * exists. Native attachments use this spelling even while a local backend has
+ * WSL bridging on, and the WSL fallback would look for them under
+ * `\\wsl.localhost\<distro>\c\...`. The existence check keeps a real
+ * single-letter WSL directory (`/e/projects`) on the WSL bridge.
  */
 export function shellDriveToNativePath(value: string, exists: (path: string) => boolean = fs.existsSync): null | string {
-  const drive = String(value || '').match(SHELL_DRIVE_RE)
+  const drive = value.match(SHELL_DRIVE_RE)
 
   if (!drive) {
     return null
@@ -202,6 +206,7 @@ export function shellDriveToNativePath(value: string, exists: (path: string) => 
 /** fs read path: on Windows, make a WSL cwd readable via its UNC / drive form. */
 export function resolveLocalReadPath(dirPath: string, distro?: string, profile?: null | string): string {
   const value = String(dirPath || '').trim()
+
   const nativeDrivePath = IS_WINDOWS ? shellDriveToNativePath(value) : null
 
   if (nativeDrivePath) {

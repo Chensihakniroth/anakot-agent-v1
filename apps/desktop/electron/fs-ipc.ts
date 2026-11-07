@@ -1,21 +1,27 @@
 // IPC surface for local filesystem operations the renderer's project/file
 // surfaces use: directory reads, reveal/open in the OS file manager, plugin
-// roots + git installs, rename/write/trash. Extracted from main.ts; path
-// hardening, ANAKOT_HOME resolution, and the git binary stay injected.
+// roots + git installs, rename/write/trash, and the plugin SDK's folder-scoped
+// file door. Extracted from main.ts; path hardening, HERMES_HOME resolution,
+// and the git binary stay injected.
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { ipcMain, shell } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 
+import { platformDefaultAnakotHome } from './data-paths'
 import { installDesktopPluginFromGit, probePluginRepo } from './desktop-plugin-install'
+import { removeDesktopPlugin } from './desktop-plugin-remove'
 import {
   DESKTOP_PLUGINS_DIR,
   ensureDir,
   migrateProfileScopedDesktopPlugins,
+  reconcileDesktopHalvesReport,
   reconcileUnifiedDesktopHalves
 } from './desktop-plugins-root'
+import { DESKTOP_PROFILE_NAME_RE } from './desktop-profile'
 import { readDirForIpc } from './fs-read-dir'
 import { gitRootForIpc } from './git-root'
+import { registerPluginFilesIpc } from './plugin-files-ipc'
 
 export interface FsIpcDeps {
   anakotHome: string
@@ -36,9 +42,33 @@ export function registerFsIpc({
 }: FsIpcDeps) {
   ipcMain.handle('anakot:fs:readDir', async (_event, dirPath) => readDirForIpc(dirPath))
 
+  // `ctx.files`: a plugin's own data folder plus folders the user grants it.
+  // The legacy `~/.anakot` stays protected beside the resolved and default homes.
+  registerPluginFilesIpc({
+    ipcMain,
+    dialog,
+    windowFor: event => BrowserWindow.fromWebContents(event.sender),
+    // App windows only: preview guests and webviews never hear about grants.
+    broadcastChange: change => {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send('anakot:pluginFiles:changed', change)
+      }
+    },
+    userDataDir: () => app.getPath('userData'),
+    anakotHomes: () => [
+      anakotHome,
+      platformDefaultAnakotHome(app.getPath('home')),
+      path.join(app.getPath('home'), '.anakot')
+    ],
+    trashItem: target => shell.trashItem(target)
+  })
+
   ipcMain.handle('anakot:fs:gitRoot', async (_event, startPath) => gitRootForIpc(startPath))
 
   // Reveal a path in the OS file manager (Finder / Explorer / Files).
+  // `showItemInFolder` silently no-ops on a missing item, and a remote
+  // backend's paths are missing here by construction — answer `false` so
+  // the renderer can say so instead of reporting a click that showed nothing.
   ipcMain.handle('anakot:fs:reveal', async (_event, targetPath) => {
     const target = String(targetPath || '').trim()
 
@@ -47,7 +77,15 @@ export function registerFsIpc({
     }
 
     try {
-      shell.showItemInFolder(target)
+      // Existence is checked on the tilde-expanded path — the one the file
+      // manager is shown — so `~/…` from the renderer is not a false miss.
+      const local = expandUserPath(target)
+
+      if (!fs.existsSync(local)) {
+        return false
+      }
+
+      shell.showItemInFolder(local)
 
       return true
     } catch {
@@ -77,8 +115,8 @@ export function registerFsIpc({
     }
   })
 
-  // The LOCAL Desktop runtime-plugin root: `<ANAKOT_HOME>/desktop-plugins`,
-  // resolved from the main-process ANAKOT_HOME (see resolveAnakotHome) — NOT from
+  // The LOCAL Desktop runtime-plugin root: `<HERMES_HOME>/desktop-plugins`,
+  // resolved from the main-process HERMES_HOME (see resolveAnakotHome) — NOT from
   // the connected backend. A remote backend reports its own `anakot_home` over
   // the gateway, which is a path on the REMOTE box; deriving the plugin dir from
   // it yields `undefined/desktop-plugins` (or a non-existent remote path) and the
@@ -86,9 +124,15 @@ export function registerFsIpc({
   // so it stays valid in every connection mode. Created on demand, like openDir.
   // Profile-scoped roots (agent plugins, logs) live under profiles/<name>/ for a
   // named Desktop profile — they belong to THAT agent. 'default'/unset pins the
-  // global root.
-  async function localPluginsRoot(dirName: string): Promise<string> {
-    const profile = readActiveDesktopProfile()
+  // global root. The owner is renderer-supplied (in remote mode it comes from
+  // the remote backend's session record), so only a profile NAME may reach the
+  // join: anything else would escape profiles/ and be created + revealed.
+  async function localPluginsRoot(dirName: string, owner?: unknown): Promise<string> {
+    const named = typeof owner === 'string' ? owner.trim() : ''
+
+    const profile =
+      named && (named === 'default' || DESKTOP_PROFILE_NAME_RE.test(named)) ? named : readActiveDesktopProfile()
+
     const base = profile && profile !== 'default' ? path.join(anakotHome, 'profiles', profile) : anakotHome
 
     return ensureDir(path.join(base, dirName))
@@ -111,18 +155,22 @@ export function registerFsIpc({
 
   // Re-run the unified-half reconcile on demand (after an agent-plugin install /
   // update / uninstall through the gateway) so the app-level copy tracks the
-  // package without waiting for the next root resolution.
+  // package without waiting for the next root resolution. Answers which
+  // packages' halves it refused too, so the install dialog can say so.
   ipcMain.handle('anakot:fs:reconcileDesktopPlugins', async () => {
     const root = await ensureDir(path.join(anakotHome, DESKTOP_PLUGINS_DIR))
 
-    return reconcileUnifiedDesktopHalves(anakotHome, root)
+    return reconcileDesktopHalvesReport(anakotHome, root)
   })
 
-  // The LOCAL logs root (`<ANAKOT_HOME>/logs`, profile-aware) — the error
+  // The LOCAL logs root (`<HERMES_HOME>/logs`, profile-aware) — the error
   // card's "Open Logs" action reveals agent.log/gateway.log without the user
-  // knowing where ANAKOT_HOME lives. Same Electron-local resolution as the
-  // plugin roots: valid in every connection mode, created on demand.
-  ipcMain.handle('anakot:fs:logsRoot', async () => localPluginsRoot('logs'))
+  // knowing where HERMES_HOME lives. Same Electron-local resolution as the
+  // plugin roots: valid in every connection mode, created on demand. The
+  // caller names the profile that OWNS the failing session: a pooled backend
+  // serves many profile homes, and the active Desktop profile is the launch
+  // one, not the one whose agent.log holds the failure (#119080).
+  ipcMain.handle('anakot:fs:logsRoot', async (_event, profile) => localPluginsRoot('logs', profile))
 
   ipcMain.handle('anakot:plugin:probe', async (_event, payload) => {
     const identifier = String(payload?.identifier || payload?.repo || '').trim()
@@ -145,9 +193,16 @@ export function registerFsIpc({
       resolveGitBinary(),
       identifier,
       await desktopPluginsRoot(),
-      Boolean(payload?.force)
+      Boolean(payload?.force),
+      typeof payload?.sha === 'string' ? payload.sha : undefined
     )
   })
+
+  // Uninstall a standalone desktop plugin by FOLDER NAME under the app-level
+  // root. The renderer never passes a path; containment is re-checked inside.
+  ipcMain.handle('anakot:plugin:removeDesktop', async (_event, payload) =>
+    removeDesktopPlugin(path.join(anakotHome, DESKTOP_PLUGINS_DIR), payload?.name)
+  )
 
   // Rename a file/folder in place. The renderer passes the existing path + a new
   // base name; the destination is resolved in the SAME parent dir so a rename can

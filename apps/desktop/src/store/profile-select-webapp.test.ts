@@ -32,12 +32,12 @@ vi.mock('@/store/starmap', () => ({ reloadOpenStarmapGraph: vi.fn(), resetStarma
 const { $activeGatewayProfile, selectProfile } = await import('./profile')
 const { installBrowserDesktopBridge } = await import('@/lib/browser-desktop-bridge')
 
-const bootstrap = window as Window & { __ANAKOT_BASE_PATH__?: string; }
+const bootstrap = window as Window & { __HERMES_BASE_PATH__?: string; }
 const savedDefault = { connectionId: 'local', profile: 'research' }
 const urlProfile = () => new URLSearchParams(window.location.search).get('profile')
 
 beforeEach(async () => {
-  bootstrap.__ANAKOT_BASE_PATH__ = '/anakot'
+  bootstrap.__HERMES_BASE_PATH__ = '/anakot'
   seedWebappSession('served-token')
   window.history.replaceState(null, '', '/anakot?profile=arrived#/')
   expect(installBrowserDesktopBridge()).toBe(true)
@@ -47,7 +47,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   Reflect.deleteProperty(window, 'anakotDesktop')
-  delete bootstrap.__ANAKOT_BASE_PATH__
+  delete bootstrap.__HERMES_BASE_PATH__
   clearWebappSession()
   document.documentElement.removeAttribute('data-anakot-desktop-host')
   window.localStorage.clear()

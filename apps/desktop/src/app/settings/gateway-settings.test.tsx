@@ -83,7 +83,7 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup()
-  Reflect.deleteProperty(window, '__ANAKOT_AUTH_REQUIRED__')
+  Reflect.deleteProperty(window, '__HERMES_AUTH_REQUIRED__')
   Reflect.deleteProperty(window, 'anakotDesktop')
   window.document.documentElement.removeAttribute('data-anakot-desktop-host')
   vi.unstubAllGlobals()
@@ -391,7 +391,7 @@ describe('GatewaySettings', () => {
     expect(agentSignIn).toHaveBeenCalledExactlyOnceWith('https://new-a.example')
     expect(applyConnectionConfig).toHaveBeenCalledTimes(1)
   })
-  // #114856: an env-pinned remote (ANAKOT_DESKTOP_REMOTE_URL) whose session
+  // #114856: an env-pinned remote (HERMES_DESKTOP_REMOTE_URL) whose session
   // lapsed could not be re-authenticated from Settings → Gateway at all — the
   // whole remote block (URL + probe + Authentication) was hidden behind
   // `!state.envOverride`, so the recovery card's "Gateway settings" escape led
@@ -462,7 +462,7 @@ describe('GatewaySettings', () => {
       Reflect.deleteProperty(window, 'anakotDesktop')
 
       if (credential === 'gated') {
-        Object.assign(window, { __ANAKOT_AUTH_REQUIRED__: true })
+        Object.assign(window, { __HERMES_AUTH_REQUIRED__: true })
       } else {
         seedWebappSession('served-token')
       }
@@ -475,7 +475,7 @@ describe('GatewaySettings', () => {
     }
 
     afterEach(() => {
-      Reflect.deleteProperty(window, '__ANAKOT_AUTH_REQUIRED__')
+      Reflect.deleteProperty(window, '__HERMES_AUTH_REQUIRED__')
       clearWebappSession()
     })
 

@@ -14,7 +14,7 @@
 
 export type AnakotOpenTarget = string | { href: string } | { path: string; params?: Record<string, string> }
 
-const ANAKOT_PROTOCOL = 'anakot:'
+const HERMES_PROTOCOL = 'anakot:'
 
 /** Hostnames owned by core deep-link handlers — never treated as plugin routes. */
 const RESERVED_DEEP_LINK_KINDS = new Set([
@@ -73,7 +73,7 @@ export function normalizeAnakotOpenString(raw: string): string | null {
     return null
   }
 
-  if (trimmed.startsWith('anakot://') || trimmed.startsWith(`${ANAKOT_PROTOCOL}//`)) {
+  if (trimmed.startsWith('anakot://') || trimmed.startsWith(`${HERMES_PROTOCOL}//`)) {
     try {
       const url = new URL(trimmed)
       const host = url.hostname || ''

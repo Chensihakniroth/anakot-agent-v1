@@ -1,49 +1,19 @@
-/**
- * backend-probes.ts
- *
- * Cheap "does this candidate backend actually work" checks used by
- * resolveAnakotBackend (main.ts). The resolver walks a ladder of
- * candidates -- bootstrap marker, `anakot` on PATH, system Python with
- * anakot_cli installed -- and historically returned the first candidate
- * whose binary existed on disk. That assumption breaks when a user has
- * a pre-installed Python 3.11-3.13 (so findSystemPython() returns a
- * path) but no anakot_cli in its site-packages: the resolver hands back
- * a backend the spawn step can't actually run, and the user gets a
- * dead-on-arrival "ModuleNotFoundError: No module named 'anakot_cli'"
- * instead of the first-launch installer.
- *
- * These probes give the resolver a way to verify a candidate before
- * trusting it. Failure (non-zero exit, exception, timeout) means "skip
- * this rung, try the next one"; success means "spawn this for real."
- * Falling off the bottom of the ladder lands on the bootstrap-needed
- * sentinel, which is exactly what we want when nothing pre-existing
- * actually works.
- *
- * Both probes are deliberately fast and forgiving:
- *   - default 15s timeout (5s was too short on cold Windows disks / AV;
- *     issue #61764 death-loop) with ANAKOT_PROBE_TIMEOUT_MS override
- *   - one automatic retry after a timeout before declaring the runtime dead
- *   - stdio ignored (we only care about exit code; stdout/stderr are
- *     not surfaced to the user, just to recentAnakotLog for forensics
- *     via the caller's catch block if it chooses)
- *   - any throw -> false (never propagate -- resolver wants a boolean)
- *
- * Kept in a standalone ts module so it can be unit-tested with
- * `node --test` without dragging in the electron runtime (same pattern
- * as bootstrap-platform.ts and hardening.ts).
- */
+/** Bounded backend probes. A file on disk is not proof of a usable runtime. */
 
 import { spawn } from 'node:child_process'
+
+import { buildDesktopBackendEnv } from './backend-env'
+import { windowsShellCommand } from './windows-child-options'
 
 /** Default probe budget. 5s false-negativeed healthy Windows cold starts (#61764). */
 const DEFAULT_PROBE_TIMEOUT_MS = 15_000
 
 /**
  * Resolve the backend probe timeout (ms).
- * Honours ANAKOT_PROBE_TIMEOUT_MS when it parses as a positive integer.
+ * Honours HERMES_PROBE_TIMEOUT_MS when it parses as a positive integer.
  */
 function resolveProbeTimeoutMs(env: NodeJS.ProcessEnv = process.env): number {
-  const raw = env.ANAKOT_PROBE_TIMEOUT_MS
+  const raw = env.HERMES_PROBE_TIMEOUT_MS
 
   if (raw == null || raw === '') {
     return DEFAULT_PROBE_TIMEOUT_MS
@@ -132,47 +102,30 @@ async function execProbe(
   }
 }
 
-/**
- * Return the Python snippet used to verify Anakot can import far enough to
- * launch the CLI. Kept exported for tests so dependency regressions are
- * caught without needing a real broken venv fixture.
- *
- * @returns {string}
- */
-function anakotRuntimeImportProbe() {
-  return 'import yaml; import dotenv; import anakot_cli.config'
-}
-
-/**
- * Return true iff the Anakot runtime import probe exits 0.
- *
- * Used to gate the "fallback to system Python with anakot_cli installed"
- * rung of resolveAnakotBackend. Without this, a system Python 3.11-3.13
- * registered in PEP 514 makes findSystemPython() succeed regardless of
- * whether anakot_cli has actually been pip-installed into its
- * site-packages -- and the resolver returns a backend that immediately
- * dies on spawn.
- *
- * The probe intentionally imports anakot_cli.config, not just the top-level
- * package: a broken/empty Windows launcher venv can still see the source tree
- * through PYTHONPATH but lack PyYAML, then die on the first real CLI import.
- *
- * @param {string} pythonPath - Absolute path to a python.exe / python.
- * @param {object} [opts.env] - Additional environment for the probe.
- * @returns {boolean}
- */
-async function canImportAnakotCli(pythonPath: string, opts: { env?: Record<string, string> } = {}) {
+/** Probe the checkout at cwd with the same dependency activation as launch. */
+async function canImportAnakotCli(
+  pythonPath: string,
+  opts: { env?: NodeJS.ProcessEnv; cwd?: string } = {}
+): Promise<boolean> {
   if (!pythonPath) {
     return false
   }
 
   try {
-    await execProbe(pythonPath, ['-c', anakotRuntimeImportProbe()], {
-      env: { ...process.env, ...(opts.env || {}) },
-      stdio: 'ignore',
-      timeout: PROBE_TIMEOUT_MS,
-      windowsHide: true
-    })
+    const env: NodeJS.ProcessEnv = { ...process.env, ...opts.env }
+
+    // Bootstrap selects the committed generation before any dependency import.
+    await execProbe(
+      pythonPath,
+      ['-c', 'import anakot_bootstrap; import anakot_yaml; import dotenv; import anakot_cli.config'],
+      {
+        cwd: opts.cwd,
+        env: { ...env, ...buildDesktopBackendEnv({ currentEnv: env }) },
+        stdio: 'ignore',
+        timeout: PROBE_TIMEOUT_MS,
+        windowsHide: true
+      }
+    )
 
     return true
   } catch {
@@ -216,7 +169,7 @@ async function verifyAnakotCli(anakotCommand: string, opts?: { shell?: boolean }
   }
 
   try {
-    await execProbe(anakotCommand, ['--version'], {
+    await execProbe(windowsShellCommand(anakotCommand, Boolean(opts?.shell)), ['--version'], {
       stdio: 'ignore',
       timeout: PROBE_TIMEOUT_MS,
       shell: Boolean(opts?.shell),
@@ -233,7 +186,6 @@ export {
   canImportAnakotCli,
   DEFAULT_PROBE_TIMEOUT_MS,
   execProbe,
-  anakotRuntimeImportProbe,
   isTimeoutError,
   PROBE_TIMEOUT_MS,
   resolveProbeTimeoutMs,

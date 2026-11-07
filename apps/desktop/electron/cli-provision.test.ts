@@ -8,7 +8,7 @@ import { test, type TestContext } from 'vitest'
 import { provisionCliLinks, removeBundleCliLinks } from './cli-provision'
 
 function fixture(): { root: string; binDir: string; source: string } {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'hermes-cli-links-'))
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'anakot-cli-links-'))
   const binDir = path.join(root, 'bin')
   const source = path.join(root, 'new', 'agent-payload', 'bin', 'anakot')
 

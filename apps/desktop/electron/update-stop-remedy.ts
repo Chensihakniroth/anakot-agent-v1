@@ -6,7 +6,7 @@ import path from 'node:path'
 /** The closed token set `anakot_cli.update_receipt.record_stop_reason` records. */
 const STOP_CLASS_TOKEN = /^[a-z][a-z0-9_]{0,39}$/
 
-const UPDATES_GUIDE = 'https://hermes-agent.nousresearch.com/docs/getting-started/updating'
+const UPDATES_GUIDE = 'https://anakot-agent.nousresearch.com/docs/getting-started/updating'
 
 export interface UpdateStop {
   stopClass: string
@@ -38,7 +38,7 @@ export function receiptDirectory(anakotHome: string): string {
  * This run's own stop, read from the receipt the update wrote.
  *
  * `correlation_id` is the hand-off `run_id` (the launcher exports it as
- * `ANAKOT_UPDATE_CORRELATION_ID`), so a receipt left behind by an earlier run
+ * `HERMES_UPDATE_CORRELATION_ID`), so a receipt left behind by an earlier run
  * cannot explain this one. A record still `running` keeps `finished_at` null and
  * never matches — the same rule the hand-off script applies before it trusts an
  * outcome. Anything missing or unexpected returns null and the caller keeps its

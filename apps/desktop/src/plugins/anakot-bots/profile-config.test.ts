@@ -56,7 +56,7 @@ vi.mock('@anakot/plugin-sdk', async () => {
     GlyphSpinner: () => null,
     host: hostMock,
     Input: () => null,
-    McpTab: undefined,
+    ConnectorsTab: undefined,
     queryClient: { invalidateQueries: invalidateMock },
     ScrollArea: () => null,
     Select: () => null,

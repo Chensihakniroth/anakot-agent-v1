@@ -10,7 +10,7 @@ interface BrowserSettingsOptions {
 
 /** This page's hosted gateway, the same scope `createBrowserSettings` keys on. */
 export function browserPageBasePath(): string {
-  return normalizeBasePath((window as Window & BrowserHostGlobals).__ANAKOT_BASE_PATH__)
+  return normalizeBasePath((window as Window & BrowserHostGlobals).__HERMES_BASE_PATH__)
 }
 
 /** A profile not named is the one the serving gateway runs as, the profile its

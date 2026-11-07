@@ -8,12 +8,12 @@ import { installBrowserDesktopBridge } from './browser-desktop-bridge'
 import { announceWebappWindow, createBrowserWindowOpener } from './browser-window'
 
 const POPUP_BLOCKED = 'Webapp window did not open. Allow popups for this site and try again.'
-const bootstrap = window as Window & { __ANAKOT_AUTH_REQUIRED__?: boolean }
+const bootstrap = window as Window & { __HERMES_AUTH_REQUIRED__?: boolean }
 
 afterEach(() => {
   vi.useRealTimers()
   Reflect.deleteProperty(window, 'anakotDesktop')
-  delete bootstrap.__ANAKOT_AUTH_REQUIRED__
+  delete bootstrap.__HERMES_AUTH_REQUIRED__
   window.document.documentElement.removeAttribute('data-anakot-desktop-host')
   window.history.replaceState(null, '', '/')
   vi.unstubAllGlobals()
@@ -131,7 +131,7 @@ describe('gated host pop-out', () => {
     expect([name, features]).toEqual(['_blank', 'noopener,noreferrer'])
 
     // The window loads that address and boots the Webapp.
-    bootstrap.__ANAKOT_AUTH_REQUIRED__ = true
+    bootstrap.__HERMES_AUTH_REQUIRED__ = true
     window.history.replaceState(null, '', String(href))
     expect(installBrowserDesktopBridge()).toBe(true)
     await vi.advanceTimersByTimeAsync(5_000)

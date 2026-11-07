@@ -5,13 +5,13 @@ import { BROWSER_UPLOAD_MAX_BYTES } from '@/lib/browser-uploads'
 import { triggerHaptic } from '@/lib/haptics'
 import { notify, notifyError } from '@/store/notifications'
 
-const ANAKOT_PATHS_MIME = 'application/x-anakot-paths'
+const HERMES_PATHS_MIME = 'application/x-anakot-paths'
 
 /** A host path, or an OS file with no path the browser must upload to get one. */
 type DroppedEntry = File | string
 
 function transferHasDropCandidates(t: DataTransfer): boolean {
-  if (t.types?.includes(ANAKOT_PATHS_MIME)) {
+  if (t.types?.includes(HERMES_PATHS_MIME)) {
     return true
   }
 
@@ -46,7 +46,7 @@ function collectDroppedEntries(t: DataTransfer): DroppedEntry[] {
   }
 
   try {
-    const raw = t.getData(ANAKOT_PATHS_MIME)
+    const raw = t.getData(HERMES_PATHS_MIME)
 
     if (raw) {
       for (const entry of JSON.parse(raw) as { path?: unknown }[]) {

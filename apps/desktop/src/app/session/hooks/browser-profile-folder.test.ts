@@ -47,7 +47,7 @@ vi.mock('@/store/gateway', async original => ({
 
 const FOREGROUND_CREATE_DIAL = [undefined, undefined, { spawnPriority: 'foreground' }] as const
 
-const host = window as Window & { __ANAKOT_BASE_PATH__?: string; __ANAKOT_DASHBOARD_PROFILE__?: string }
+const host = window as Window & { __HERMES_BASE_PATH__?: string; __HERMES_DASHBOARD_PROFILE__?: string }
 
 const created = (id: string) => ({ info: {}, session_id: `${id}-runtime`, stored_session_id: `${id}-stored` })
 
@@ -97,8 +97,8 @@ beforeEach(async () => {
   // A gateway launched as `alpha`, opened at its plain address: the tab boots
   // on the gateway's own profile with no `?profile=`, as adoptPrimaryProfile
   // leaves it, and the boot sync fills the window's folder cache.
-  host.__ANAKOT_BASE_PATH__ = '/anakot'
-  host.__ANAKOT_DASHBOARD_PROFILE__ = 'alpha'
+  host.__HERMES_BASE_PATH__ = '/anakot'
+  host.__HERMES_DASHBOARD_PROFILE__ = 'alpha'
   seedWebappSession('served-token')
   window.history.replaceState(null, '', '/anakot#/')
   expect(installBrowserDesktopBridge()).toBe(true)
@@ -111,8 +111,8 @@ beforeEach(async () => {
 afterEach(() => {
   cleanup()
   Reflect.deleteProperty(window, 'anakotDesktop')
-  delete host.__ANAKOT_BASE_PATH__
-  delete host.__ANAKOT_DASHBOARD_PROFILE__
+  delete host.__HERMES_BASE_PATH__
+  delete host.__HERMES_DASHBOARD_PROFILE__
   clearWebappSession()
   document.documentElement.removeAttribute('data-anakot-desktop-host')
   window.localStorage.clear()

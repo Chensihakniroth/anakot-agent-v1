@@ -23,19 +23,19 @@ export const isLinuxPlatform = (): boolean =>
 
 /** Globals the Anakot web server injects into the page it serves. */
 export interface BrowserHostGlobals {
-  __ANAKOT_AUTH_REQUIRED__?: boolean
-  __ANAKOT_BASE_PATH__?: string
-  __ANAKOT_DASHBOARD_PROFILE__?: string
-  __ANAKOT_UI_SURFACE__?: string
+  __HERMES_AUTH_REQUIRED__?: boolean
+  __HERMES_BASE_PATH__?: string
+  __HERMES_DASHBOARD_PROFILE__?: string
+  __HERMES_UI_SURFACE__?: string
 }
 
 /**
  * The profile the server that served this page runs as: its gateway socket and its REST answer for
  * this profile when a request names none. Empty when the server cannot name its own home (a custom
- * ANAKOT_HOME), which the browser host reads as `default`.
+ * HERMES_HOME), which the browser host reads as `default`.
  */
 export function browserLaunchProfile(): string {
-  return String((window as Window & BrowserHostGlobals).__ANAKOT_DASHBOARD_PROFILE__ ?? '').trim()
+  return String((window as Window & BrowserHostGlobals).__HERMES_DASHBOARD_PROFILE__ ?? '').trim()
 }
 
 /** The profile a request that names none reaches: the one the server runs as, else `default`. */
@@ -53,7 +53,7 @@ export function browserLaunchProfileOrDefault(): string {
 export function hasBrowserHostBootstrap(): boolean {
   const win = window as Window & BrowserHostGlobals
 
-  return win.__ANAKOT_AUTH_REQUIRED__ === true || win.__ANAKOT_UI_SURFACE__ === 'webapp'
+  return win.__HERMES_AUTH_REQUIRED__ === true || win.__HERMES_UI_SURFACE__ === 'webapp'
 }
 
 /** Renderer host, independent of the OS or the gateway's connection mode. */

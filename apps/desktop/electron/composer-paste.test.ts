@@ -15,7 +15,7 @@ afterEach(() => {
 })
 
 describe('writeComposerPaste', () => {
-  it('lands the paste directly under <ANAKOT_HOME>/composer-pastes so the backend admits it', async () => {
+  it('lands the paste directly under <HERMES_HOME>/composer-pastes so the backend admits it', async () => {
     const anakotHome = fs.mkdtempSync(path.join(os.tmpdir(), 'anakot-home-'))
     scratch.push(anakotHome)
 

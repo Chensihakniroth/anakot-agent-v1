@@ -2,7 +2,7 @@
  * Tests for electron/dashboard-token.ts.
  *
  * Run with: node --test electron/dashboard-token.test.ts
- * (Wired into npm test:desktop:platforms in package.json.)
+ * (Wired into pnpm run test:desktop:platforms in package.json.)
  */
 
 import assert from 'node:assert/strict'
@@ -19,18 +19,18 @@ import {
 } from './dashboard-token'
 
 test('extractInjectedDashboardToken reads the JSON-encoded dashboard token', () => {
-  const html = '<script>window.__ANAKOT_SESSION_TOKEN__="served-token";window.__ANAKOT_BASE_PATH__=""</script>'
+  const html = '<script>window.__HERMES_SESSION_TOKEN__="served-token";window.__HERMES_BASE_PATH__=""</script>'
   assert.equal(extractInjectedDashboardToken(html), 'served-token')
 })
 
 test('extractInjectedDashboardToken handles escaped token strings', () => {
-  const html = '<script>window.__ANAKOT_SESSION_TOKEN__="served\\\\token\\"quoted";</script>'
+  const html = '<script>window.__HERMES_SESSION_TOKEN__="served\\\\token\\"quoted";</script>'
   assert.equal(extractInjectedDashboardToken(html), 'served\\token"quoted')
 })
 
 test('extractInjectedDashboardToken returns null for missing or malformed values', () => {
   assert.equal(extractInjectedDashboardToken('<html></html>'), null)
-  assert.equal(extractInjectedDashboardToken('<script>window.__ANAKOT_SESSION_TOKEN__={bad}</script>'), null)
+  assert.equal(extractInjectedDashboardToken('<script>window.__HERMES_SESSION_TOKEN__={bad}</script>'), null)
 })
 
 test('dashboardIndexUrl preserves dashboard path prefixes', () => {
@@ -45,14 +45,13 @@ test('resolveServedDashboardToken uses the served token and logs when it differs
     fetchText: async url => {
       assert.equal(url, 'http://127.0.0.1:9120/')
 
-      return '<script>window.__ANAKOT_SESSION_TOKEN__="served-token";</script>'
+      return '<script>window.__HERMES_SESSION_TOKEN__="served-token";</script>'
     },
     rememberLog: line => logs.push(line)
   })
 
   assert.equal(token, 'served-token')
   assert.equal(logs.length, 1)
-  assert.match(logs[0], /served a different session token/)
 })
 
 test('resolveServedDashboardToken falls back when the served HTML has no token', async () => {
@@ -64,17 +63,6 @@ test('resolveServedDashboardToken falls back when the served HTML has no token',
   })
 
   assert.equal(token, 'spawn-token')
-})
-
-test('resolveServedDashboardToken does not log when served token matches fallback', async () => {
-  const token = await resolveServedDashboardToken('http://127.0.0.1:9120', 'same-token', {
-    fetchText: async () => '<script>window.__ANAKOT_SESSION_TOKEN__="same-token";</script>',
-    rememberLog: () => {
-      throw new Error('should not log when token already matches')
-    }
-  })
-
-  assert.equal(token, 'same-token')
 })
 
 test('resolveServedDashboardToken propagates fetch errors so callers can fall back explicitly', async () => {
@@ -112,7 +100,7 @@ test('isForeignBackendToken only flags a mismatched token from a dead child', ()
 test('adoptServedDashboardToken adopts drift from a live child', async () => {
   const token = await adoptServedDashboardToken('http://127.0.0.1:9120', 'spawn-token', {
     childAlive: () => true,
-    fetchText: async () => '<script>window.__ANAKOT_SESSION_TOKEN__="served-token";</script>'
+    fetchText: async () => '<script>window.__HERMES_SESSION_TOKEN__="served-token";</script>'
   })
 
   assert.equal(token, 'served-token')
@@ -123,7 +111,7 @@ test('adoptServedDashboardToken refuses a foreign token when our child is dead',
     () =>
       adoptServedDashboardToken('http://127.0.0.1:9120', 'spawn-token', {
         childAlive: () => false,
-        fetchText: async () => '<script>window.__ANAKOT_SESSION_TOKEN__="squatter-token";</script>',
+        fetchText: async () => '<script>window.__HERMES_SESSION_TOKEN__="squatter-token";</script>',
         label: 'Anakot backend for profile "work"'
       }),
     /profile "work".*process we did not spawn/

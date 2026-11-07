@@ -108,8 +108,8 @@ describe('SandboxedFrame in the Webapp', () => {
 
   function browserHost() {
     window.document.documentElement.dataset.anakotDesktopHost = 'browser'
-    vi.stubGlobal('__ANAKOT_BASE_PATH__', '/anakot')
-    vi.stubGlobal('__ANAKOT_UI_SURFACE__', 'webapp')
+    vi.stubGlobal('__HERMES_BASE_PATH__', '/anakot')
+    vi.stubGlobal('__HERMES_UI_SURFACE__', 'webapp')
   }
 
   function guestLoaded(frame: HTMLIFrameElement) {

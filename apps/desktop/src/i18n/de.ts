@@ -1706,7 +1706,7 @@ export const deOverrides = {
         'Standardmäßig lokal. Verwenden Sie Remote, wenn diese App ein Anakot-Backend an einem anderen Ort steuern soll. Gateway-Verbindungen gelten pro Gerät; Profile werden von den Gateways ermittelt, mit denen Sie sich verbinden.',
       envOverrideTitle: 'Umgebungsvariablen steuern diese Desktop-Session.',
       envOverrideDesc:
-        'Entfernen Sie ANAKOT_DESKTOP_REMOTE_URL und ANAKOT_DESKTOP_REMOTE_TOKEN, um die unten gespeicherte Einstellung zu verwenden.',
+        'Entfernen Sie HERMES_DESKTOP_REMOTE_URL und HERMES_DESKTOP_REMOTE_TOKEN, um die unten gespeicherte Einstellung zu verwenden.',
       modeTitle: 'Verbindungsmodus',
       localTitle: 'Lokales Gateway',
       localDesc: 'Startet ein privates Anakot-Backend auf localhost. Das ist der Standard und funktioniert offline.',
@@ -1845,7 +1845,7 @@ export const deOverrides = {
       sshErrHostKey:
         'Der Host-Key hat sich seit Ihrer letzten Verbindung GEÄNDERT. Prüfen Sie, ob das erwartet ist, führen Sie dann ssh-keygen -R <host> aus und verbinden Sie sich erneut.',
       sshErrNotInstalled:
-        'Anakot ist auf dem Remote-Host nicht installiert. Installieren Sie es dort (curl -fsSL https://hermes-agent.nousresearch.com/install.sh | sh) oder legen Sie den Anakot-Pfad fest.',
+        'Anakot ist auf dem Remote-Host nicht installiert. Installieren Sie es dort (curl -fsSL https://anakot-agent.nousresearch.com/install.sh | sh) oder legen Sie den Anakot-Pfad fest.',
       sshErrPlatform:
         'Nicht unterstützte Remote-Plattform. Der Desktop-SSH-Modus von Anakot unterstützt Linux-, macOS- und Windows-Remote-Hosts.',
       sshErrTimeout: 'SSH-Verbindung ist ausgelaufen. Der Host ist möglicherweise nicht erreichbar oder schläft.',
@@ -2387,15 +2387,20 @@ export const deOverrides = {
       browserRealProfile: {
         label: 'Mein echtes Browser-Profil verwenden',
         description:
-          'Kopiert die Anmeldungen und Cookies Ihres Standardbrowsers in einen verwalteten Schnappschuss, mit dem der Agent browst. Ihr Live-Profil wird nie direkt geöffnet. Gilt für neue Sessions.',
+          'Kopiert die Anmeldungen und Cookies Ihres Standardbrowsers in einen verwalteten Schnappschuss, mit dem der Agent browst, und meldet auch den In-App-Browser damit an. Ihr Live-Profil wird nie direkt geöffnet. Gilt für neue Sessions.',
         enabledTitle: 'Echtes Profil-Browsen aktiv',
         enabledMessage: 'Neue Sessions browsen mit einem Schnappschuss Ihres Standard-Browserprofils.',
         disabledTitle: 'Echtes Profil-Browsen deaktiviert',
-        disabledMessage: 'Der Profil-Schnappschuss wird gelöscht; neue Sessions verwenden einen sauberen Browser.',
+        disabledMessage: 'Der Profil-Schnappschuss wird gelöscht und der In-App-Browser davon abgemeldet; neue Sessions verwenden einen sauberen Browser.',
         failedSave: 'Die Echtes-Profil-Einstellung konnte nicht gespeichert werden',
+        reimportSignins: 'Anmeldungen erneut importieren',
+        signinsImportedTitle: 'Anmeldungen im In-App-Browser',
+        signinsImported: count => `In-App-Browser mit ${count} Cookie${count === 1 ? '' : 's'} aus Ihrem Browserprofil angemeldet.`,
+        signinsRemote: 'Dieses Backend läuft auf einem anderen Rechner, daher wird sein Browserprofil nicht in den In-App-Browser importiert.',
+        signinsFailed: 'Anmeldungen konnten nicht in den In-App-Browser importiert werden',
         prompt: {
           title: 'Auf Ihren Websites angemeldet bleiben',
-          body: 'Lassen Sie Anakot mit einem Schnappschuss Ihres Standard-Browserprofils browsen, damit Websites bereits angemeldet öffnen.',
+          body: 'Lassen Sie Anakot mit einem Schnappschuss Ihres Standard-Browserprofils browsen, damit Websites bereits angemeldet öffnen, für den Agenten und im In-App-Browser.',
           bulletSnapshot: 'Cookies und Anmeldungen werden in einen verwalteten Schnappschuss kopiert.',
           bulletLiveProfile: 'Ihr Live-Browserprofil wird nie direkt geöffnet.',
           bulletLocal: 'Nichts verlässt diesen Computer.',
@@ -5111,6 +5116,7 @@ export const deOverrides = {
       readAloud: 'Vorlesen',
       copyFullResponse: 'Vollständige Antwort kopieren',
       readAloudFullResponseHint: 'Umschalt-Klick: vollständige Antwort vorlesen',
+      contentRefusedNotice: 'Diese Nachricht wurde vom Sicherheitsfilter des Modells abgelehnt – versuche eine andere Anfrage.',
       editMessage: 'Nachricht bearbeiten',
       expandMessage: 'Nachricht aufklappen',
       scrollToBottom: 'Nach unten scrollen',

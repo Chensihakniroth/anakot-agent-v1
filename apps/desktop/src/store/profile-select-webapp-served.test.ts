@@ -28,7 +28,7 @@ vi.mock('@/anakot', async importOriginal => ({
   }
 }))
 
-type ServedWindow = Window & { __ANAKOT_DASHBOARD_PROFILE__?: string; anakotDesktop?: Window['anakotDesktop'] }
+type ServedWindow = Window & { __HERMES_DASHBOARD_PROFILE__?: string; anakotDesktop?: Window['anakotDesktop'] }
 
 const win = window as unknown as ServedWindow
 
@@ -71,7 +71,7 @@ const callsTo = (fetchMock: ReturnType<typeof stubGateway>, path: string) =>
 // and the tab's own socket open as the primary.
 async function openTab(gateway: Gateway) {
   const fetchMock = stubGateway(gateway)
-  win.__ANAKOT_DASHBOARD_PROFILE__ = 'default'
+  win.__HERMES_DASHBOARD_PROFILE__ = 'default'
   seedWebappSession('served-token')
   expect(installBrowserDesktopBridge()).toBe(true)
   await win.anakotDesktop!.getProfileRoutes?.(gateway.profiles)
@@ -83,7 +83,7 @@ async function openTab(gateway: Gateway) {
 }
 
 afterEach(() => {
-  delete win.__ANAKOT_DASHBOARD_PROFILE__
+  delete win.__HERMES_DASHBOARD_PROFILE__
   clearWebappSession()
   Reflect.deleteProperty(win, 'anakotDesktop')
   document.documentElement.removeAttribute('data-anakot-desktop-host')

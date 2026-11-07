@@ -36,7 +36,7 @@ function request(sequence: number = 65536, token: string = 'ab12cd34ef56ab78'): 
       windowsExecutableName: 'anakot-no-registry-needed',
       msixAppIdWithOrg: `NousResearch.AnakotChannel${token}`
     },
-    bundleEnv: { ANAKOT_PREVIEW_FULL_CONNECTORS: '1' },
+    bundleEnv: { HERMES_PREVIEW_FULL_CONNECTORS: '1' },
     publicBase: 'https://builds.example.test'
   }
 }
@@ -50,8 +50,8 @@ interface StampPayload {
 }
 
 function load(build: ChannelBuildRequest): PackagingFacts {
-  process.env.ANAKOT_DESKTOP_VARIANT = 'bundled'
-  process.env._ANAKOT_CHANNEL_REQUEST_JSON = JSON.stringify(build)
+  process.env.HERMES_DESKTOP_VARIANT = 'bundled'
+  process.env._HERMES_CHANNEL_REQUEST_JSON = JSON.stringify(build)
 
   for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs']) {
     delete require.cache[require.resolve(file)]
@@ -62,10 +62,10 @@ function load(build: ChannelBuildRequest): PackagingFacts {
 
 afterEach((): void => {
   for (const key of [
-    '_ANAKOT_CHANNEL_REQUEST_JSON',
-    'ANAKOT_DESKTOP_VARIANT',
-    'ANAKOT_BUILD_COMMIT',
-    'ANAKOT_PAYLOAD_TAG'
+    '_HERMES_CHANNEL_REQUEST_JSON',
+    'HERMES_DESKTOP_VARIANT',
+    'HERMES_BUILD_COMMIT',
+    'HERMES_PAYLOAD_TAG'
   ]) {
     delete process.env[key]
   }
@@ -136,7 +136,7 @@ test('channel packaging reuses admitted identity and rejects unsupported or unsa
       channel: 'latest'
     }
   ])
-  process.env.ANAKOT_DESKTOP_VARIANT = 'light'
+  process.env.HERMES_DESKTOP_VARIANT = 'light'
   delete require.cache[require.resolve('../product-identity.cjs')]
   assert.throws((): void => {
     require('../product-identity.cjs')
@@ -154,7 +154,7 @@ test('channel packaging reuses admitted identity and rejects unsupported or unsa
 })
 
 test('a channel that copies the stable identity packages and runs as the regular app', (): void => {
-  process.env.ANAKOT_DESKTOP_VARIANT = 'bundled'
+  process.env.HERMES_DESKTOP_VARIANT = 'bundled'
 
   for (const file of ['../product-identity.cjs', '../electron-builder.config.cjs']) {
     delete require.cache[require.resolve(file)]
@@ -245,8 +245,8 @@ test('channel stamps verify the real checkout and retain source version and nati
 
     const env: NodeJS.ProcessEnv = {
       ...process.env,
-      ANAKOT_DESKTOP_VARIANT: 'bundled',
-      _ANAKOT_CHANNEL_REQUEST_JSON: JSON.stringify(build),
+      HERMES_DESKTOP_VARIANT: 'bundled',
+      _HERMES_CHANNEL_REQUEST_JSON: JSON.stringify(build),
       GITHUB_SHA: 'd'.repeat(40)
     }
 
@@ -267,13 +267,13 @@ test('channel stamps verify the real checkout and retain source version and nati
       JSON.parse(fs.readFileSync(path.join(dir, 'out/agent-payload/repo/install-stamp.json'), 'utf8'))
     )
     assert.throws((): void => {
-      resolveStamp({ env: { ...env, _ANAKOT_CHANNEL_REQUEST_JSON: JSON.stringify(request()) }, repoRoot: dir })
+      resolveStamp({ env: { ...env, _HERMES_CHANNEL_REQUEST_JSON: JSON.stringify(request()) }, repoRoot: dir })
     }, /checkout/)
-    delete process.env._ANAKOT_CHANNEL_REQUEST_JSON
-    process.env.ANAKOT_PAYLOAD_TAG = 'v0.0.1'
+    delete process.env._HERMES_CHANNEL_REQUEST_JSON
+    process.env.HERMES_PAYLOAD_TAG = 'v0.0.1'
     delete require.cache[require.resolve('../product-identity.cjs')]
     const official: ProductIdentity = require('../product-identity.cjs')
-    delete process.env.ANAKOT_PAYLOAD_TAG
+    delete process.env.HERMES_PAYLOAD_TAG
 
     const receiver: ChannelBuildRequest = {
       ...build,
@@ -288,7 +288,7 @@ test('channel stamps verify the real checkout and retain source version and nati
       identity: { ...official, token: build.identity.token }
     }
 
-    const receiverEnv: NodeJS.ProcessEnv = { ...env, _ANAKOT_CHANNEL_REQUEST_JSON: JSON.stringify(receiver) }
+    const receiverEnv: NodeJS.ProcessEnv = { ...env, _HERMES_CHANNEL_REQUEST_JSON: JSON.stringify(receiver) }
 
     const stable: InstallStamp = buildStampPayload(
       resolveStamp({ env: receiverEnv, repoRoot: dir }),
@@ -328,7 +328,7 @@ test('channel stamps verify the real checkout and retain source version and nati
       verifyBundleStamp(built, { commit: receiver.commit, platform: 'darwin', channelRequest: receiver })
     })
     execFileSync(
-      process.env.ANAKOT_PYTHON || 'python3',
+      process.env.HERMES_PYTHON || 'python3',
       [
         '-c',
         `
@@ -456,7 +456,7 @@ test('actual MSIX manifest writer consumes the channel quad across rollover inst
       const output: string = execFileSync(process.execPath, ['-e', script], {
         cwd: root,
         encoding: 'utf8',
-        env: { ...process.env, ANAKOT_DESKTOP_VARIANT: 'bundled', _ANAKOT_CHANNEL_REQUEST_JSON: JSON.stringify(build) }
+        env: { ...process.env, HERMES_DESKTOP_VARIANT: 'bundled', _HERMES_CHANNEL_REQUEST_JSON: JSON.stringify(build) }
       })
 
       const row: ManifestFacts = JSON.parse(output.trim().split('\n').at(-1)!)
@@ -492,7 +492,7 @@ print(out.read_text(encoding='utf-8'))
 `
 
       const recorded: string = execFileSync(
-        process.env.ANAKOT_PYTHON || 'python3',
+        process.env.HERMES_PYTHON || 'python3',
         ['-c', recordScript, repo, root, JSON.stringify(build)],
         { encoding: 'utf8' }
       )

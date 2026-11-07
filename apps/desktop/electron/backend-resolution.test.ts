@@ -20,8 +20,8 @@ describe('installed runtime gate', () => {
     expect(probe).toHaveBeenCalledOnce()
   })
 
-  it('skips the installed runtime without probing it when ANAKOT_DESKTOP_IGNORE_EXISTING=1', async () => {
-    const { log, runtime } = gate({ ANAKOT_DESKTOP_IGNORE_EXISTING: '1' })
+  it('skips the installed runtime without probing it when HERMES_DESKTOP_IGNORE_EXISTING=1', async () => {
+    const { log, runtime } = gate({ HERMES_DESKTOP_IGNORE_EXISTING: '1' })
     const probe = vi.fn(async () => active)
 
     await expect(runtime.resolve(ROOT, probe)).resolves.toBeNull()
@@ -31,16 +31,16 @@ describe('installed runtime gate', () => {
 
   it('honours only the value the CLI exports', async () => {
     for (const value of ['0', 'true', '']) {
-      const { runtime } = gate({ ANAKOT_DESKTOP_IGNORE_EXISTING: value })
+      const { runtime } = gate({ HERMES_DESKTOP_IGNORE_EXISTING: value })
 
       await expect(runtime.resolve(ROOT, async () => active)).resolves.toBe(active)
     }
   })
 
   it('uses the runtime this launch installed so the post-install re-resolve does not reinstall', async () => {
-    const { runtime } = gate({ ANAKOT_DESKTOP_IGNORE_EXISTING: '1' })
+    const { runtime } = gate({ HERMES_DESKTOP_IGNORE_EXISTING: '1' })
     const probe = vi.fn(async () => active)
-    // main.ts: resolveAnakotBackend's ACTIVE_ANAKOT_ROOT rung, else bootstrap-needed.
+    // main.ts: resolveAnakotBackend's ACTIVE_HERMES_ROOT rung, else bootstrap-needed.
     const resolveAnakotBackend = async () => (await runtime.resolve(ROOT, probe)) ?? 'bootstrap-needed'
 
     await expect(resolveAnakotBackend()).resolves.toBe('bootstrap-needed')
@@ -56,7 +56,7 @@ describe('installed runtime gate', () => {
     const env: NodeJS.ProcessEnv = {}
     const { runtime } = gate(env)
 
-    env.ANAKOT_DESKTOP_IGNORE_EXISTING = '1'
+    env.HERMES_DESKTOP_IGNORE_EXISTING = '1'
     await expect(runtime.resolve(ROOT, async () => active)).resolves.toBeNull()
   })
 })

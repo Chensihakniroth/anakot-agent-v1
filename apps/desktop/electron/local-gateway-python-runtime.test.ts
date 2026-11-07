@@ -29,7 +29,7 @@ test('a bundled launcher keeps its CLI command but names the payload Python for 
     command: '/resources/agent-payload/bin/anakot.exe',
     kind: 'python',
     shell: false,
-    env: { ANAKOT_RUNTIME_DIR: '/resources/agent-payload/tools' },
+    env: { HERMES_RUNTIME_DIR: '/resources/agent-payload/tools' },
     ticketCommand: '/resources/agent-payload/tools/python/python.exe',
     ticketEnv: { PYTHONPATH: '/resources/agent-payload/repo;/resources/agent-payload/venv/Lib/site-packages' }
   }

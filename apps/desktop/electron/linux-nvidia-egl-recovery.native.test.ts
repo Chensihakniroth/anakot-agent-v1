@@ -42,7 +42,7 @@ function buildArtifact(name: string, commit: string): string {
     platform: 'node',
     format: 'esm',
     external: ['electron'],
-    define: { __ANAKOT_INSTALL_STAMP__: JSON.stringify(stamp(commit)) }
+    define: { __HERMES_INSTALL_STAMP__: JSON.stringify(stamp(commit)) }
   })
 
   return artifact

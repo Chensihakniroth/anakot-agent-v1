@@ -8,7 +8,7 @@ import { DirectiveContent } from './directive-text'
 
 const desktopWindow = window as unknown as { anakotDesktop?: Window['anakotDesktop'] }
 
-const PR_URL = 'https://github.com/Chensihakniroth/anakot-agent-v1/pull/107950'
+const PR_URL = 'https://github.com/NousResearch/anakot-agent/pull/107950'
 
 function installDesktopBridge() {
   const openExternal = vi.fn().mockResolvedValue(undefined)

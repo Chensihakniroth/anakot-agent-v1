@@ -23,6 +23,16 @@ describe('agent message detection', () => {
     expect(m?.[4]).toBe('run them all')
   })
 
+  it('recognizes a relayed sender re-stamped @handle@connection, keeping the bare handle for the avatar', () => {
+    // The receiving gateway re-stamps a relayed "@anakot" as "@anakot@<connection>"
+    // (#103731) — still an agent notice, and the avatar resolves by profile handle.
+    const m = AGENT_MESSAGE_RE.exec('Message from 🤖 anakot (@anakot@Cloud-1): status?')
+
+    expect(m?.[1]?.trim()).toBe('anakot')
+    expect(m?.[2]).toBe('anakot')
+    expect(m?.[4]).toBe('status?')
+  })
+
   it('matches without the robot emoji', () => {
     const m = AGENT_MESSAGE_RE.exec('Message from Turquoise: ready to work')
 

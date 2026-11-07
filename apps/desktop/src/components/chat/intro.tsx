@@ -1,5 +1,6 @@
 import { useState } from 'react'
 
+import { useI18n } from '@/i18n'
 import { capitalize, normalize } from '@/lib/text'
 
 import introCopyJsonl from './intro-copy.jsonl?raw'
@@ -145,7 +146,7 @@ function pickCopy(copies: IntroCopy[], seed = 0): IntroCopy {
   return copies[Math.abs(seed) % copies.length] || FALLBACK_COPY[0]
 }
 
-const WORDMARK = 'ANAKOT AGENT'
+const WORDMARK = 'HERMES AGENT'
 
 function resolveCopy(personality?: string, seed?: number): IntroCopy {
   const personalityKey = normalizeKey(personality)
@@ -159,7 +160,15 @@ function resolveCopy(personality?: string, seed?: number): IntroCopy {
 
 export function Intro({ personality, seed }: IntroProps) {
   const [mountSeed] = useState(() => Math.floor(Math.random() * 100000))
-  const copy = resolveCopy(personality, mountSeed + (seed ?? 0))
+  const { t } = useI18n()
+  const rotationSeed = mountSeed + (seed ?? 0)
+  const copy = resolveCopy(personality, rotationSeed)
+  const key = normalizeKey(personality)
+
+  const bodies =
+    t.intro.stock[key] ?? (NEUTRAL_PERSONALITIES.has(key) ? t.intro.stock.none : t.intro.custom(personality || ''))
+
+  const body = bodies?.[Math.abs(rotationSeed) % bodies.length] ?? copy.body
 
   return (
     <div
@@ -167,9 +176,9 @@ export function Intro({ personality, seed }: IntroProps) {
       data-slot="aui_intro"
     >
       <div className="w-full min-w-0">
-        <Wordmark className="mb-3" text={WORDMARK} width="88%" />
+        <Wordmark className="mb-1" text={WORDMARK} />
 
-        <p className="m-0 text-center leading-normal tracking-tight">{copy.body}</p>
+        <p className="m-0 text-center leading-normal tracking-tight">{body}</p>
       </div>
     </div>
   )

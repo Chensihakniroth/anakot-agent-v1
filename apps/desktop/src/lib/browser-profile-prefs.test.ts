@@ -17,19 +17,19 @@ import {
 } from './browser-settings'
 import { browserStartupProfileKey } from './browser-startup-profile'
 
-type BootstrapWindow = Window & { __ANAKOT_BASE_PATH__?: string; __ANAKOT_DASHBOARD_PROFILE__?: string }
+type BootstrapWindow = Window & { __HERMES_BASE_PATH__?: string; __HERMES_DASHBOARD_PROFILE__?: string }
 
 const win = window as BootstrapWindow
 
 function host(basePath = '/anakot') {
   document.documentElement.dataset.anakotDesktopHost = 'browser'
-  win.__ANAKOT_BASE_PATH__ = basePath
+  win.__HERMES_BASE_PATH__ = basePath
 }
 
 function unhost() {
   delete document.documentElement.dataset.anakotDesktopHost
-  delete win.__ANAKOT_BASE_PATH__
-  delete win.__ANAKOT_DASHBOARD_PROFILE__
+  delete win.__HERMES_BASE_PATH__
+  delete win.__HERMES_DASHBOARD_PROFILE__
 }
 
 function putFolder(profile: string, dir: string, basePath = '/anakot') {
@@ -247,7 +247,7 @@ describe('browser profile prefs follow rename and delete', () => {
   })
 
   it('keeps folder and startup prefs when this page is not the browser host', () => {
-    win.__ANAKOT_BASE_PATH__ = '/anakot'
+    win.__HERMES_BASE_PATH__ = '/anakot'
     putFolder('alpha', '/srv/alpha')
     putStartup('alpha')
     $defaultProfileRoute.set({ connectionId: null, profile: 'alpha' })
@@ -272,7 +272,7 @@ describe('browser folder saved by an older build', () => {
 
   function serveAlphaWithLegacy(dir: string) {
     host()
-    win.__ANAKOT_DASHBOARD_PROFILE__ = 'alpha'
+    win.__HERMES_DASHBOARD_PROFILE__ = 'alpha'
     localStorage.setItem(legacyKey, dir)
   }
 
@@ -333,7 +333,7 @@ describe('browser folder saved by an older build', () => {
 
     expect(resolveNewSessionCwd('default')).toBe('/srv/default')
 
-    win.__ANAKOT_DASHBOARD_PROFILE__ = 'alpha'
+    win.__HERMES_DASHBOARD_PROFILE__ = 'alpha'
 
     expect(resolveNewSessionCwd('alpha')).toBe('')
     expect(resolveNewSessionCwd('default')).toBe('/srv/default')

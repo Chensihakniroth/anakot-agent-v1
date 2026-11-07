@@ -13,7 +13,7 @@
  * the composer being reachable by every accessibility-driven input method is
  * the point of the bug fix; the tree's rendering cost is the price. A
  * perf-sensitive setup can opt out with `desktop.renderer_accessibility:
- * false` in config.yaml, which becomes ANAKOT_DESKTOP_RENDERER_ACCESSIBILITY=0
+ * false` in config.yaml, which becomes HERMES_DESKTOP_RENDERER_ACCESSIBILITY=0
  * — bridged by the `anakot desktop` launcher and, for packaged launches, by
  * main.ts's pre-ready config read (readDesktopLaunchConfig). Setting the
  * variable directly works too.
@@ -23,18 +23,18 @@
  * per the windows-child-options.ts convention.
  */
 
-/** Values that turn the feature OFF when ANAKOT_DESKTOP_RENDERER_ACCESSIBILITY
+/** Values that turn the feature OFF when HERMES_DESKTOP_RENDERER_ACCESSIBILITY
  *  carries them (same words the launcher accepts for false). */
 const RENDERER_ACCESSIBILITY_OFF_WORDS = new Set(['0', 'false', 'no', 'off', 'disabled'])
 
 /** Whether this boot must expose the renderer's accessibility tree to the OS.
  *
- *  @param env - environment to read ANAKOT_DESKTOP_RENDERER_ACCESSIBILITY
+ *  @param env - environment to read HERMES_DESKTOP_RENDERER_ACCESSIBILITY
  *    from (defaults to the real process env).
  *  @param platform - defaults to the real platform; injectable for tests.
  */
 export function shouldEnableRendererAccessibility(
-  env: { ANAKOT_DESKTOP_RENDERER_ACCESSIBILITY?: string | undefined } = process.env,
+  env: { HERMES_DESKTOP_RENDERER_ACCESSIBILITY?: string | undefined } = process.env,
   platform: NodeJS.Platform = process.platform
 ): boolean {
   if (platform !== 'darwin' && platform !== 'win32') {
@@ -43,7 +43,7 @@ export function shouldEnableRendererAccessibility(
     return false
   }
 
-  const raw = (env.ANAKOT_DESKTOP_RENDERER_ACCESSIBILITY ?? '').trim().toLowerCase()
+  const raw = (env.HERMES_DESKTOP_RENDERER_ACCESSIBILITY ?? '').trim().toLowerCase()
 
   return !RENDERER_ACCESSIBILITY_OFF_WORDS.has(raw)
 }
@@ -58,7 +58,7 @@ export interface RendererAccessibilityApp {
  *  to. Call after the app `ready` event (the Electron API's requirement). */
 export function enableRendererAccessibility(options: {
   appApi: RendererAccessibilityApp
-  env?: { ANAKOT_DESKTOP_RENDERER_ACCESSIBILITY?: string | undefined }
+  env?: { HERMES_DESKTOP_RENDERER_ACCESSIBILITY?: string | undefined }
   platform?: NodeJS.Platform
 }): void {
   if (shouldEnableRendererAccessibility(options.env, options.platform)) {

@@ -16,12 +16,12 @@ import path from 'node:path'
 export const CREATE_NO_WINDOW = 0x08000000
 
 export const NO_CONSOLE_GIT_SCRIPT = `import json, os, subprocess, sys
-git = json.loads(os.environ["ANAKOT_GIT_ARGV0"])
+git = json.loads(os.environ["HERMES_GIT_ARGV0"])
 argv = [git, *sys.argv[1:]]
 kwargs = {"stdout": subprocess.PIPE, "stderr": subprocess.PIPE}
-if sys.platform == "win32" or os.environ.get("ANAKOT_GIT_NO_CONSOLE") == "1":
+if sys.platform == "win32" or os.environ.get("HERMES_GIT_NO_CONSOLE") == "1":
     kwargs["creationflags"] = 0x08000000
-if os.environ.get("ANAKOT_GIT_DRY_RUN") == "1":
+if os.environ.get("HERMES_GIT_DRY_RUN") == "1":
     sys.stdout.write(json.dumps({"argv": argv, "creationflags": kwargs.get("creationflags", 0)}))
     raise SystemExit(0)
 proc = subprocess.run(argv, **kwargs)
@@ -78,13 +78,13 @@ export function resolveNoConsolePython({
   }
 
   const candidates: string[] = []
-  const override = env.ANAKOT_DESKTOP_PYTHON
+  const override = env.HERMES_DESKTOP_PYTHON
 
   if (override) {
     candidates.push(override)
   }
 
-  const anakotRoot = env.ANAKOT_DESKTOP_ANAKOT_ROOT
+  const anakotRoot = env.HERMES_DESKTOP_HERMES_ROOT
   const searchRoots = anakotRoot ? [anakotRoot, ...roots] : roots
 
   for (const root of searchRoots) {
@@ -156,7 +156,7 @@ export function noConsoleGitEnv(base: NodeJS.ProcessEnv | undefined, gitBin: str
     }
   }
 
-  env.ANAKOT_GIT_ARGV0 = JSON.stringify(gitBin || 'git')
+  env.HERMES_GIT_ARGV0 = JSON.stringify(gitBin || 'git')
 
   if (!env.GIT_TERMINAL_PROMPT) {
     env.GIT_TERMINAL_PROMPT = '0'

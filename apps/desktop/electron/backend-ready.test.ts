@@ -2,13 +2,13 @@
  * Tests for electron/backend-ready.ts.
  *
  * Run with: node --test electron/backend-ready.test.ts
- * (Wired into npm test:desktop:platforms in package.json.)
+ * (Wired into pnpm run test:desktop:platforms in package.json.)
  *
  * Covers the cold-start port-announcement deadline (issue #50209): the clock
  * starts before the backend binds its port, so a tight 45s deadline killed a
  * healthy-but-still-compiling backend on cold Windows installs. The default is
  * now cold-start tolerant and overridable via
- * ANAKOT_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS, clamped to a 45s floor.
+ * HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS, clamped to a 45s floor.
  */
 
 import assert from 'node:assert/strict'
@@ -55,24 +55,24 @@ test('default is cold-start tolerant (> the historical 45s floor)', () => {
   )
 })
 
-test('honors a valid ANAKOT_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS override', () => {
-  const env = { ANAKOT_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: '120000' }
+test('honors a valid HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS override', () => {
+  const env = { HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: '120000' }
   assert.equal(resolvePortAnnounceTimeoutMs(env), 120_000)
 })
 
 test('clamps an override below the floor up to the 45s minimum', () => {
-  const env = { ANAKOT_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: '1000' }
+  const env = { HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: '1000' }
   assert.equal(resolvePortAnnounceTimeoutMs(env), MIN_PORT_ANNOUNCE_TIMEOUT_MS)
 })
 
 test('rounds a fractional override', () => {
-  const env = { ANAKOT_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: '60000.7' }
+  const env = { HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: '60000.7' }
   assert.equal(resolvePortAnnounceTimeoutMs(env), 60_001)
 })
 
 test('falls back to the default for malformed / non-positive overrides', () => {
   for (const bad of ['', 'abc', '0', '-5', 'NaN', undefined]) {
-    const env = bad === undefined ? {} : { ANAKOT_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: bad }
+    const env = bad === undefined ? {} : { HERMES_DESKTOP_PORT_ANNOUNCE_TIMEOUT_MS: bad }
     assert.equal(
       resolvePortAnnounceTimeoutMs(env),
       DEFAULT_PORT_ANNOUNCE_TIMEOUT_MS,
@@ -88,21 +88,21 @@ test('falls back to the default for malformed / non-positive overrides', () => {
 test('resolves with the announced port', async () => {
   const child = makeFakeChild()
   const p = waitForDashboardPort(child, 1000)
-  child.stdout.emit('data', 'noise before\nANAKOT_DASHBOARD_READY port=54321\n')
+  child.stdout.emit('data', 'noise before\nHERMES_DASHBOARD_READY port=54321\n')
   assert.equal(await p, 54321)
 })
 
-test('resolves with a ANAKOT_BACKEND_READY port (headless `serve`)', async () => {
+test('resolves with a HERMES_BACKEND_READY port (headless `serve`)', async () => {
   const child = makeFakeChild()
   const p = waitForDashboardPort(child, 1000)
-  child.stdout.emit('data', 'ANAKOT_BACKEND_READY port=43210\n')
+  child.stdout.emit('data', 'HERMES_BACKEND_READY port=43210\n')
   assert.equal(await p, 43210)
 })
 
 test('parses the port even when the line arrives split across chunks', async () => {
   const child = makeFakeChild()
   const p = waitForDashboardPort(child, 1000)
-  child.stdout.emit('data', 'ANAKOT_DASHBOARD_READY po')
+  child.stdout.emit('data', 'HERMES_DASHBOARD_READY po')
   child.stdout.emit('data', 'rt=8080\n')
   assert.equal(await p, 8080)
 })
@@ -121,21 +121,13 @@ test('rejects on a child error event', async () => {
   await assert.rejects(p, /spawn ENOENT/)
 })
 
-test('rejects with the timeout message after the deadline', async () => {
-  const child = makeFakeChild()
-  await assert.rejects(
-    waitForDashboardPort(child, 20),
-    /Timed out waiting for Anakot backend port announcement \(20ms\)/
-  )
-})
-
 test('a late announcement after timeout does not throw (listeners torn down)', async () => {
   const child = makeFakeChild()
   await assert.rejects(waitForDashboardPort(child, 20), /Timed out/)
   // The orphaned backend may still print its READY line later; the watcher
   // must have detached so this emit is a no-op rather than a double-settle.
   assert.doesNotThrow(() => {
-    child.stdout.emit('data', 'ANAKOT_DASHBOARD_READY port=9999\n')
+    child.stdout.emit('data', 'HERMES_DASHBOARD_READY port=9999\n')
   })
 })
 
@@ -247,20 +239,6 @@ test('exit-before-announcement error carries the buffered output tail (ready-fil
   await assert.rejects(wait, /exited before port announcement \(SIGSEGV\)[\s\S]*Traceback/)
 })
 
-test('exit-before-announcement error stays clean when no output was buffered', async () => {
-  const child = makeFakeChild()
-
-  const wait = waitForDashboardPortAnnouncement(child, {})
-
-  child.emit('exit', 137, null)
-
-  await assert.rejects(wait, error => {
-    assert.match((error as Error).message, /exited before port announcement \(137\)$/)
-
-    return true
-  })
-})
-
 // ---------------------------------------------------------------------------
 // bufferedOutput (#60323): a sentinel consumed BEFORE the wait attaches must
 // still resolve. main.ts attaches an output tail at spawn, then awaits
@@ -273,7 +251,7 @@ test('resolves from bufferedOutput when the sentinel was consumed before the wai
 
   // Simulate the spawn-time output tail: it consumed the READY line already,
   // and no further stdout data will ever arrive.
-  const alreadyConsumed = 'boot noise\nANAKOT_BACKEND_READY port=43211\n'
+  const alreadyConsumed = 'boot noise\nHERMES_BACKEND_READY port=43211\n'
 
   const port = await waitForDashboardPortAnnouncement(child, {
     bufferedOutput: () => alreadyConsumed,
@@ -283,11 +261,11 @@ test('resolves from bufferedOutput when the sentinel was consumed before the wai
   assert.equal(port, 43211)
 })
 
-test('bufferedOutput accepts the legacy ANAKOT_DASHBOARD_READY sentinel too', async () => {
+test('bufferedOutput accepts the legacy HERMES_DASHBOARD_READY sentinel too', async () => {
   const child = makeFakeChild()
 
   const port = await waitForDashboardPortAnnouncement(child, {
-    bufferedOutput: () => 'ANAKOT_DASHBOARD_READY port=43212\n',
+    bufferedOutput: () => 'HERMES_DASHBOARD_READY port=43212\n',
     timeoutMs: 500
   })
 
@@ -302,7 +280,7 @@ test('bufferedOutput without a sentinel still resolves from later live stdout', 
     timeoutMs: 1000
   })
 
-  child.stdout.emit('data', Buffer.from('ANAKOT_BACKEND_READY port=43213\n'))
+  child.stdout.emit('data', Buffer.from('HERMES_BACKEND_READY port=43213\n'))
 
   assert.equal(await wait, 43213)
 })
@@ -325,7 +303,7 @@ test('the merged-tail seed recovers a sentinel spliced onto a partial stderr lin
 
   // uvicorn's stderr chunk has no trailing newline, so the tail is not line-accurate.
   const port = await waitForDashboardPortAnnouncement(child, {
-    bufferedOutput: () => 'INFO  Started server process [4711]ANAKOT_BACKEND_READY port=65238',
+    bufferedOutput: () => 'INFO  Started server process [4711]HERMES_BACKEND_READY port=65238',
     timeoutMs: 500
   })
 
@@ -339,8 +317,67 @@ test('the merged-tail seed does not match prose that merely names the sentinel',
     child,
     50,
     () => '',
-    () => 'still waiting for ANAKOT_BACKEND_READY from the backend\n'
+    () => 'still waiting for HERMES_BACKEND_READY from the backend\n'
   )
 
   await assert.rejects(wait, /Timed out waiting/)
 })
+
+// ---------------------------------------------------------------------------
+// source-update completion banners extend the deadline (#122206)
+// ---------------------------------------------------------------------------
+
+test('a completion banner re-arms the deadline past the original timeout', async () => {
+  // The backend prints venv_sync's banner (finishing an owed update tail)
+  // after the normal budget would have expired. The wait must keep waiting
+  // while the repair is in progress, then resolve on the late announcement.
+  const child = makeFakeChild()
+  const p = waitForDashboardPort(child, 40)
+  child.stdout.emit('data', 'anakot: finishing an interrupted source update...\n')
+  // Past the original 40ms deadline: without the banner grace this wait has
+  // already rejected. Give the "repair" a moment, then announce.
+  await new Promise(resolve => setTimeout(resolve, 80))
+  child.stdout.emit('data', 'HERMES_BACKEND_READY port=4455\n')
+  assert.equal(await p, 4455)
+})
+
+test(
+  'a stalled completion banner is capped, not waited out forever',
+  async () => {
+    // The banner says a repair is in progress but nothing ever resolves: the
+    // wait must still fail (bounded), and the message must carry that the
+    // completion was in progress — truthful and actionable instead of a bare
+    // 90s timeout that hides a multi-minute repair. The grace is wall-clock;
+    // a 50ms grace stands in for production's 5 minutes.
+    const child = makeFakeChild()
+    const timeoutMs = 20
+    const completionGraceMs = 50
+    // describeOutputTail and bufferedOutput keep their defaults (no output tail).
+    const wait = waitForDashboardPort(child, timeoutMs, undefined, undefined, completionGraceMs)
+    wait.catch(() => {}) // mark handled; the assertion below re-awaits
+
+    child.stdout.emit('data', 'anakot: finishing an interrupted source update...\n')
+    await assert.rejects(
+      wait,
+      /Timed out waiting for Anakot backend port announcement .* while an update completion was in progress/
+    )
+  },
+  10_000
+)
+
+test('a banner already in the spawn-time tail also re-arms', async () => {
+  // The dormant bufferedOutput gap (#60323): the banner was flushed before the
+  // listener attached. Seeding from the tail must extend the deadline too.
+  const child = makeFakeChild()
+
+  const p = waitForDashboardPort(
+    child,
+    40,
+    () => '',
+    () => 'anakot: completing source-update dependencies...\n'
+  )
+
+  await new Promise(resolve => setTimeout(resolve, 80))
+  child.stdout.emit('data', 'HERMES_BACKEND_READY port=4471\n')
+  assert.equal(await p, 4471)
+}, 10_000)

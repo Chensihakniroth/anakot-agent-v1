@@ -16,24 +16,6 @@ import {
   switchBranch
 } from './git-worktree-ops'
 
-// Windows releases a child's directory handle asynchronously, so an immediate
-// rmdir after a git call can fail with EBUSY/EPERM even though the assertion
-// already passed. Back off briefly before giving up.
-async function rmDirEventually(dir: string): Promise<void> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      fs.rmSync(dir, { recursive: true, force: true })
-      return
-    } catch (error) {
-      const code = (error as NodeJS.ErrnoException).code
-      if ((code !== 'EBUSY' && code !== 'EPERM' && code !== 'ENOTEMPTY') || attempt >= 5) {
-        throw error
-      }
-      await new Promise((resolve): ReturnType<typeof setTimeout> => setTimeout(resolve, 40 * (attempt + 1)))
-    }
-  }
-}
-
 test('sanitizeBranch: spaces → hyphens, forbidden chars dropped, edges trimmed', () => {
   assert.equal(sanitizeBranch('beach vibes'), 'beach-vibes')
   assert.equal(sanitizeBranch('feat/cool thing'), 'feat/cool-thing')
@@ -92,7 +74,7 @@ test('ensureGitRepo: inits a plain dir with a root commit so worktrees branch', 
     await ensureGitRepo('git', dir)
     assert.equal(git('rev-list', '--count', 'HEAD'), '1')
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -108,7 +90,7 @@ test('switchBranch: switches a normal checkout branch', async () => {
 
     assert.equal(git('branch', '--show-current'), 'feature')
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -132,7 +114,7 @@ test('listBranches: lists locals and flags the checked-out branch', async () => 
     assert.equal(branches.find(b => b.name === 'feature').isDefault, false)
     assert.equal(branches.find(b => b.name === 'feature').worktreePath, null)
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -152,7 +134,7 @@ test('listBranches: flags a free default branch as default, not checked out', as
     assert.equal(defaultBranch.isDefault, true)
     assert.equal(defaultBranch.worktreePath, null)
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -172,7 +154,7 @@ test('listBranches: a branch claimed by a worktree is flagged checked out', asyn
 
     assert.equal(branches.find(b => b.name === 'feature').checkedOut, true)
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -182,7 +164,7 @@ test('listBranches: empty on a non-repo path', async () => {
   try {
     assert.deepEqual(await listBranches(dir, 'git'), [])
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -207,7 +189,7 @@ test('addWorktree: existingBranch checks the branch out without a new branch', a
       'cool/feature'
     )
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -227,7 +209,7 @@ test('addWorktree: existing default branch switches the main checkout, not .work
     assert.equal(git('branch', '--show-current'), trunk)
     assert.equal(fs.existsSync(path.join(dir, '.worktrees', trunk)), false)
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -253,7 +235,7 @@ test('listBaseBranches: lists local branches and flags the default', async () =>
     assert.equal(branches.find(b => b.name === trunk).isDefault, true)
     assert.equal(branches.find(b => b.name === 'feature').isDefault, false)
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -263,7 +245,7 @@ test('listBaseBranches: empty on a non-repo path', async () => {
   try {
     assert.deepEqual(await listBaseBranches(dir, 'git'), [])
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -284,7 +266,7 @@ test('addWorktree: base param branches off a specified local branch', async () =
     assert.equal(result.branch, 'new-from-staging')
     assert.equal(git('-C', result.path, 'merge-base', 'HEAD', 'staging').length > 0, true)
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -334,6 +316,165 @@ test('addWorktree: base origin/main does not set up upstream tracking', async ()
     }
 
     assert.equal(hasUpstream, false)
+  } finally {
+    fs.rmSync(remoteDir, { recursive: true, force: true })
+    fs.rmSync(cloneDir, { recursive: true, force: true })
+  }
+})
+
+// A tag-pinned narrow clone (`--single-branch --branch v0`), the shape older
+// installers made: remote.origin.fetch maps only the tag, so no branch has a
+// tracking ref. The remote has `main` and `feature` one commit past the tag.
+// Returns both paths and the tip. The caller must remove them.
+const IDENT = ['-c', 'user.email=anakot@localhost', '-c', 'user.name=Anakot']
+
+function seedNarrowClone(label) {
+  const remoteDir = fs.mkdtempSync(path.join(os.tmpdir(), `anakot-${label}-remote-`))
+  const cloneDir = fs.mkdtempSync(path.join(os.tmpdir(), `anakot-${label}-clone-`))
+  execFileSync('git', ['init', '-q', '-b', 'main', remoteDir])
+  execFileSync('git', ['-C', remoteDir, ...IDENT, 'commit', '-q', '--allow-empty', '-m', 'root'])
+  execFileSync('git', ['-C', remoteDir, 'tag', 'v0'])
+  execFileSync('git', ['-C', remoteDir, ...IDENT, 'commit', '-q', '--allow-empty', '-m', 'tip'])
+  execFileSync('git', ['-C', remoteDir, 'branch', 'feature'])
+  const tip = execFileSync('git', ['-C', remoteDir, 'rev-parse', 'HEAD']).toString().trim()
+
+  execFileSync('git', ['clone', '-q', '--single-branch', '--branch', 'v0', remoteDir, cloneDir])
+
+  return { cloneDir, remoteDir, tip }
+}
+
+test('addWorktree: base origin/main resolves on a tag-pinned narrow clone', async () => {
+  // A by-name `git fetch origin main` on a tag-only refspec writes FETCH_HEAD
+  // and never origin/main.
+  const { cloneDir, remoteDir, tip } = seedNarrowClone('narrow-base')
+
+  try {
+    const result = await addWorktree(cloneDir, { base: 'origin/main', branch: 'from-main', name: 'from-main' }, 'git')
+
+    const head = execFileSync('git', ['-C', result.path, 'rev-parse', 'HEAD']).toString().trim()
+
+    assert.equal(head, tip)
+    assert.equal(result.branch, 'from-main')
+    assert.throws(() =>
+      execFileSync('git', ['-C', cloneDir, 'rev-parse', '--abbrev-ref', '--symbolic-full-name', 'from-main@{u}'], {
+        stdio: 'ignore'
+      })
+    )
+  } finally {
+    fs.rmSync(remoteDir, { recursive: true, force: true })
+    fs.rmSync(cloneDir, { recursive: true, force: true })
+  }
+})
+
+const fetchConfig = cloneDir =>
+  execFileSync('git', ['-C', cloneDir, 'config', '--get-all', 'remote.origin.fetch']).toString().trim()
+
+test('addWorktree: a remote branch on a tag-pinned narrow clone becomes a tracking local branch', async () => {
+  const { cloneDir, remoteDir, tip } = seedNarrowClone('narrow-convert')
+
+  try {
+    const result = await addWorktree(cloneDir, { existingBranch: 'origin/feature' }, 'git')
+
+    const inTree = (...args) =>
+      execFileSync('git', ['-C', result.path, ...args])
+        .toString()
+        .trim()
+
+    assert.equal(result.branch, 'feature')
+    assert.equal(inTree('rev-parse', 'HEAD'), tip)
+    assert.equal(inTree('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'), 'origin/feature')
+  } finally {
+    fs.rmSync(remoteDir, { recursive: true, force: true })
+    fs.rmSync(cloneDir, { recursive: true, force: true })
+  }
+})
+
+test('addWorktree: a remote branch that does not exist leaves the fetch config alone', async () => {
+  // A configured refspec whose source is missing makes every later plain
+  // `git fetch` fail, so a typo must never be registered on the remote.
+  const narrow = seedNarrowClone('narrow-typo')
+  const normal = seedRemoteAndClone('normal-typo', [])
+
+  try {
+    for (const cloneDir of [narrow.cloneDir, normal.cloneDir]) {
+      const before = fetchConfig(cloneDir)
+
+      await assert.rejects(addWorktree(cloneDir, { existingBranch: 'origin/typo' }, 'git'))
+      assert.equal(fetchConfig(cloneDir), before)
+      execFileSync('git', ['-C', cloneDir, 'fetch', '-q'])
+    }
+  } finally {
+    for (const dir of [narrow.remoteDir, narrow.cloneDir, normal.remoteDir, normal.cloneDir]) {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
+  }
+})
+
+test('addWorktree: converting a remote branch on a normal clone adds no fetch refspec', async () => {
+  const { cloneDir, remoteDir } = seedRemoteAndClone('normal-convert-config', ['teammate-work'])
+
+  try {
+    const before = fetchConfig(cloneDir)
+
+    await addWorktree(cloneDir, { existingBranch: 'origin/teammate-work' }, 'git')
+    assert.equal(fetchConfig(cloneDir), before)
+  } finally {
+    fs.rmSync(remoteDir, { recursive: true, force: true })
+    fs.rmSync(cloneDir, { recursive: true, force: true })
+  }
+})
+
+test('addWorktree: a local slash branch named like a remote branch stays local', async () => {
+  // Without this, "origin/feature" (a local branch) became a new `feature`
+  // tracking the remote branch of the same name, after a network fetch.
+  const { cloneDir, remoteDir, tip } = seedNarrowClone('narrow-local-slash')
+
+  try {
+    execFileSync('git', ['-C', cloneDir, 'branch', 'origin/feature'])
+    const local = execFileSync('git', ['-C', cloneDir, 'rev-parse', 'refs/heads/origin/feature']).toString().trim()
+
+    assert.notEqual(local, tip)
+
+    const result = await addWorktree(cloneDir, { existingBranch: 'origin/feature' }, 'git')
+    const head = execFileSync('git', ['-C', result.path, 'rev-parse', 'HEAD']).toString().trim()
+    const remoteRefs = execFileSync('git', ['-C', cloneDir, 'for-each-ref', 'refs/remotes']).toString().trim()
+
+    assert.equal(result.branch, 'origin/feature')
+    assert.equal(head, local)
+    assert.equal(remoteRefs, '')
+  } finally {
+    fs.rmSync(remoteDir, { recursive: true, force: true })
+    fs.rmSync(cloneDir, { recursive: true, force: true })
+  }
+})
+
+test('addWorktree: a valid branch the sanitizer would rewrite is still refreshed as a base', async () => {
+  const { cloneDir, remoteDir } = seedRemoteAndClone('plus-base', ['fix+1'])
+
+  try {
+    execFileSync('git', ['-C', remoteDir, 'checkout', '-q', 'fix+1'])
+    execFileSync('git', ['-C', remoteDir, ...IDENT, 'commit', '-q', '--allow-empty', '-m', 'moved after the clone'])
+    const moved = execFileSync('git', ['-C', remoteDir, 'rev-parse', 'HEAD']).toString().trim()
+
+    const result = await addWorktree(cloneDir, { base: 'origin/fix+1', branch: 'x', name: 'x' }, 'git')
+    const head = execFileSync('git', ['-C', result.path, 'rev-parse', 'HEAD']).toString().trim()
+
+    assert.equal(head, moved)
+  } finally {
+    fs.rmSync(remoteDir, { recursive: true, force: true })
+    fs.rmSync(cloneDir, { recursive: true, force: true })
+  }
+})
+
+test('addWorktree: a glob base is not turned into a fetch of every branch', async () => {
+  const { cloneDir, remoteDir } = seedNarrowClone('narrow-glob')
+
+  try {
+    await assert.rejects(addWorktree(cloneDir, { base: 'origin/*', name: 'glob' }, 'git'))
+
+    const remoteRefs = execFileSync('git', ['-C', cloneDir, 'for-each-ref', 'refs/remotes']).toString().trim()
+
+    assert.equal(remoteRefs, '')
   } finally {
     fs.rmSync(remoteDir, { recursive: true, force: true })
     fs.rmSync(cloneDir, { recursive: true, force: true })
@@ -465,7 +606,7 @@ test('switchBranch: non-repo dir short-circuits instead of throwing', async () =
 
     assert.deepEqual(result, { branch: null })
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })
 
@@ -485,6 +626,6 @@ test('switchBranch: repo dir still validates the branch name and switches', asyn
     const result = await switchBranch(dir, 'main', 'git')
     assert.deepEqual(result, { branch: 'main' })
   } finally {
-    await await rmDirEventually(dir)
+    fs.rmSync(dir, { recursive: true, force: true })
   }
 })

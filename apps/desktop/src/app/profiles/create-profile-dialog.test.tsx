@@ -39,11 +39,11 @@ it.each([true, false])(
 )
 
 it('does not let a new browser profile inherit the prefs a deleted one left under its name', async () => {
-  const win = window as Window & { __ANAKOT_BASE_PATH__?: string }
+  const win = window as Window & { __HERMES_BASE_PATH__?: string }
   const folderKey = browserDefaultProjectDirKey('/anakot', 'work')
   const startupKey = browserStartupProfileKey('/anakot')
   window.document.documentElement.dataset.anakotDesktopHost = 'browser'
-  win.__ANAKOT_BASE_PATH__ = '/anakot'
+  win.__HERMES_BASE_PATH__ = '/anakot'
   localStorage.setItem(folderKey, '/srv/deleted-work')
   localStorage.setItem(startupKey, JSON.stringify({ connectionId: null, profile: 'work' }))
   localStorage.setItem(browserDefaultProjectDirKey('/anakot', 'alpha'), '/srv/alpha')
@@ -61,6 +61,6 @@ it('does not let a new browser profile inherit the prefs a deleted one left unde
   } finally {
     localStorage.clear()
     delete window.document.documentElement.dataset.anakotDesktopHost
-    delete win.__ANAKOT_BASE_PATH__
+    delete win.__HERMES_BASE_PATH__
   }
 })

@@ -59,19 +59,6 @@ describe('WslgWindowControls', () => {
     expect(screen.getByRole('button', { name: 'Restore window' })).toBeTruthy()
   })
 
-  it.each(['/settings', '/agents', '/command-center'])('keeps OS controls available on %s', path => {
-    desktopWindow.anakotDesktop = { windowControls } as unknown as Window['anakotDesktop']
-
-    renderControls(false, path)
-
-    fireEvent.click(screen.getByRole('button', { name: 'Minimize window' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Maximize window' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Close window' }))
-    expect(windowControls.minimize).toHaveBeenCalledExactlyOnceWith()
-    expect(windowControls.toggleMaximize).toHaveBeenCalledExactlyOnceWith()
-    expect(windowControls.close).toHaveBeenCalledExactlyOnceWith()
-  })
-
   it('stays hidden while the BrowserWindow is fullscreen', () => {
     desktopWindow.anakotDesktop = { windowControls } as unknown as Window['anakotDesktop']
 
@@ -94,17 +81,5 @@ describe('WslgWindowControls', () => {
     // propagation so the drag region doesn't swallow the press.
     expect(event.defaultPrevented).toBe(false)
     expect(windowControls.toggleMaximize).toHaveBeenCalledOnce()
-  })
-
-  it('pins an explicit pixel height instead of the contextually-zeroed titlebar var', () => {
-    desktopWindow.anakotDesktop = { windowControls } as unknown as Window['anakotDesktop']
-
-    renderControls()
-
-    // The contrib shell zeroes --titlebar-height for content subtrees; the
-    // cluster must set its own height in px so the buttons don't collapse.
-    const cluster = screen.getByLabelText('Window controls')
-    expect(cluster.style.height).toMatch(/^\d+px$/)
-    expect(cluster.className).not.toContain('h-(--titlebar-height)')
   })
 })

@@ -106,7 +106,7 @@ export type PluginFilesRequest =
 export interface PluginFilesDeps {
   /** Electron's userData dir, read lazily (main sets it before `ready`). */
   userDataDir: () => string
-  /** Anakot homes (the resolved ANAKOT_HOME and the platform defaults). */
+  /** Anakot homes (the resolved HERMES_HOME and the platform defaults). */
   protectedRoots: () => string[]
   trashItem: (target: string) => Promise<void>
   platform?: NodeJS.Platform

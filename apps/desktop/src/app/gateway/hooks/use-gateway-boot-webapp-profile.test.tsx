@@ -28,7 +28,7 @@ vi.mock(import('@/store/terminal-backend-warning'), () => ({
   warnIfTerminalBackendUnavailable: vi.fn(async () => false)
 }))
 
-type WebappWindow = Window & { __ANAKOT_DASHBOARD_PROFILE__?: string }
+type WebappWindow = Window & { __HERMES_DASHBOARD_PROFILE__?: string }
 
 function Harness() {
   useGatewayBoot({
@@ -68,7 +68,7 @@ async function flush() {
 
 /** Boot a Webapp tab at `url` against a gateway launched as `launch`; resolves once boot is done. */
 async function bootWebappTab(url: string, launch = 'default') {
-  ;(window as WebappWindow).__ANAKOT_DASHBOARD_PROFILE__ = launch
+  ;(window as WebappWindow).__HERMES_DASHBOARD_PROFILE__ = launch
   window.history.replaceState(null, '', url)
   seedWebappSession('served-token')
   expect(installBrowserDesktopBridge()).toBe(true)
@@ -147,7 +147,7 @@ afterEach(() => {
   vi.restoreAllMocks()
   ;(globalThis as { WebSocket: unknown }).WebSocket = originalWebSocket
   Reflect.deleteProperty(window, 'anakotDesktop')
-  delete (window as WebappWindow).__ANAKOT_DASHBOARD_PROFILE__
+  delete (window as WebappWindow).__HERMES_DASHBOARD_PROFILE__
   document.documentElement.removeAttribute('data-anakot-desktop-host')
   clearWebappSession()
   window.localStorage.clear()

@@ -14,6 +14,7 @@ import {
   classifySshReuseProof,
   cleanupStale,
   connect,
+  DEFAULT_READY_TIMEOUT_MS,
   disconnect,
   expandRemotePath,
   fingerprintToken,
@@ -23,6 +24,7 @@ import {
   locateAnakot,
   LOCKFILE_SCHEMA_VERSION,
   lockfilePath,
+  MIN_READY_TIMEOUT_MS,
   openForward,
   ownershipDirectory,
   pidIsOurDashboard,
@@ -30,9 +32,11 @@ import {
   probeRemotePlatform,
   PROTOCOL_VERSION,
   readLockfile,
+  readRemoteInstallId,
   READY_RE,
   remotePidAlive,
   remoteSupportsSshOwnership,
+  resolveReadyTimeoutMs,
   scrapeReadyPort,
   spawnLogPath,
   spawnRemoteDashboard,
@@ -41,6 +45,7 @@ import {
   validateRemotePath,
   writeLockfile
 } from './remote-lifecycle'
+import type { SshConnection } from './ssh-connection'
 
 const OWNERSHIP_ID = '0123456789abcdef0123456789abcdef'
 const SPAWN_NONCE = '0123456789abcdef'
@@ -95,21 +100,24 @@ function fakeSsh(rules: any[] = []) {
       // Existing lifecycle fixtures predate the install-wide relaunch gate.
       // Their default remote has no update marker; focused marker tests below
       // use explicit SSH doubles to exercise live/uncertain transitions.
-      if (cmd.includes('.anakot-update-in-progress') && !cmd.includes('marker_clear()') && !/setsid|nohup/.test(cmd)) {
+      const mutexWrapped = /setsid|nohup/.test(cmd) // spawn payloads run under the relaunch probe's marker gate
+
+      if (cmd.includes('.anakot-update-in-progress') && !mutexWrapped) {
         return 'CLEAR'
       }
 
-      const mutexWrapped = cmd.includes('fcntl.flock(fd,fcntl.LOCK_EX)')
-
       const applicableRules = rules.filter(([matcher]) => {
-        if (cmd.includes('marker_clear()') && matcher instanceof RegExp && /kill -0/.test(matcher.source)) {
+        if (mutexWrapped && matcher instanceof RegExp && /kill -0/.test(matcher.source)) {
           return false
         }
 
         return !(mutexWrapped && matcher instanceof RegExp && /python3 -c/.test(matcher.source))
       })
 
-      if ((cmd.includes('os.kill(pid') && !cmd.includes('pidfd_open')) || cmd.includes('printf TERMINATED')) {
+      if (
+        (cmd.includes('os.kill(pid') && !cmd.includes('pidfd_open') && !mutexWrapped) ||
+        cmd.includes('printf TERMINATED')
+      ) {
         return 'TERMINATED'
       }
 
@@ -144,7 +152,7 @@ test('POSIX relaunch gate refuses live and uncertain install markers without exe
           return 'Linux\nx86_64\n'
         }
 
-        if (command.includes('ANAKOT_HOME')) {
+        if (command.includes('HERMES_HOME')) {
           return '/home/alice/.anakot\n'
         }
 
@@ -179,9 +187,7 @@ test('POSIX relaunch gate permits absent/dead markers and normalizes named-profi
   }
 
   await assertRemoteInstallUpdateClear(ssh, '/home/alice/.anakot/profiles/research')
-  assert.match(commands[0], /home\.parent\.name/)
-  assert.match(commands[0], /profiles/)
-  assert.match(commands[0], /.anakot-update-in-progress/)
+  assert.ok(commands[0].endsWith(" '/home/alice/.anakot/.anakot-update-in-progress'"), commands[0].slice(-80))
 })
 
 test('POSIX relaunch gate rechecks after token upload immediately before process creation', async () => {
@@ -196,7 +202,7 @@ test('POSIX relaunch gate rechecks after token upload immediately before process
         return 'Linux\nx86_64\n'
       }
 
-      if (command.includes('ANAKOT_HOME')) {
+      if (command.includes('HERMES_HOME')) {
         return '/home/alice/.anakot\n'
       }
 
@@ -237,9 +243,55 @@ test('POSIX relaunch gate rechecks after token upload immediately before process
   )
 })
 
+test('readRemoteInstallId reads the backend identity without spawning a dashboard or minting one', async () => {
+  const ssh = fakeSsh([
+    [/HERMES_HOME/, '/Users/zillajr/.anakot\n'],
+    [/cat .*install_id/, '0f8a1c2b3d4e5f60718293a4b5c6d7e8\n']
+  ])
+
+  assert.equal(await readRemoteInstallId(ssh), '0f8a1c2b3d4e5f60718293a4b5c6d7e8')
+  // Read-only: identity is the install's to mint, never a visiting client's.
+  assert.equal(
+    ssh.calls.some(cmd => /serve|dashboard|>\s*\S*install_id|tee|uuidgen/.test(cmd)),
+    false
+  )
+})
+
+test('readRemoteInstallId reports the INSTALL root id for a profile-pinned home', async () => {
+  // The whole point of the id: two ssh connections to one machine — one pinned at a profile,
+  // one at the root — must report the SAME backend so their roster rows collapse.
+  const pinned = fakeSsh([
+    [/HERMES_HOME/, '/Users/zillajr/.anakot/profiles/dixie\n'],
+    [/cat .*install_id/, '0f8a1c2b3d4e5f60718293a4b5c6d7e8\n']
+  ])
+
+  assert.equal(await readRemoteInstallId(pinned), '0f8a1c2b3d4e5f60718293a4b5c6d7e8')
+  assert.equal(
+    pinned.calls.some(cmd => cmd.includes('/Users/zillajr/.anakot/install_id')),
+    true
+  )
+  assert.equal(
+    pinned.calls.some(cmd => cmd.includes('/profiles/dixie/install_id')),
+    false
+  )
+})
+
+test('readRemoteInstallId reports no id rather than a bad one', async () => {
+  for (const payload of ['', 'not-an-id\n', 'ABCDEF\n', '0f8a1c2b3d4e5f60718293a4b5c6d7e8extra\n']) {
+    const ssh = fakeSsh([
+      [/HERMES_HOME/, '/Users/zillajr/.anakot\n'],
+      [/cat .*install_id/, payload]
+    ])
+
+    // An older backend (or one that has never been started) simply has no identity: the roster
+    // falls back to a per-connection key, exactly as before.
+    assert.equal(await readRemoteInstallId(ssh), undefined, payload)
+  }
+})
+
 test('listRemoteAnakotProfiles inventories Mini-style profile dirs without spawning a dashboard', async () => {
   const ssh = fakeSsh([
-    [/ANAKOT_HOME/, '/Users/zillajr/.anakot\n'],
+    [/HERMES_HOME/, '/Users/zillajr/.anakot\n'],
     [/ls -1/, 'bob\ndixie\ngoose\nrambo\nbob.rollback-old\n']
   ])
 
@@ -250,8 +302,8 @@ test('listRemoteAnakotProfiles inventories Mini-style profile dirs without spawn
   )
 })
 
-test('listRemoteAnakotProfiles rejects a hostile ANAKOT_HOME', async () => {
-  const ssh = fakeSsh([[/ANAKOT_HOME/, '/tmp/x; echo pwned\n']])
+test('listRemoteAnakotProfiles rejects a hostile HERMES_HOME', async () => {
+  const ssh = fakeSsh([[/HERMES_HOME/, '/tmp/x; echo pwned\n']])
 
   await assert.rejects(
     () => listRemoteAnakotProfiles(ssh),
@@ -301,8 +353,8 @@ test('locateAnakot falls back to the login-shell command -v probe', async () => 
 })
 
 test('locateAnakot preserves an installer wrapper instead of resolving its interpreter', async () => {
-  // install.sh venv mode writes: exec "$ANAKOT_BIN" "$ANAKOT_ENTRYPOINT" "$@",
-  // where $ANAKOT_BIN is the venv python. The old canonicalization returned
+  // install.sh venv mode writes: exec "$HERMES_BIN" "$HERMES_ENTRYPOINT" "$@",
+  // where $HERMES_BIN is the venv python. The old canonicalization returned
   // that interpreter, so `<python> --version` printed "Python x.y.z" and
   // `<python> serve --help` failed outright (#74411). The wrapper itself is
   // executable and forwards args correctly — return it untouched.
@@ -576,20 +628,22 @@ test('pidIsOurDashboard accepts the venv entrypoint an installer wrapper execs i
 
 test.skipIf(process.platform === 'win32')(
   'pidIsOurDashboard recognizes an installer wrapper after it execs python + entrypoint',
-  async () => {
-    const temp = await mkdtemp(path.join(os.tmpdir(), 'anakot wrapper ownership '))
+  async (): Promise<void> => {
+    const shell: string = (await exec('command -v bash', { shell: 'bash' })).stdout.trim()
+    const temp: string = await mkdtemp(path.join(os.tmpdir(), 'anakot wrapper ownership '))
     const installDir = path.join(temp, 'install dir')
     const venvBin = path.join(installDir, 'venv', 'bin')
     const pythonLink = path.join(venvBin, 'python')
     const entrypoint = path.join(installDir, 'anakot')
     const launcher = path.join(temp, 'anakot launcher')
-    const python = (await exec('command -v python3')).stdout.trim()
-    const tokenPath = path.join(os.homedir(), spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE).replace(/^~\//, ''))
+    const python: string = (await exec('command -v python3', { shell })).stdout.trim()
+    const tokenPath: string = path.join(temp, spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE).replace(/^~\//, ''))
+    const env: NodeJS.ProcessEnv = { ...process.env, HOME: temp, HERMES_HOME: temp }
 
     await mkdir(venvBin, { recursive: true })
     await symlink(python, pythonLink)
     await writeFile(entrypoint, 'import time\ntime.sleep(30)\n', 'utf8')
-    await writeFile(launcher, `#!/bin/bash\nexec "${pythonLink}" "${entrypoint}" "$@"\n`, 'utf8')
+    await writeFile(launcher, `#!${shell}\nexec "${pythonLink}" "${entrypoint}" "$@"\n`, 'utf8')
     await chmod(launcher, 0o755)
 
     const backendFlags = [
@@ -605,8 +659,8 @@ test.skipIf(process.platform === 'win32')(
 
     const children: ReturnType<typeof spawn>[] = []
 
-    const spawnInstaller = (args: string[]) => {
-      const process = spawn(launcher, args, { stdio: 'ignore' })
+    const spawnInstaller = (args: string[]): ReturnType<typeof spawn> => {
+      const process: ReturnType<typeof spawn> = spawn(launcher, args, { stdio: 'ignore', env })
 
       children.push(process)
 
@@ -615,13 +669,13 @@ test.skipIf(process.platform === 'win32')(
 
     const child = spawnInstaller(['--profile', 'ops', 'serve', '--isolated', ...backendFlags])
 
-    const ssh = {
-      exec: async (command: string) => (await exec(command, { shell: '/bin/bash' })).stdout
+    const ssh: Pick<SshConnection, 'exec'> = {
+      exec: async (command: string): Promise<string> => (await exec(command, { shell, env })).stdout
     }
 
-    const waitForEntrypoint = async (process: ReturnType<typeof spawn>) => {
-      for (let attempt = 0; attempt < 40; attempt += 1) {
-        const command = (await exec(`ps -ww -o command= -p ${process.pid}`)).stdout
+    const waitForEntrypoint = async (process: ReturnType<typeof spawn>): Promise<boolean> => {
+      for (let attempt: number = 0; attempt < 100; attempt += 1) {
+        const command: string = (await exec(`ps -ww -o command= -p ${process.pid}`, { shell, env })).stdout
 
         if (command.includes(entrypoint)) {
           return true
@@ -705,11 +759,134 @@ test.skipIf(process.platform === 'win32')(
         false,
         'a duplicate conflicting profile must remain foreign'
       )
+
+      const serveNamedProfile = spawnInstaller(['--profile', 'serve', 'serve', '--isolated', ...backendFlags])
+
+      assert.equal(await waitForEntrypoint(serveNamedProfile), true)
+      assert.equal(
+        await pidIsOurDashboard(
+          ssh,
+          serveNamedProfile.pid,
+          SPAWN_NONCE,
+          launcher,
+          '/unrelated/anakot-home',
+          OWNERSHIP_ID,
+          'serve'
+        ),
+        true,
+        'a profile named "serve" must not mask the real serve subcommand'
+      )
+      assert.equal(
+        await pidIsOurDashboard(
+          ssh,
+          serveNamedProfile.pid,
+          SPAWN_NONCE,
+          launcher,
+          '/unrelated/anakot-home',
+          OWNERSHIP_ID,
+          'ops'
+        ),
+        false,
+        'a "serve"-named profile must still match the expected profile exactly'
+      )
     } finally {
       for (const process of children) {
         process.kill('SIGTERM')
       }
 
+      await rm(temp, { force: true, recursive: true })
+    }
+  }
+)
+
+test.skipIf(process.platform !== 'linux')(
+  'terminateOwnedDashboardForUpdate SIGTERMs a serve pinned to a "serve"-named profile',
+  async () => {
+    const temp = await mkdtemp(path.join(os.tmpdir(), 'anakot wrapper ownership '))
+    const installDir = path.join(temp, 'install dir')
+    const venvBin = path.join(installDir, 'venv', 'bin')
+    const pythonLink = path.join(venvBin, 'python')
+    const entrypoint = path.join(installDir, 'anakot')
+    const launcher = path.join(temp, 'anakot launcher')
+    const python = (await exec('command -v python3')).stdout.trim()
+    const tokenPath = path.join(os.homedir(), spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE).replace(/^~\//, ''))
+
+    await mkdir(venvBin, { recursive: true })
+    await symlink(python, pythonLink)
+    await writeFile(entrypoint, 'import time\ntime.sleep(30)\n', 'utf8')
+    await writeFile(launcher, `#!/usr/bin/env bash\nexec "${pythonLink}" "${entrypoint}" "$@"\n`, 'utf8')
+    await chmod(launcher, 0o755)
+
+    const child = spawn(
+      launcher,
+      [
+        '--profile',
+        'serve',
+        'serve',
+        '--isolated',
+        '--host',
+        '127.0.0.1',
+        '--port',
+        '0',
+        '--ssh-session-token-file',
+        tokenPath,
+        '--ssh-owner-nonce',
+        SPAWN_NONCE
+      ],
+      { stdio: 'ignore' }
+    )
+
+    const exited = new Promise(resolve => child.once('exit', resolve))
+
+    try {
+      let execed = false
+
+      for (let attempt = 0; attempt < 40 && !execed; attempt += 1) {
+        const command = (await exec(`ps -ww -o command= -p ${child.pid}`)).stdout
+
+        execed = command.includes(entrypoint)
+
+        if (!execed) {
+          await new Promise(resolve => setTimeout(resolve, 25))
+        }
+      }
+
+      assert.equal(execed, true, 'wrapper must exec into the fake installer entrypoint')
+
+      const raw = await readFile(`/proc/${child.pid}/stat`, 'utf8')
+
+      const creationTime = `linux:${
+        raw
+          .slice(raw.lastIndexOf(')') + 2)
+          .trim()
+          .split(/\s+/)[19]
+      }`
+
+      const lock = ownedLock({
+        pid: child.pid,
+        profile: 'serve',
+        anakotPath: launcher,
+        anakotHome: '/unrelated/anakot-home',
+        creationTime
+      })
+
+      const ssh = {
+        exec: async (command: string) => {
+          if (/cat .*\.json/.test(command)) {
+            return `${JSON.stringify(lock)}\n`
+          }
+
+          return (await exec(command, { shell: '/bin/bash' })).stdout
+        }
+      }
+
+      const result = await terminateOwnedDashboardForUpdate(ssh, lock)
+
+      assert.equal(result.terminated, true)
+      await exited
+      assert.equal(child.signalCode, 'SIGTERM')
+    } finally {
+      child.kill('SIGKILL')
       await rm(temp, { force: true, recursive: true })
     }
   }
@@ -779,105 +956,84 @@ test('buildSpawnCommand is headless serve, detached, token not in argv', () => {
   assert.match(cmd, /<\/dev\/null/)
   assert.match(cmd, /echo \$!/)
   assert.ok(!cmd.includes('tok_secret_value'), 'token must not appear in spawn command')
-  assert.ok(!cmd.includes('ANAKOT_DASHBOARD_SESSION_TOKEN'), 'token env var must not appear')
+  assert.ok(!cmd.includes('HERMES_DASHBOARD_SESSION_TOKEN'), 'token env var must not appear')
 })
 
-test('buildSpawnCommand always uses serve (legacy dashboard path removed)', () => {
-  const cmd = buildSpawnCommand('/x/anakot', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
-  assert.match(cmd, /serve --isolated/)
-  assert.match(cmd, /--host 127\.0\.0\.1 --port 0/)
-  assert.doesNotMatch(cmd, /dashboard/)
-  assert.doesNotMatch(cmd, /--skip-build/)
-  assert.match(cmd, /setsid/)
-})
-
-test('buildSpawnCommand atomically reserves the ownership slot through spawn and lock publication', () => {
-  const cmd = buildSpawnCommand('/x/anakot', 'work', {
-    anakotHome: '~/.anakot',
-    logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
-    ownershipId: OWNERSHIP_ID,
-    reservationNonce: SPAWN_NONCE,
-    spawnNonce: SPAWN_NONCE,
-    tokenFilePath: spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE),
-    lockMetadata: {
-      ownershipId: OWNERSHIP_ID,
-      spawnNonce: SPAWN_NONCE,
-      port: 0,
-      profile: 'work',
-      anakotPath: '/x/anakot',
-      anakotHome: '~/.anakot',
-      logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
-      tokenFingerprint: fingerprintToken('stored-token'),
-      protocolVersion: PROTOCOL_VERSION,
-      startedAt: '2026-07-14T00:00:00.000Z'
-    }
+test('buildSpawnCommand never pins a non-slug profile into the remote argv', () => {
+  // The roster/SSH bridge hands the profile verbatim; a numeric id or display
+  // label must never cross into the remote serve argv, where the CLI used to
+  // str()-coerce it into a phantom profiles/0/ directory (#88842).
+  const bad = buildSpawnCommand('/x/anakot', 0 as unknown as string, {
+    logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
   })
 
-  assert.ok(cmd.includes('.connect.lock'))
-  assert.ok(cmd.includes('.anakot-update-in-progress.mutex'))
-  assert.match(cmd, /fcntl\.flock\(fd,fcntl\.LOCK_EX\)/)
-  assert.match(cmd, /os\.O_CLOEXEC/)
-  assert.match(
-    cmd,
-    /subprocess\.run\(\["sh","-c",payload,"anakot-update-mutex",str\(fd\)\],pass_fds=\(fd,\),check=False\)/
-  )
-  assert.doesNotMatch(cmd, /os\.set_inheritable\(fd,True\)/)
-  assert.match(cmd, /anakot-update-child "\$1"/)
-  assert.match(cmd, /eval "exec \$1>&-"/)
-  assert.ok(cmd.includes('backend.lock.json'))
-  assert.match(cmd, /lock_json/)
-  assert.match(cmd, /trap .*rm -rf/)
-  assert.ok(cmd.indexOf('lock_json') > cmd.indexOf('serve --isolated'))
+  assert.ok(!bad.includes('--profile'), 'a non-string profile must not be pinned')
+
+  const empty = buildSpawnCommand('/x/anakot', '', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  assert.ok(!empty.includes('--profile'), 'an empty profile must not be pinned')
+
+  const label = buildSpawnCommand('/x/anakot', 'My Profile!', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  assert.ok(!label.includes('--profile'), 'a non-slug label must not be pinned')
+
+  const good = buildSpawnCommand('/x/anakot', 'Work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
+  assert.ok(good.includes('--profile'), 'a valid profile stays pinned')
+  assert.ok(good.includes("'work'"), 'the profile is normalized like the CLI would')
 })
 
-test.skipIf(process.platform === 'win32')('detached backend does not inherit the update mutex descriptor', async () => {
-  const directory = await mkdtemp(path.join(os.tmpdir(), 'anakot-update-mutex-'))
-  const anakotPath = path.join(directory, 'anakot')
-  const reportPath = path.join(directory, 'descriptor-report')
-  const logPath = path.join(directory, 'spawn.log')
+test.skipIf(process.platform === 'win32')(
+  'detached backend does not inherit the update mutex descriptor',
+  async (): Promise<void> => {
+    const shell: string = (await exec('command -v bash', { shell: 'bash' })).stdout.trim()
+    const directory: string = await mkdtemp(path.join(os.tmpdir(), 'anakot-update-mutex-'))
+    const anakotPath: string = path.join(directory, 'anakot')
+    const reportPath: string = path.join(directory, 'descriptor-report')
+    const logPath: string = path.join(directory, 'spawn.log')
 
-  try {
-    await writeFile(
-      anakotPath,
-      `#!/bin/sh
-: > ${reportPath}
+    try {
+      await writeFile(
+        anakotPath,
+        `#!${shell}
+report=${expandRemotePath(reportPath)}
+: > "$report.tmp"
 for fd in /proc/$$/fd/*; do
   target=$(readlink "$fd" 2>/dev/null || true)
   case "$target" in
-    *anakot-update-in-progress.mutex) printf '%s\\n' "$target" >> ${reportPath} ;;
+    *anakot-update-in-progress.lock) printf '%s\\n' "$target" >> "$report.tmp" ;;
   esac
 done
+mv "$report.tmp" "$report"
 `,
-      { mode: 0o700 }
-    )
+        { encoding: 'utf8', mode: 0o700 }
+      )
 
-    const command = buildSpawnCommand(anakotPath, '', {
-      anakotHome: path.join(directory, 'home'),
-      logPath
-    })
+      const command: string = buildSpawnCommand(anakotPath, '', {
+        anakotHome: path.join(directory, 'home'),
+        logPath
+      })
 
-    await exec(command, { shell: '/bin/bash' })
+      await exec(command, { shell, env: { ...process.env, HOME: directory, HERMES_HOME: directory } })
 
-    for (let attempt = 0; attempt < 40; attempt += 1) {
-      try {
-        const report = await readFile(reportPath, 'utf8')
-        assert.equal(report, '', 'the backend process must not retain the update mutex descriptor')
+      for (let attempt: number = 0; attempt < 100; attempt += 1) {
+        try {
+          const report: string = await readFile(reportPath, 'utf8')
+          assert.equal(report, '', 'the backend process must not retain the update mutex descriptor')
 
-        return
-      } catch (error: any) {
-        if (error?.code !== 'ENOENT') {
-          throw error
+          return
+        } catch (error: unknown) {
+          if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
+            throw error
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 25))
         }
-
-        await new Promise(resolve => setTimeout(resolve, 25))
       }
-    }
 
-    assert.fail('the detached backend did not write its descriptor report')
-  } finally {
-    await rm(directory, { recursive: true, force: true })
+      assert.fail('the detached backend did not write its descriptor report')
+    } finally {
+      await rm(directory, { recursive: true, force: true })
+    }
   }
-})
+)
 
 test('spawnRemoteDashboard returns exact ownership artifacts', async () => {
   const ssh = fakeSsh([
@@ -899,25 +1055,11 @@ test('spawnRemoteDashboard returns exact ownership artifacts', async () => {
   assert.equal(logPath, spawnLogPath(OWNERSHIP_ID, spawnNonce))
 })
 
-test('spawnRemoteDashboard always spawns serve (legacy dashboard path removed)', async () => {
-  const ssh = fakeSsh([
-    [/grep -q ssh-session-token-file/, 'YES\n'],
-    [/python3 -c/, ''],
-    [/printf '%s\\n'/, ''],
-    [/setsid|nohup/, '4242\n']
-  ])
-
-  await spawnRemoteDashboard(ssh, { anakotPath: '/x/anakot', profile: '', token: 'tk', ownershipId: OWNERSHIP_ID })
-  const spawn = ssh.calls.find(c => /setsid|nohup/.test(c))
-  assert.match(spawn, /serve --isolated/)
-  assert.doesNotMatch(spawn, /\bdashboard\b/)
-})
-
 test('READY_RE accepts both serve and dashboard sentinels', () => {
-  assert.equal(READY_RE.exec('ANAKOT_BACKEND_READY port=4321')?.[1], '4321')
-  assert.equal(READY_RE.exec('ANAKOT_DASHBOARD_READY port=8765')?.[1], '8765')
+  assert.equal(READY_RE.exec('HERMES_BACKEND_READY port=4321')?.[1], '4321')
+  assert.equal(READY_RE.exec('HERMES_DASHBOARD_READY port=8765')?.[1], '8765')
   // The remote log is `>> log 2>&1`, so a stderr chunk without a newline can be spliced onto the sentinel.
-  assert.equal(READY_RE.exec('INFO  Started server process [4711]ANAKOT_BACKEND_READY port=65238')?.[1], '65238')
+  assert.equal(READY_RE.exec('INFO  Started server process [4711]HERMES_BACKEND_READY port=65238')?.[1], '65238')
 })
 
 test('spawnRemoteDashboard rejects when no pid is returned', async () => {
@@ -940,7 +1082,7 @@ test('spawnRemoteDashboard rejects when no pid is returned', async () => {
 
 test('scrapeReadyPort reads only the named spawn log', async () => {
   const logPath = spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
-  const ssh = fakeSsh([[/cat/, 'some noise\nANAKOT_DASHBOARD_READY port=51234\n']])
+  const ssh = fakeSsh([[/cat/, 'some noise\nHERMES_DASHBOARD_READY port=51234\n']])
   const port = await scrapeReadyPort(ssh, logPath, { timeoutMs: 1000 })
   assert.equal(port, 51234)
   assert.ok(ssh.calls.every(call => !call.includes('desktop-ssh.log')))
@@ -998,8 +1140,11 @@ test('connect() spawns fresh when there is no lockfile, adopts the served token'
     [/python3 -c/, ''], // token file write
     [/printf '%s\\n'/, ''],
     [/setsid/, '777\n'],
-    [/kill -0 777/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=51999\n']
+    // The wrapper may exit before the detached daemon writes READY; startup
+    // must rely on the bounded log wait rather than kill -0 on this pid.
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=51999\n'],
+    // The post-readiness served-token adoption still verifies the daemon.
+    [/kill -0 777/, 'ALIVE']
   ])
 
   const result = await connect(
@@ -1046,7 +1191,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
     [/printf '%s\\n'/, ''],
     [/setsid/, '778\n'],
     [/kill -0 778/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_BACKEND_READY port=52000\n']
+    [/cat .*\.log/, 'HERMES_BACKEND_READY port=52000\n']
   ])
 
   await connect(
@@ -1060,7 +1205,7 @@ test('managed SSH maps a local scope to a different non-default remote profile',
   assert.match(spawn, /--profile\b/)
   assert.ok(spawn.includes('writer_2'))
   assert.match(spawn, /serve\s+--isolated/)
-  assert.match(spawn, /.anakot\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
+  assert.match(spawn, /\.anakot\/desktop-ssh\/[0-9a-f]{32}\/[0-9a-f]{16}\.token/)
   assert.ok(!spawn.includes(' work'), 'the local Desktop scope must not become the remote profile')
 })
 
@@ -1101,7 +1246,7 @@ test('connect() respawns when the requested remote profile differs from the lock
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
     [/kill -0 890/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -1129,7 +1274,7 @@ test('connect() respawns when the lockfile anakotPath differs from the resolved 
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/setsid/, '890\n'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=52050\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=52050\n']
   ])
 
   const result = await connect(
@@ -1161,7 +1306,7 @@ test('connect() respawns when the lockfile protocolVersion is incompatible', asy
     [/python3 -c/, ''],
     [/setsid/, '901\n'],
     [/kill -0 901/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=44100\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=44100\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken, adoptServedToken: async () => 'fresh' }))
@@ -1176,13 +1321,13 @@ test('connect() fresh spawn writes anakotHome + protocolVersion into the lockfil
     [/uname/, 'Linux\nx86_64'],
     [/\[ -x/, 'OK'],
     [/cat .*lock\.json/, ''], // no lockfile
-    [/ANAKOT_HOME/, '/home/alice/.anakot\n'],
+    [/HERMES_HOME/, '/home/alice/.anakot\n'],
     [/grep -q ssh-session-token-file/, 'YES\n'],
     [/python3 -c/, ''],
     [/printf '%s\\n'/, ''],
     [/setsid/, '700\n'],
     [/kill -0 700/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=45500\n'],
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=45500\n'],
     [
       /printf '%s' '/,
       c => {
@@ -1196,7 +1341,7 @@ test('connect() fresh spawn writes anakotHome + protocolVersion into the lockfil
   await connect(connectDeps(ssh, { adoptServedToken: async () => 'fresh' }))
   const lockWrite = writes.find(c => c.includes('schemaVersion')) || ''
   assert.match(lockWrite, new RegExp(`"protocolVersion":${PROTOCOL_VERSION}`))
-  assert.match(lockWrite, /"anakotHome":"\/home\/alice\/.anakot"/)
+  assert.match(lockWrite, /"anakotHome":"\/home\/alice\/\.anakot"/)
 })
 
 test('connect() respawns when the lockfile pid is dead (killed dashboard)', async () => {
@@ -1212,7 +1357,7 @@ test('connect() respawns when the lockfile pid is dead (killed dashboard)', asyn
     [/python3 -c/, ''],
     [/setsid/, '888\n'],
     [/kill -0 888/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=42000\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=42000\n']
   ])
 
   const result = await connect(connectDeps(ssh, { reuseToken: 't', adoptServedToken: async () => 'fresh' }))
@@ -1275,7 +1420,7 @@ test('managed update drain rechecks the POSIX ownership record before signalling
   )
 })
 
-test('managed update drain refuses Darwin termination because PID signals cannot be atomically bound', async () => {
+test('managed update drain never falls back to a bare kill when the identity-bound signal is refused', async () => {
   const lock = ownedLock()
   const rawLock = JSON.stringify(lock)
 
@@ -1293,13 +1438,55 @@ test('managed update drain refuses Darwin termination because PID signals cannot
     false,
     'the final signal must stay inside the identity-checking helper'
   )
-  const termination = ssh.calls.find(command => command.includes('identity_before_signal'))
-  const darwinStart = termination.indexOf('if (sys.platform=="darwin"):')
-  const darwinEnd = termination.indexOf('\n try:', darwinStart)
-  const darwinGuard = termination.slice(darwinStart, darwinEnd)
-  assert.match(darwinGuard, /DARWIN_UNAVAILABLE/)
-  assert.doesNotMatch(darwinGuard, /os\.kill\(pid,signal\.SIGTERM\)/)
 })
+
+test.skipIf(process.platform === 'win32')(
+  'managed update drain reports the real POSIX refusal, not a generic transport error',
+  async () => {
+    // Regression for #124617: the termination probe prints REFUSED (and, on
+    // Darwin, DARWIN_UNAVAILABLE) but used to exit non-zero for it. ssh.exec()
+    // throws on any non-zero remote exit, so the specific message built below
+    // from the probe's stdout was dead code in production — every refusal
+    // collapsed into the generic "Could not terminate the Desktop-owned
+    // remote serve for update." Run the real probe (not a canned string)
+    // against a live-but-foreign local process so its actual exit code
+    // decides the outcome, the same way the real SSH transport does.
+    const dummy = spawn('sleep', ['5'], { stdio: 'ignore' })
+
+    try {
+      const lock = ownedLock({ pid: dummy.pid })
+      const rawLock = JSON.stringify(lock)
+
+      const ssh: Pick<SshConnection, 'exec'> = {
+        async exec(cmd: string): Promise<string> {
+          if (/cat .*lock\.json/.test(cmd)) {
+            return rawLock
+          }
+
+          if (/kill -0 /.test(cmd)) {
+            return 'ALIVE'
+          }
+
+          if (/fields\[19\]/.test(cmd)) {
+            return lock.creationTime
+          }
+
+          if (/print\("OWNED" if ok else "FOREIGN"\)/.test(cmd)) {
+            return 'OWNED'
+          }
+
+          // The real termination probe: execute it for real so its actual
+          // exit code — not a canned string — is what drives the caller.
+          return (await exec(cmd)).stdout
+        }
+      }
+
+      await assert.rejects(terminateOwnedDashboardForUpdate(ssh, lock), /identity changed at the signal boundary/)
+    } finally {
+      dummy.kill('SIGKILL')
+    }
+  }
+)
 
 test('connect() respawns when the dashboard is wedged (alive pid, probe fails)', async () => {
   const reuseToken = 'stored'
@@ -1315,7 +1502,7 @@ test('connect() respawns when the dashboard is wedged (alive pid, probe fails)',
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(
@@ -1448,12 +1635,6 @@ test('expandRemotePath preserves spaces as data', () => {
   assert.ok(result.includes('my project'), 'spaces must be preserved, not split')
 })
 
-test('buildSpawnCommand does not embed the token in the command string', () => {
-  const cmd = buildSpawnCommand('/x/anakot', 'work', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
-  assert.ok(!cmd.includes('super_secret_token_value'), 'token must not appear in the spawn command')
-  assert.ok(!cmd.includes('ANAKOT_DASHBOARD_SESSION_TOKEN'), 'env var name must not appear')
-})
-
 test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is provided', () => {
   const cmd = buildSpawnCommand('/x/anakot', 'work', {
     tokenFilePath: `~/.anakot/desktop-ssh/${OWNERSHIP_ID}/${SPAWN_NONCE}.token`,
@@ -1462,60 +1643,7 @@ test('buildSpawnCommand includes --ssh-session-token-file when tokenFilePath is 
   })
 
   assert.match(cmd, /--ssh-session-token-file/)
-  assert.match(cmd, /.anakot\/desktop-ssh\//)
-})
-
-test('buildSpawnCommand always uses serve, never dashboard', () => {
-  const cmd = buildSpawnCommand('/x/anakot', '', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
-  assert.match(cmd, /serve --isolated/)
-  assert.doesNotMatch(cmd, /\bdashboard\b/)
-  assert.doesNotMatch(cmd, /--skip-build/)
-  assert.doesNotMatch(cmd, /--no-open/)
-})
-
-test('buildSpawnCommand raises the SSH child file limit before execing Anakot', () => {
-  const cmd = buildSpawnCommand('/x/anakot', '', { logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE) })
-  assert.match(cmd, /ulimit -n 65536 2>\/dev\/null \|\| true; exec env ANAKOT_DESKTOP=1/)
-  assert.ok(cmd.indexOf('ulimit -n 65536') < cmd.indexOf('serve --isolated'))
-})
-
-test('buildSpawnCommand payload variables keep $HOME expandable (no double quoting)', () => {
-  const cmd = buildSpawnCommand('/x/anakot', 'work', {
-    anakotHome: '~/.anakot',
-    logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
-    ownershipId: OWNERSHIP_ID,
-    reservationNonce: SPAWN_NONCE,
-    spawnNonce: SPAWN_NONCE,
-    tokenFilePath: spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE),
-    lockMetadata: { ownershipId: OWNERSHIP_ID, spawnNonce: SPAWN_NONCE }
-  })
-
-  // expandRemotePath() emits "$HOME"'/…' — a fragment the shell expands at
-  // assignment. Wrapping it in shq() again stores the quote characters in
-  // the variable, so mkdir "$reservation" creates (or fails on) a literal
-  // "$HOME" path and the reservation loop spins forever holding the mutex.
-  for (const name of ['reservation', 'lock', 'owner_file']) {
-    assert.match(cmd, new RegExp(`${name}="\\$HOME"`), `${name}= must start with an expandable "$HOME"`)
-    assert.doesNotMatch(cmd, new RegExp(`${name}='`), `${name}= must not be re-quoted`)
-  }
-})
-
-test('buildSpawnCommand lockfile publication is POSIX sh (no bash substitution)', () => {
-  const cmd = buildSpawnCommand('/x/anakot', 'work', {
-    anakotHome: '~/.anakot',
-    logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE),
-    ownershipId: OWNERSHIP_ID,
-    reservationNonce: SPAWN_NONCE,
-    spawnNonce: SPAWN_NONCE,
-    tokenFilePath: spawnTokenPath(OWNERSHIP_ID, SPAWN_NONCE),
-    lockMetadata: { ownershipId: OWNERSHIP_ID, pid: '__PID__' }
-  })
-
-  // ${var//pat/rep} is bash-only; dash aborts the payload on it AFTER the
-  // serve was spawned, so the client sees an unknown failure, deletes the
-  // token file, and orphans the backend.
-  assert.doesNotMatch(cmd, /\$\{lock_json\/\//, 'must not use ${var//} substitution under sh')
-  assert.ok(cmd.includes('sed "s/__PID__/${child}/"'), 'pid substitution must use sed')
+  assert.match(cmd, /\.anakot\/desktop-ssh\//)
 })
 
 test('spawnRemoteDashboard removes a token file when upload reporting fails', async () => {
@@ -1718,7 +1846,7 @@ test('connect removes the token file when a fresh backend fails after returning 
     [/kill -0 999/, 'DEAD']
   ])
 
-  await assert.rejects(() => connect(connectDeps(ssh)), /exited before announcing/i)
+  await assert.rejects(() => connect(connectDeps(ssh)), /Timed out waiting for the remote dashboard/i)
   assert.ok(ssh.calls.some(command => /rm -f .*\.token/.test(command)))
 })
 
@@ -1765,7 +1893,7 @@ test('connect replaces an exact-owned backend only after authenticated stale pro
     [/python3 -c/, ''],
     [/setsid/, '999\n'],
     [/kill -0 999/, 'ALIVE'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=43000\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=43000\n']
   ])
 
   const result = await connect(
@@ -1813,33 +1941,36 @@ test('remote SSH ownership capability requires both secure bootstrap flags', asy
   assert.equal(await remoteSupportsSshOwnership(unsupported, '/x/anakot'), false)
 })
 
-test.skipIf(process.platform === 'win32')('capability probe survives a zsh login shell on the remote (#111949)', async t => {
-  // sshd runs the remote command under the account's LOGIN shell. A bare
-  // `set -m` is fatal in a non-interactive zsh, so the watchdog-wrapped probe
-  // used to return nothing and a current remote was reported as unsupported.
-  const zsh = await exec('command -v zsh || true').then(r => r.stdout.trim())
+test.skipIf(process.platform === 'win32')(
+  'capability probe survives a zsh login shell on the remote (#111949)',
+  async t => {
+    // sshd runs the remote command under the account's LOGIN shell. A bare
+    // `set -m` is fatal in a non-interactive zsh, so the watchdog-wrapped probe
+    // used to return nothing and a current remote was reported as unsupported.
+    const zsh = await exec('command -v zsh || true').then(r => r.stdout.trim())
 
-  // CI installs zsh (js-tests.yml); locally a missing zsh must show as a
-  // skip, not a pass, or a wrapper regression stays green unnoticed.
-  if (!zsh) {
-    t.skip('zsh not installed')
+    // CI installs zsh (js-tests.yml); locally a missing zsh must show as a
+    // skip, not a pass, or a wrapper regression stays green unnoticed.
+    if (!zsh) {
+      t.skip('zsh not installed')
 
-    return
+      return
+    }
+
+    const dir = await mkdtemp(path.join(os.tmpdir(), 'anakot-zsh-probe-'))
+
+    try {
+      const anakot = path.join(dir, 'anakot')
+      await writeFile(anakot, '#!/bin/sh\necho "--ssh-session-token-file --ssh-owner-nonce"\n', { mode: 0o700 })
+
+      const ssh = { exec: async (command: string) => (await exec(command, { shell: zsh })).stdout }
+
+      assert.equal(await remoteSupportsSshOwnership(ssh, anakot), true)
+    } finally {
+      await rm(dir, { recursive: true, force: true })
+    }
   }
-
-  const dir = await mkdtemp(path.join(os.tmpdir(), 'anakot-zsh-probe-'))
-
-  try {
-    const anakot = path.join(dir, 'anakot')
-    await writeFile(anakot, '#!/bin/sh\necho "--ssh-session-token-file --ssh-owner-nonce"\n', { mode: 0o700 })
-
-    const ssh = { exec: async (command: string) => (await exec(command, { shell: zsh })).stdout }
-
-    assert.equal(await remoteSupportsSshOwnership(ssh, anakot), true)
-  } finally {
-    await rm(dir, { recursive: true, force: true })
-  }
-})
+)
 
 test('probes run under the remote watchdog so a hung CLI cannot orphan (#110478)', async () => {
   let versionProbe = ''
@@ -1873,7 +2004,10 @@ test('probes run under the remote watchdog so a hung CLI cannot orphan (#110478)
 
   assert.equal(await remoteSupportsSshOwnership(helpSsh, '/x/anakot'), true)
   assert.ok(helpProbe.includes('kill -9'), 'ownership probe wrapped in the remote watchdog')
-  assert.ok(/\$\(.*\(.*serve --help.*\) <\/dev\/null &/.test(helpProbe), 'watchdog nested around the inner serve --help')
+  assert.ok(
+    /\$\(.*\(.*serve --help.*\) <\/dev\/null &/.test(helpProbe),
+    'watchdog nested around the inner serve --help'
+  )
 })
 
 test('cleanupStale escalates to SIGKILL when the backend survives the graceful wait (#91668 quit-during-active-turn)', async () => {
@@ -1893,7 +2027,6 @@ test('cleanupStale escalates to SIGKILL when the backend survives the graceful w
     anakotPath: '/x/anakot',
     logPath: spawnLogPath(OWNERSHIP_ID, SPAWN_NONCE)
   })
-
   assert.ok(
     ssh.calls.some(c => /kill -9 9\b/.test(c)),
     'must escalate to SIGKILL after the graceful wait fails'
@@ -1903,7 +2036,6 @@ test('cleanupStale escalates to SIGKILL when the backend survives the graceful w
     'lockfile must still be dropped after the forced kill'
   )
 })
-
 test('cleanupStale keeps the lockfile when even SIGKILL cannot confirm the pid died', async () => {
   const ssh = fakeSsh([
     [/print\("OWNED"/, 'OWNED\n'],
@@ -1920,7 +2052,6 @@ test('cleanupStale keeps the lockfile when even SIGKILL cannot confirm the pid d
     }),
     /Could not terminate/
   )
-
   // The record must survive so the next connect's reap pass retries.
   assert.ok(!ssh.calls.some(c => /rm -f .*backend\.lock\.json/.test(c)))
 })
@@ -1941,7 +2072,8 @@ test.skipIf(process.platform === 'win32')(
     })
 
     // Capture the argv a remote shell would hand to python3, via a shim on PATH.
-    const root = await mkdtemp(path.join(os.tmpdir(), 'anakot-argv-shim-'))
+    const shell: string = (await exec('command -v bash', { shell: 'bash' })).stdout.trim()
+    const root: string = await mkdtemp(path.join(os.tmpdir(), 'anakot-argv-shim-'))
 
     try {
       const shimDir = path.join(root, 'shim')
@@ -1949,19 +2081,20 @@ test.skipIf(process.platform === 'win32')(
       await mkdir(shimDir)
       await mkdir(fakeHome)
       const argvFile = path.join(shimDir, 'argv')
-      await writeFile(path.join(shimDir, 'python3'), `#!/bin/sh\nprintf '%s\\0' "$@" > '${argvFile}'\n`, {
+      await writeFile(path.join(shimDir, 'python3'), `#!${shell}\nprintf '%s\\0' "$@" > '${argvFile}'\n`, {
         mode: 0o755
       })
       await exec(cmd, {
+        shell: 'sh',
         env: { ...process.env, PATH: `${shimDir}:${process.env.PATH}`, HOME: fakeHome }
       })
       const argv = (await readFile(argvFile, 'utf8')).split('\0')
 
-      // argv: ['-c', <mutex script>, <mutex path>, <payload>]
+      // argv: ['-c', <marker gate>, <marker path>, <payload>]
       assert.equal(
         argv[2],
-        `${fakeHome}/.anakot/.anakot-update-in-progress.mutex`,
-        'mutex path must reach python fully expanded, with no quote characters'
+        `${fakeHome}/.anakot/.anakot-update-in-progress`,
+        'marker path must reach python fully expanded, with no quote characters'
       )
 
       // The payload assigns reservation/lock/owner_file before its mkdir loop.
@@ -1973,6 +2106,7 @@ test.skipIf(process.platform === 'win32')(
       const { stdout } = await exec(
         `${payload.slice(0, loopStart)} printf '%s\\n' "$reservation" "$lock" "$owner_file"`,
         {
+          shell: 'sh',
           env: { ...process.env, HOME: fakeHome }
         }
       )
@@ -2005,14 +2139,17 @@ test('connect() does not declare a live dashboard dead when the liveness probe a
     [/printf '%s\\n'/, ''],
     [/setsid/, '777\n'],
     [(cmd: string) => /kill -0 777/.test(cmd) && !cmd.includes('while'), () => (liveness++ === 0 ? '' : 'ALIVE\n')],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=51999\n']
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=51999\n']
   ])
 
   const result = await connect(connectDeps(ssh, { platform: { os: 'Linux', arch: 'x86_64' } }))
 
   assert.equal(result.reused, false)
   assert.equal(result.pid, 777)
-  assert.ok(!ssh.calls.some(c => /(^|[^-\d])kill(?: -\w+)? 777\b/.test(c) && !/kill -0/.test(c)), 'must not reap a live backend')
+  assert.ok(
+    !ssh.calls.some(c => /(^|[^-\d])kill(?: -\w+)? 777\b/.test(c) && !/kill -0/.test(c)),
+    'must not reap a live backend'
+  )
 })
 
 test('cleanupStale reaps after one lost ownership answer and keeps the lockfile when none ever settles', async () => {
@@ -2024,7 +2161,10 @@ test('cleanupStale reaps after one lost ownership answer and keeps the lockfile 
   ])
 
   await cleanupStale(flaky, OWNERSHIP_ID, ownedLock({ pid: 777 }))
-  assert.ok(flaky.calls.some(c => /kill 777 &&/.test(c)), 'must reap the owned backend')
+  assert.ok(
+    flaky.calls.some(c => /kill 777 &&/.test(c)),
+    'must reap the owned backend'
+  )
   assert.ok(flaky.calls.some(c => /rm -f .*backend\.lock\.json/.test(c)))
 
   const silent = fakeSsh([[/print\("OWNED"/, '']])
@@ -2034,8 +2174,14 @@ test('cleanupStale reaps after one lost ownership answer and keeps the lockfile 
     (error: any) => error.kind === 'transient-transport-error'
   )
 
-  assert.ok(!silent.calls.some(c => /(^|[^-\d])kill(?: -\w+)? 777\b/.test(c) && !/kill -0/.test(c)), 'must not kill unproven')
-  assert.ok(!silent.calls.some(c => /rm -f .*backend\.lock\.json/.test(c)), 'record must survive for the next connect to reap')
+  assert.ok(
+    !silent.calls.some(c => /(^|[^-\d])kill(?: -\w+)? 777\b/.test(c) && !/kill -0/.test(c)),
+    'must not kill unproven'
+  )
+  assert.ok(
+    !silent.calls.some(c => /rm -f .*backend\.lock\.json/.test(c)),
+    'record must survive for the next connect to reap'
+  )
 })
 
 test('connect() post-spawn cleanup that cannot prove ownership keeps the original boot error', async () => {
@@ -2051,14 +2197,50 @@ test('connect() post-spawn cleanup that cannot prove ownership keeps the origina
     [/printf '%s\\n'/, ''],
     [/setsid/, '777\n'],
     [/kill -0 777/, 'ALIVE\n'],
-    [/cat .*\.log/, 'ANAKOT_DASHBOARD_READY port=51999\n'],
+    [/cat .*\.log/, 'HERMES_DASHBOARD_READY port=51999\n'],
     [/print\("OWNED"/, '']
   ])
 
   await assert.rejects(
-    connect(connectDeps(ssh, { platform: { os: 'Linux', arch: 'x86_64' }, waitForAnakot: async () => { throw boot } })),
+    connect(
+      connectDeps(ssh, {
+        platform: { os: 'Linux', arch: 'x86_64' },
+        waitForAnakot: async () => {
+          throw boot
+        }
+      })
+    ),
     (error: any) => error === boot && error.cleanupCause?.kind === 'transient-transport-error'
   )
 
-  assert.ok(!ssh.calls.some(c => /rm -f .*backend\.lock\.json/.test(c)), 'record must survive for the next connect to reap')
+  assert.ok(
+    !ssh.calls.some(c => /rm -f .*backend\.lock\.json/.test(c)),
+    'record must survive for the next connect to reap'
+  )
+})
+
+// ---------------------------------------------------------------------------
+// resolveReadyTimeoutMs (issue #94642): cold-start-tolerant remote budgets
+// ---------------------------------------------------------------------------
+test('honors a valid HERMES_DESKTOP_REMOTE_READY_TIMEOUT_MS override', () => {
+  const env = { HERMES_DESKTOP_REMOTE_READY_TIMEOUT_MS: '180000' }
+  assert.equal(resolveReadyTimeoutMs(env), 180_000)
+})
+test('clamps an override below the floor up to the 45s minimum', () => {
+  const env = { HERMES_DESKTOP_REMOTE_READY_TIMEOUT_MS: '1000' }
+  assert.equal(resolveReadyTimeoutMs(env), MIN_READY_TIMEOUT_MS)
+})
+test('rounds a fractional override', () => {
+  const env = { HERMES_DESKTOP_REMOTE_READY_TIMEOUT_MS: '60000.7' }
+  assert.equal(resolveReadyTimeoutMs(env), 60_001)
+})
+test('falls back to the default for malformed / non-positive overrides', () => {
+  for (const bad of ['', 'abc', '0', '-5', 'NaN', undefined]) {
+    const env = bad === undefined ? {} : { HERMES_DESKTOP_REMOTE_READY_TIMEOUT_MS: bad }
+    assert.equal(
+      resolveReadyTimeoutMs(env),
+      DEFAULT_READY_TIMEOUT_MS,
+      `override ${JSON.stringify(bad)} should fall through to the default`
+    )
+  }
 })

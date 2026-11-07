@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer, webFrame, webUtils } from 'electron'
 
 import type { DesktopProfileRoute } from './desktop-profile'
+import type { HudModifierApi, HudModifierStatus } from './hud-modifier-types'
 import { customWindowControlsEnabled } from './window-controls'
 
 // Which translucency the OS can back. Asked synchronously because the renderer
@@ -13,7 +14,20 @@ import { customWindowControlsEnabled } from './window-controls'
 const translucencySupport = ipcRenderer.sendSync('anakot:translucency:support')
 const hudWindowing = ipcRenderer.sendSync('anakot:hud:windowing')
 const hudNativeDrag = hudWindowing?.nativeDrag === true
-const launchFlags = ipcRenderer.sendSync('anakot:launch-flags')
+
+const launchFlags: { localModels?: boolean; assumeFreshInstall?: boolean } | undefined =
+  ipcRenderer.sendSync('anakot:feature-flags')
+
+// Local, sanitized skin payload for the first renderer theme paint. This does
+// not wait on `gateway.ready`, so an unreachable remote primary cannot force
+// the built-in palette over the skin configured on this machine.
+const localSkin = ipcRenderer.sendSync('anakot:skin:local')
+
+// This machine's UI preferences store (#145213), read before the first paint so
+// a preference set in another window or in this machine's Webapp paints at once.
+const uiPreferencesSnapshot = ipcRenderer.sendSync('anakot:ui-preferences:snapshot')
+
+import { unwrapExpectedNotFound } from './api-expected-404'
 
 contextBridge.exposeInMainWorld('anakotDesktop', {
   glassSupported: translucencySupport?.glass === true,
@@ -21,21 +35,28 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   // Launch-flag fact: the app was started with --local, so the renderer may
   // show the local-models surfaces. Static for the window's lifetime.
   localModelsEnabled: launchFlags?.localModels === true,
-  // Launch-flag fact: the Nous free tier is on for this launch
-  // (ANAKOT_GUEST_ONBOARDING=1 or --guest-onboarding). Read-only; the same
-  // decision is stamped onto every backend the app spawns.
-  guestOnboardingEnabled: launchFlags?.guestOnboarding === true,
-  // Launch-flag fact: skip the first-run film (ANAKOT_SKIP_INTRO=1 or
-  // --skip-intro). Rehearsal aid for the guided chat behind it.
-  skipIntro: launchFlags?.skipIntro === true,
+  // Dev-only launch fact: an unpackaged app started with --fresh-install, so
+  // onboarding treats this launch as a fresh install. Always false when packaged.
+  assumeFreshInstall: launchFlags?.assumeFreshInstall === true,
+  localSkin: localSkin && typeof localSkin === 'object' ? localSkin : null,
+  uiPreferences: {
+    snapshot: uiPreferencesSnapshot && typeof uiPreferencesSnapshot === 'object' ? uiPreferencesSnapshot : null,
+    read: () => ipcRenderer.invoke('anakot:ui-preferences:read'),
+    write: payload => ipcRenderer.invoke('anakot:ui-preferences:write', payload),
+    onChanged: callback => {
+      const listener = (_event, snapshot) => callback(snapshot)
+      ipcRenderer.on('anakot:ui-preferences:changed', listener)
+
+      return () => ipcRenderer.removeListener('anakot:ui-preferences:changed', listener)
+    }
+  },
   getConnection: (profile, opts) => ipcRenderer.invoke('anakot:connection', profile, opts),
+  // Loopback origin that hosts YouTube's player for the file:// renderer.
+  getEmbedHostOrigin: () => ipcRenderer.invoke('anakot:embed-host:origin'),
   // Registry-scoped backend resolution: { connectionId, profile } → descriptor.
   getConnectionFor: payload => ipcRenderer.invoke('anakot:connection:for', payload),
   getProfileRoutes: profiles => ipcRenderer.invoke('anakot:plugin-profile-routes', profiles),
   revalidateConnection: () => ipcRenderer.invoke('anakot:connection:revalidate'),
-  touchBackend: (profile, options) => ipcRenderer.invoke('anakot:backend:touch', profile, options),
-  getPoolLimits: () => ipcRenderer.invoke('anakot:pool-limits:get'),
-  setPoolLimits: limits => ipcRenderer.invoke('anakot:pool-limits:set', limits),
   getGatewayWsUrl: profile => ipcRenderer.invoke('anakot:gateway:ws-url', profile),
   // Registry-scoped fresh WS URL: { connectionId, profile } → result shape of
   // getGatewayWsUrl, minted against that connection's backend.
@@ -48,6 +69,15 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   openSessionInTerminal: (sessionId, opts) => ipcRenderer.invoke('anakot:window:openInTerminal', sessionId, opts),
   openWindow: (options?: DesktopProfileRoute) => ipcRenderer.invoke('anakot:window:openInstance', options),
   openBrowserWindow: tabId => ipcRenderer.invoke('anakot:window:openBrowser', tabId),
+  windowRelay: {
+    send: payload => ipcRenderer.send('anakot:window:relay', payload),
+    onMessage: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('anakot:window:relay', listener)
+
+      return () => ipcRenderer.removeListener('anakot:window:relay', listener)
+    }
+  },
   onBrowserPopoutClosed: callback => {
     const listener = (_event, tabId) => callback(tabId)
     ipcRenderer.on('anakot:browser-popout:closed', listener)
@@ -72,28 +102,7 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
     }
   },
   chatOnboarding: {
-    grow: request => ipcRenderer.send('anakot:chat-onboarding:grow', request),
-    soloBoot: () => ipcRenderer.send('anakot:chat-onboarding:solo-boot')
-  },
-  introReveal: {
-    open: (payload?: { hideMain?: boolean }) => ipcRenderer.invoke('anakot:intro-reveal:open', payload),
-    close: (payload?: { showMain?: boolean }) => ipcRenderer.invoke('anakot:intro-reveal:close', payload),
-    skip: () => ipcRenderer.send('anakot:intro-reveal:skip'),
-    ready: () => ipcRenderer.send('anakot:intro-reveal:ready'),
-    onSkip: callback => {
-      const listener = () => callback()
-
-      ipcRenderer.on('anakot:intro-reveal:skip', listener)
-
-      return () => ipcRenderer.removeListener('anakot:intro-reveal:skip', listener)
-    },
-    onClosed: callback => {
-      const listener = () => callback()
-
-      ipcRenderer.on('anakot:intro-reveal:closed', listener)
-
-      return () => ipcRenderer.removeListener('anakot:intro-reveal:closed', listener)
-    }
+    size: mode => ipcRenderer.send('anakot:window:size', mode)
   },
   petOverlay: {
     // Main renderer → main process: window lifecycle + drag. `request` is
@@ -183,34 +192,51 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
       return () => ipcRenderer.removeListener('anakot:hud:game-overlay', listener)
     }
   },
-  // macOS native screenshot gesture; captures require a main-issued request.
-  screenshot: process.platform === 'darwin' ? {
-    getSettings: () => ipcRenderer.invoke('anakot:screenshot:settings:get'),
-    setEnabled: enabled => ipcRenderer.invoke('anakot:screenshot:settings:set', enabled),
-    openPermissionSettings: kind => ipcRenderer.invoke('anakot:screenshot:permission', kind),
-    capture: requestId => ipcRenderer.invoke('anakot:screenshot:capture', requestId),
+  hudModifier: {
+    getSettings: () => ipcRenderer.invoke('anakot:hud-modifier:settings:get'),
+    setEnabled: enabled => ipcRenderer.invoke('anakot:hud-modifier:settings:set', enabled),
+    openPermissionSettings: () => ipcRenderer.invoke('anakot:hud-modifier:permission'),
     onStatus: callback => {
-      const listener = (_event, status) => callback(status)
-      ipcRenderer.on('anakot:screenshot:status', listener)
+      const listener = (_event: Electron.IpcRendererEvent, status: HudModifierStatus) => callback(status)
+      ipcRenderer.on('anakot:hud-modifier:status', listener)
 
-      return () => ipcRenderer.removeListener('anakot:screenshot:status', listener)
-    },
-    onRequest: callback => {
-      const channel = 'anakot:screenshot:request'
-      const listener = (_event, requestId) => callback(requestId)
-      if (ipcRenderer.listenerCount(channel) === 0) {
-        ipcRenderer.send('anakot:screenshot:subscribe', true)
-      }
-      ipcRenderer.on(channel, listener)
-
-      return () => {
-        ipcRenderer.removeListener(channel, listener)
-        if (ipcRenderer.listenerCount(channel) === 0) {
-          ipcRenderer.send('anakot:screenshot:subscribe', false)
-        }
-      }
+      return () => ipcRenderer.removeListener('anakot:hud-modifier:status', listener)
     }
-  } : undefined,
+  } satisfies HudModifierApi,
+  // macOS native screenshot gesture; captures require a main-issued request.
+  screenshot:
+    process.platform === 'darwin'
+      ? {
+          getSettings: () => ipcRenderer.invoke('anakot:screenshot:settings:get'),
+          setEnabled: enabled => ipcRenderer.invoke('anakot:screenshot:settings:set', enabled),
+          openPermissionSettings: kind => ipcRenderer.invoke('anakot:screenshot:permission', kind),
+          capture: requestId => ipcRenderer.invoke('anakot:screenshot:capture', requestId),
+          onStatus: callback => {
+            const listener = (_event, status) => callback(status)
+            ipcRenderer.on('anakot:screenshot:status', listener)
+
+            return () => ipcRenderer.removeListener('anakot:screenshot:status', listener)
+          },
+          onRequest: callback => {
+            const channel = 'anakot:screenshot:request'
+            const listener = (_event, requestId) => callback(requestId)
+
+            if (ipcRenderer.listenerCount(channel) === 0) {
+              ipcRenderer.send('anakot:screenshot:subscribe', true)
+            }
+
+            ipcRenderer.on(channel, listener)
+
+            return () => {
+              ipcRenderer.removeListener(channel, listener)
+
+              if (ipcRenderer.listenerCount(channel) === 0) {
+                ipcRenderer.send('anakot:screenshot:subscribe', false)
+              }
+            }
+          }
+        }
+      : undefined,
   // Quick Entry: the global-hotkey mini composer window. Main owns the OS
   // shortcut + the persisted preference; the quick window only captures text
   // and hands it back, and the primary renderer submits it through the normal
@@ -218,7 +244,10 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   quickEntry: {
     getSettings: () => ipcRenderer.invoke('anakot:quick-entry:settings:get'),
     setSettings: patch => ipcRenderer.invoke('anakot:quick-entry:settings:set', patch),
-    submit: payload => ipcRenderer.send('anakot:quick-entry:submit', payload),
+    // Invoke returns the delivery result so the draft is not lost (#85590).
+    submit: payload => ipcRenderer.invoke('anakot:quick-entry:submit', payload),
+    // Main cannot invoke the primary renderer, so it receives this ack (#85590).
+    ackSubmit: (correlationId, result) => ipcRenderer.send('anakot:quick-entry:ack', { correlationId, result }),
     dismiss: () => ipcRenderer.send('anakot:quick-entry:dismiss'),
     // Primary renderer → main → quick window: gateway connection state + the
     // recent-session options the target picker offers. Main caches the latest
@@ -244,6 +273,15 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
       ipcRenderer.on('anakot:quick-entry:shown', listener)
 
       return () => ipcRenderer.removeListener('anakot:quick-entry:shown', listener)
+    },
+    // Main → quick window: the outcome of a submit whose relay already timed
+    // out. Delivery is now KNOWN — reconcile the unknown state instead of
+    // leaving the user to resend a prompt that may already be delivered.
+    onLateResult: callback => {
+      const listener = (_event, payload) => callback(payload)
+      ipcRenderer.on('anakot:quick-entry:late-result', listener)
+
+      return () => ipcRenderer.removeListener('anakot:quick-entry:late-result', listener)
     }
   },
   getBootProgress: () => ipcRenderer.invoke('anakot:boot-progress:get'),
@@ -281,7 +319,12 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   sshConfigHosts: () => ipcRenderer.invoke('anakot:ssh-config:hosts'),
   sshResolveHost: host => ipcRenderer.invoke('anakot:ssh-config:resolve', host),
   probeConnectionConfig: remoteUrl => ipcRenderer.invoke('anakot:connection-config:probe', remoteUrl),
-  oauthLoginConnectionConfig: remoteUrl => ipcRenderer.invoke('anakot:connection-config:oauth-login', remoteUrl),
+  // `options` lets a registry-editor draft sign in BEFORE it is saved: the
+  // main process settles the draft's connection id up front so the login
+  // window writes into the per-connection cookie jar the saved entry will
+  // read (not the legacy shared jar an unsaved URL would fall back to).
+  oauthLoginConnectionConfig: (remoteUrl, options) =>
+    ipcRenderer.invoke('anakot:connection-config:oauth-login', remoteUrl, options),
   oauthLogoutConnectionConfig: remoteUrl => ipcRenderer.invoke('anakot:connection-config:oauth-logout', remoteUrl),
   // Anakot Cloud: one portal login powers discovery + silent per-agent sign-in
   // (cloud-auto-discovery Phase 3).
@@ -303,10 +346,18 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
     },
     get: () => ipcRenderer.invoke('anakot:profile:get'),
     remember: name => ipcRenderer.invoke('anakot:profile:remember', name),
+    importConnections: (record: Record<string, string>) =>
+      ipcRenderer.invoke('anakot:profile:connections:import', record),
+    rememberConnection: (connectionId: string, profile: string) =>
+      ipcRenderer.invoke('anakot:profile:connections:remember', connectionId, profile),
     set: name => ipcRenderer.invoke('anakot:profile:set', name)
   },
-  api: request => ipcRenderer.invoke('anakot:api', request),
+  // The handler resolves an expected 404 with a sentinel instead of rejecting
+  // (Electron logs a stack for every rejected invoke). Turn it back into the
+  // rejection the renderer expects — see electron/api-expected-404.ts.
+  api: request => ipcRenderer.invoke('anakot:api', request).then(unwrapExpectedNotFound),
   notify: payload => ipcRenderer.invoke('anakot:notify', payload),
+  claimStartupLatency: () => ipcRenderer.invoke('anakot:startup-latency:claim'),
   requestMicrophoneAccess: () => ipcRenderer.invoke('anakot:requestMicrophoneAccess'),
   readWindowBelow: () => ipcRenderer.invoke('anakot:window:readBelow'),
   readFileDataUrl: filePath => ipcRenderer.invoke('anakot:readFileDataUrl', filePath),
@@ -319,6 +370,7 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   readPluginSource: (filePath: string) => ipcRenderer.invoke('anakot:readPluginSource', filePath),
   selectPaths: options => ipcRenderer.invoke('anakot:selectPaths', options),
   selectSavePath: options => ipcRenderer.invoke('anakot:selectSavePath', options),
+  saveTextFileAs: request => ipcRenderer.invoke('anakot:saveTextFileAs', request),
   writeClipboard: text => ipcRenderer.invoke('anakot:writeClipboard', text),
   readClipboard: () => ipcRenderer.invoke('anakot:readClipboard'),
   saveGatewayFile: payload => ipcRenderer.invoke('anakot:saveGatewayFile', payload),
@@ -327,6 +379,7 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   contextMenuCopyImage: () => ipcRenderer.invoke('anakot:context-menu:copy-image'),
   contextMenuSpellcheck: action => ipcRenderer.invoke('anakot:context-menu:spellcheck', action),
   contextMenuGuestAddWord: payload => ipcRenderer.invoke('anakot:context-menu:guest-add-word', payload),
+  spellcheckDictionary: (op, word) => ipcRenderer.invoke('anakot:spellcheck:dictionary', { op, word }),
   onContextMenuSpellcheck: callback => {
     const listener = (_event, payload) => callback(payload)
     ipcRenderer.on('anakot:context-menu-spellcheck', listener)
@@ -349,13 +402,59 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   watchDirectory: dir => ipcRenderer.invoke('anakot:watchDirectory', dir),
   stopPreviewFileWatch: id => ipcRenderer.invoke('anakot:stopPreviewFileWatch', id),
   setActiveWork: payload => ipcRenderer.send('anakot:active-work', payload),
+  scheduleStreamWorkWake: (token, delayMs) => ipcRenderer.send('anakot:stream-work-wake', { token, delayMs }),
+  onStreamWorkWake: callback => {
+    const listener = (_event, token) => callback(token)
+    ipcRenderer.on('anakot:stream-work-ready', listener)
+
+    return () => ipcRenderer.removeListener('anakot:stream-work-ready', listener)
+  },
   setTitleBarTheme: payload => ipcRenderer.send('anakot:titlebar-theme', payload),
   setNativeTheme: mode => ipcRenderer.send('anakot:native-theme', mode),
   setTranslucency: payload => ipcRenderer.send('anakot:translucency', payload),
-  setKeepAwake: on => ipcRenderer.send('anakot:keep-awake', on),
+  setKeepAwake: mode => ipcRenderer.send('anakot:keep-awake', mode),
+  // Once per computer, after a timed sleep interrupted a turn with keep-awake off.
+  onKeepAwakeOffer: callback => {
+    const listener = () => callback()
+    ipcRenderer.on('anakot:keep-awake-offer', listener)
+
+    return () => ipcRenderer.removeListener('anakot:keep-awake-offer', listener)
+  },
+  minimizeToTray: {
+    get: () => ipcRenderer.invoke('anakot:minimize-to-tray:get'),
+    set: on => ipcRenderer.invoke('anakot:minimize-to-tray:set', on),
+    onChanged: callback => {
+      const listener = (_event, status) => callback(status)
+      ipcRenderer.on('anakot:minimize-to-tray:changed', listener)
+
+      return () => ipcRenderer.removeListener('anakot:minimize-to-tray:changed', listener)
+    }
+  },
   setDisableF12: blocked => ipcRenderer.send('anakot:devtools:disable-f12', blocked),
+  setF12ShortcutActive: active => ipcRenderer.send('anakot:f12ShortcutActive', Boolean(active)),
+  onF12Shortcut: callback => {
+    const listener = (_event, input) => callback(input)
+    ipcRenderer.on('anakot:f12-shortcut', listener)
+
+    return () => ipcRenderer.removeListener('anakot:f12-shortcut', listener)
+  },
   setPreviewShortcutActive: active => ipcRenderer.send('anakot:previewShortcutActive', Boolean(active)),
+  setPreviewGuestHidden: (webContentsId, hidden) =>
+    ipcRenderer.send('anakot:preview-guest-hidden', { webContentsId, hidden: Boolean(hidden) }),
+  beginPreviewGuestActivity: webContentsId => ipcRenderer.invoke('anakot:preview-guest-activity:begin', webContentsId),
+  endPreviewGuestActivity: token => ipcRenderer.invoke('anakot:preview-guest-activity:end', token),
+  executePreviewGuestScript: (token, code) => ipcRenderer.invoke('anakot:preview-guest-activity:script', token, code),
+  syncPreviewSignins: request => ipcRenderer.invoke('anakot:preview-signins:sync', request),
+  migratePreviewSigninsForProfile: (request: { oldProfile: string; newProfile: string }) =>
+    ipcRenderer.invoke('anakot:preview-signins:profile-renamed', request),
+  dropPreviewSigninsForProfile: (request: { profile: string }) =>
+    ipcRenderer.invoke('anakot:preview-signins:profile-deleted', request),
   openExternal: url => ipcRenderer.invoke('anakot:openExternal', url),
+  freeTierChallenge: {
+    // Load the account service's challenge page in a hidden window (revealed
+    // only if the page asks for the human). Resolves with how it ended.
+    run: request => ipcRenderer.invoke('anakot:freeTierChallenge:run', request)
+  },
   mcpOauth: {
     // One-shot loopback listener for MCP OAuth against remote backends: bind
     // on this machine, hand redirectUri to mcp.servers.oauth.start, then wait
@@ -374,6 +473,12 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
     getDefaultProjectDir: () => ipcRenderer.invoke('anakot:setting:defaultProjectDir:get'),
     setDefaultProjectDir: dir => ipcRenderer.invoke('anakot:setting:defaultProjectDir:set', dir),
     pickDefaultProjectDir: () => ipcRenderer.invoke('anakot:setting:defaultProjectDir:pick')
+  },
+  preparedSubmissions: {
+    read: () => ipcRenderer.invoke('anakot:prepared-submissions:read'),
+    update: (key, entry) => ipcRenderer.invoke('anakot:prepared-submissions:update', key, entry),
+    compareAndSet: (key, expected, entry) =>
+      ipcRenderer.invoke('anakot:prepared-submissions:compare-and-set', key, expected, entry)
   },
   zoom: {
     // Current zoom of this window, as { level, percent }.
@@ -396,16 +501,30 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   // Fire-and-forget: persists a renderer error-boundary catch (with component
   // stack) to desktop.log so crashes survive the window (#79428).
   reportRendererError: report => ipcRenderer.send('anakot:logs:renderer-error', report),
+  logLine: (line: string): void => ipcRenderer.send('anakot:logs:renderer-line', line),
   readDir: dirPath => ipcRenderer.invoke('anakot:fs:readDir', dirPath),
   gitRoot: startPath => ipcRenderer.invoke('anakot:fs:gitRoot', startPath),
   revealPath: targetPath => ipcRenderer.invoke('anakot:fs:reveal', targetPath),
   openDir: dirPath => ipcRenderer.invoke('anakot:fs:openDir', dirPath),
   desktopPluginsRoot: () => ipcRenderer.invoke('anakot:fs:desktopPluginsRoot'),
-  reconcileDesktopPlugins: () => ipcRenderer.invoke('anakot:fs:reconcileDesktopPlugins'),
-  logsRoot: () => ipcRenderer.invoke('anakot:fs:logsRoot'),
+  reconcileDesktopPlugins: async () => (await ipcRenderer.invoke('anakot:fs:reconcileDesktopPlugins')).published,
+  reconcileDesktopPluginsReport: () => ipcRenderer.invoke('anakot:fs:reconcileDesktopPlugins'),
+  logsRoot: (profile?: string) => ipcRenderer.invoke('anakot:fs:logsRoot', profile),
   renamePath: (targetPath, newName) => ipcRenderer.invoke('anakot:fs:rename', targetPath, newName),
   writeTextFile: (filePath, content) => ipcRenderer.invoke('anakot:fs:writeText', filePath, content),
   trashPath: targetPath => ipcRenderer.invoke('anakot:fs:trash', targetPath),
+  pluginFiles: {
+    request: (pluginId, labels) => ipcRenderer.invoke('anakot:pluginFiles:request', pluginId, labels),
+    grants: pluginId => ipcRenderer.invoke('anakot:pluginFiles:grants', pluginId),
+    revoke: (pluginId, folderId) => ipcRenderer.invoke('anakot:pluginFiles:revoke', pluginId, folderId),
+    op: (pluginId, request) => ipcRenderer.invoke('anakot:pluginFiles:op', pluginId, request),
+    onChanged: callback => {
+      const listener = (_event, change) => callback(change)
+      ipcRenderer.on('anakot:pluginFiles:changed', listener)
+
+      return () => ipcRenderer.removeListener('anakot:pluginFiles:changed', listener)
+    }
+  },
   git: {
     worktreeList: repoPath => ipcRenderer.invoke('anakot:git:worktreeList', repoPath),
     worktreeAdd: (repoPath, options) => ipcRenderer.invoke('anakot:git:worktreeAdd', repoPath, options),
@@ -489,6 +608,7 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   signalDeepLinkReady: () => ipcRenderer.invoke('anakot:deep-link-ready'),
   probePluginRepo: payload => ipcRenderer.invoke('anakot:plugin:probe', payload),
   installDesktopPlugin: payload => ipcRenderer.invoke('anakot:plugin:installDesktop', payload),
+  removeDesktopPlugin: payload => ipcRenderer.invoke('anakot:plugin:removeDesktop', payload),
   onWindowStateChanged: callback => {
     const listener = (_event, payload) => callback(payload)
     ipcRenderer.on('anakot:window-state-changed', listener)
@@ -513,6 +633,12 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
 
     return () => ipcRenderer.removeListener('anakot:notification-activate', listener)
   },
+  onExternalOpenFailed: callback => {
+    const listener = (_event, payload) => callback(payload)
+    ipcRenderer.on('anakot:external-open-failed', listener)
+
+    return () => ipcRenderer.removeListener('anakot:external-open-failed', listener)
+  },
   onPreviewFileChanged: callback => {
     const listener = (_event, payload) => callback(payload)
     ipcRenderer.on('anakot:preview-file-changed', listener)
@@ -524,15 +650,6 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
     ipcRenderer.on('anakot:backend-exit', listener)
 
     return () => ipcRenderer.removeListener('anakot:backend-exit', listener)
-  },
-  // Cooperative pool retirement (main → renderer): the pooled backend under
-  // `poolKey` is being stopped for a foreground open. Park that scope; do not
-  // redial into the slot it vacated.
-  onPoolBackendRetiring: callback => {
-    const listener = (_event, payload) => callback(payload)
-    ipcRenderer.on('anakot:pool:retiring', listener)
-
-    return () => ipcRenderer.removeListener('anakot:pool:retiring', listener)
   },
   // Soft gateway-mode apply finished tearing down the primary backend. Renderer
   // should wipe session lists + re-dial without a window reload.
@@ -568,9 +685,16 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   // current snapshot via getBootstrapState() to recover after a devtools
   // reload mid-bootstrap.
   getBootstrapState: () => ipcRenderer.invoke('anakot:bootstrap:get'),
+  probeLocalBackend: () => ipcRenderer.invoke('anakot:local-backend:probe'),
   continueBootstrapLocal: () => ipcRenderer.invoke('anakot:bootstrap:continue-local'),
   recycleBackend: profile => ipcRenderer.invoke('anakot:backend:recycle', profile),
   resetBootstrap: () => ipcRenderer.invoke('anakot:bootstrap:reset'),
+  updateHold: {
+    recheck: () => ipcRenderer.invoke('anakot:update-hold:recheck'),
+    quit: () => ipcRenderer.invoke('anakot:update-hold:quit'),
+    startAnyway: (request: { holdId: string; confirmed: true }) =>
+      ipcRenderer.invoke('anakot:update-hold:start-anyway', request)
+  },
   repairBootstrap: () => ipcRenderer.invoke('anakot:bootstrap:repair'),
   cancelBootstrap: () => ipcRenderer.invoke('anakot:bootstrap:cancel'),
   onBootstrapEvent: callback => {
@@ -579,25 +703,38 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
 
     return () => ipcRenderer.removeListener('anakot:bootstrap:event', listener)
   },
-  getVersion: () => ipcRenderer.invoke('anakot:version'),
+  getVersion: (scope?: { connectionId?: string; profile?: string }) => ipcRenderer.invoke('anakot:version', scope),
   relaunchApp: () => ipcRenderer.invoke('anakot:app:relaunch'),
   getMachineProfile: () => ipcRenderer.invoke('anakot:machine:profile'),
   getRemoteDisplayReason: () => ipcRenderer.invoke('anakot:get-remote-display-reason'),
   uninstall: {
     summary: () => ipcRenderer.invoke('anakot:uninstall:summary'),
-    run: mode => ipcRenderer.invoke('anakot:uninstall:run', { mode })
+    run: mode => ipcRenderer.invoke('anakot:uninstall:run', { mode }),
+    openAppsSettings: () => ipcRenderer.invoke('anakot:uninstall:openAppsSettings')
   },
   updates: {
     check: opts => ipcRenderer.invoke('anakot:updates:check', opts),
     apply: opts => ipcRenderer.invoke('anakot:updates:apply', opts),
-    getBranch: () => ipcRenderer.invoke('anakot:updates:branch:get'),
-    setBranch: name => ipcRenderer.invoke('anakot:updates:branch:set', name),
+    setChannel: name => ipcRenderer.invoke('anakot:updates:channel:set', name),
     onProgress: callback => {
       const listener = (_event, payload) => callback(payload)
       ipcRenderer.on('anakot:updates:progress', listener)
 
       return () => ipcRenderer.removeListener('anakot:updates:progress', listener)
+    },
+    takePendingRun: () => ipcRenderer.invoke('anakot:updates:metric:take'),
+    ackPendingRun: sent => ipcRenderer.invoke('anakot:updates:metric:ack', sent),
+    onPendingRun: callback => {
+      const listener = () => callback()
+      ipcRenderer.on('anakot:updates:metric:pending', listener)
+
+      return () => ipcRenderer.removeListener('anakot:updates:metric:pending', listener)
     }
+  },
+  desktopMetrics: {
+    setEnabled: (on, profile) => ipcRenderer.invoke('anakot:desktop-metrics:set-enabled', on, profile),
+    takeRendererCrashes: () => ipcRenderer.invoke('anakot:desktop-metrics:crash:take'),
+    ackRendererCrashes: sent => ipcRenderer.invoke('anakot:desktop-metrics:crash:ack', sent)
   },
   themes: {
     fetchMarketplace: id => ipcRenderer.invoke('anakot:vscode-theme:fetch', id),

@@ -11,7 +11,7 @@ import { canImportAnakotCli } from './backend-probes'
 const REPO: string = path.resolve(import.meta.dirname, '../../..')
 
 const PYTHON: string =
-  process.env.ANAKOT_PYTHON || process.env.UV_PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
+  process.env.HERMES_PYTHON || process.env.UV_PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
 
 interface RuntimeFixture {
   python: string
@@ -26,9 +26,9 @@ test('the real bootstrap supplies ruamel-only dependencies and rejects foreign-p
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     HOME: home,
-    ANAKOT_HOME: home,
-    ANAKOT_RUNTIME_DIR: path.join(temp, 'tools'),
-    ANAKOT_DISABLE_LAZY_INSTALLS: '1',
+    HERMES_HOME: home,
+    HERMES_RUNTIME_DIR: path.join(temp, 'tools'),
+    HERMES_DISABLE_LAZY_INSTALLS: '1',
     UV_CACHE_DIR: path.join(temp, 'cache'),
     UV_NO_CONFIG: '1',
     PYTHONPATH: '',

@@ -38,7 +38,7 @@ describe('readPreUpdateBackupEnabled', () => {
       runtime.args,
       expect.objectContaining({
         env: expect.objectContaining({
-          ANAKOT_HOME: '/profiles/active',
+          HERMES_HOME: '/profiles/active',
           PYTHONPATH: '/runtime/anakot'
         })
       })

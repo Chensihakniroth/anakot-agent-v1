@@ -32,11 +32,11 @@ export interface SandboxRelaunch {
 const LAUNCHED_WITHOUT_SANDBOX = alreadyHasNoSandbox(process.argv, process.env)
 
 // `anakot desktop` shortens TMPDIR on Linux so the single-instance lock can
-// bind its socket, parking the real one in ANAKOT_DESKTOP_TMPDIR; main.ts
+// bind its socket, parking the real one in HERMES_DESKTOP_TMPDIR; main.ts
 // hands it back right after the lock. The relaunch does not go through the
 // launcher again, so it must inherit the short launch pair, not the restored
 // long TMPDIR that would hang its requestSingleInstanceLock().
-const DESKTOP_TMPDIR_ENV = 'ANAKOT_DESKTOP_TMPDIR'
+const DESKTOP_TMPDIR_ENV = 'HERMES_DESKTOP_TMPDIR'
 
 const LAUNCH_TMPDIR_PAIR = process.env[DESKTOP_TMPDIR_ENV]
   ? { socketTmpdir: process.env.TMPDIR, realTmpdir: process.env[DESKTOP_TMPDIR_ENV] }

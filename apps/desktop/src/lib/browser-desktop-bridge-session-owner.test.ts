@@ -5,7 +5,7 @@ import { clearWebappSession, seedWebappSession } from '@/test/webapp-session'
 
 import { installBrowserDesktopBridge } from './browser-desktop-bridge'
 
-type ServedWindow = Window & { __ANAKOT_DASHBOARD_PROFILE__?: string; anakotDesktop?: Window['anakotDesktop'] }
+type ServedWindow = Window & { __HERMES_DASHBOARD_PROFILE__?: string; anakotDesktop?: Window['anakotDesktop'] }
 
 const win = window as unknown as ServedWindow
 
@@ -30,7 +30,7 @@ function stubGateway() {
 }
 
 afterEach(() => {
-  delete win.__ANAKOT_DASHBOARD_PROFILE__
+  delete win.__HERMES_DASHBOARD_PROFILE__
   clearWebappSession()
   Reflect.deleteProperty(win, 'anakotDesktop')
   document.documentElement.removeAttribute('data-anakot-desktop-host')
@@ -42,7 +42,7 @@ afterEach(() => {
 describe('session rows a Webapp tab lists', () => {
   it('name the serving gateway as their owner, as the tab sockets and new chats do', async () => {
     stubGateway()
-    win.__ANAKOT_DASHBOARD_PROFILE__ = 'default'
+    win.__HERMES_DASHBOARD_PROFILE__ = 'default'
     seedWebappSession('served-token')
     expect(installBrowserDesktopBridge()).toBe(true)
     const api = win.anakotDesktop!.api

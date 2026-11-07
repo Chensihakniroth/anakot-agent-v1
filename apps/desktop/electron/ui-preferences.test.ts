@@ -13,7 +13,7 @@ import { readUiPreferences, uiPreferencesPath, uiPreferencesRoot, writeUiPrefere
 // Native Desktop (this module) and the Webapp's Python server must land on ONE
 // file and merge into it without losing each other's keys (#145213).
 const repo = path.resolve(import.meta.dirname, '../../..')
-const python = process.env.ANAKOT_PYTHON || 'python3'
+const python = process.env.HERMES_PYTHON || 'python3'
 const homes: string[] = []
 
 afterEach(() => {
@@ -30,14 +30,14 @@ function scratchHome(): string {
 }
 
 function pythonEnv(home: string, anakotHome: string): NodeJS.ProcessEnv {
-  return { ANAKOT_HOME: anakotHome, HOME: home, PATH: process.env.PATH, PYTHONPATH: repo }
+  return { HERMES_HOME: anakotHome, HOME: home, PATH: process.env.PATH, PYTHONPATH: repo }
 }
 
 const PY_PATH = 'from anakot_cli.ui_preferences import store_path; print(store_path())'
 
-/** The file main's IPC registers for this ANAKOT_HOME (registerUiPreferencesIpc). */
+/** The file main's IPC registers for this HERMES_HOME (registerUiPreferencesIpc). */
 const electronStorePath = (home: string, anakotHome: string) =>
-  uiPreferencesPath(uiPreferencesRoot(resolveDesktopAnakotHome({ env: { ANAKOT_HOME: anakotHome }, home })))
+  uiPreferencesPath(uiPreferencesRoot(resolveDesktopAnakotHome({ env: { HERMES_HOME: anakotHome }, home })))
 
 test('native Desktop and the Webapp server resolve the same store from a profile home', () => {
   const home = scratchHome()

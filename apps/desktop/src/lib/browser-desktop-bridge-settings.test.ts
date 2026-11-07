@@ -6,13 +6,13 @@ import { clearWebappSession, seedWebappSession } from '@/test/webapp-session'
 
 import { installBrowserDesktopBridge } from './browser-desktop-bridge'
 
-type BootstrapWindow = Window & { __ANAKOT_BASE_PATH__?: string; }
+type BootstrapWindow = Window & { __HERMES_BASE_PATH__?: string; }
 const win = window as unknown as BootstrapWindow
 
 /** A fresh page load: the bridge is rebuilt from scratch, only storage survives. */
 function reload(basePath = '') {
   Reflect.deleteProperty(win, 'anakotDesktop')
-  win.__ANAKOT_BASE_PATH__ = basePath
+  win.__HERMES_BASE_PATH__ = basePath
   expect(installBrowserDesktopBridge()).toBe(true)
 
   return win.anakotDesktop!.settings
@@ -29,7 +29,7 @@ beforeEach(() => {
 
 afterEach(() => {
   Reflect.deleteProperty(win, 'anakotDesktop')
-  delete win.__ANAKOT_BASE_PATH__
+  delete win.__HERMES_BASE_PATH__
   clearWebappSession()
   $connection.set(null)
   localStorage.clear()

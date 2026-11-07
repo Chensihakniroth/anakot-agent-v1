@@ -16,7 +16,7 @@ interface RelaunchHost {
  * directly and drops the fd itself. Both start the new process through
  * createAppRelauncher.
  * The launcher's ready pipe is not inherited by the relaunched process, so a
- * carried `ANAKOT_DESKTOP_READY_FD` names whatever file reuses that descriptor
+ * carried `HERMES_DESKTOP_READY_FD` names whatever file reuses that descriptor
  * number there, and the reveal byte would be written into it.
  */
 export function relaunchApp(host: RelaunchHost, options: RelaunchOptions, env: NodeJS.ProcessEnv = process.env): void {

@@ -33,7 +33,7 @@ export async function readPreUpdateBackupEnabled(
 
     const result = await run(resolvedRuntime.command, resolvedRuntime.args, {
       encoding: 'utf8',
-      env: { ...process.env, ...resolvedRuntime.env, ANAKOT_HOME: anakotHome },
+      env: { ...process.env, ...resolvedRuntime.env, HERMES_HOME: anakotHome },
       shell: Boolean(resolvedRuntime.shell),
       timeout: 15_000,
       windowsHide: true

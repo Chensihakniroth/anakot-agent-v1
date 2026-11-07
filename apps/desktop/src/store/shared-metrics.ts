@@ -4,7 +4,7 @@ import { atom } from 'nanostores'
 import { recordOnboarding, setDesktopMetricsGate } from './desktop-metrics'
 
 /** Public page describing exactly what shared metrics contain and how consent windows work. */
-export const SHARED_METRICS_DOCS_URL = 'https://hermes-agent.nousresearch.com/docs/developer-guide/relay-shared-metrics'
+export const SHARED_METRICS_DOCS_URL = 'https://anakot-agent.nousresearch.com/docs/developer-guide/relay-shared-metrics'
 
 export type SharedMetricsConsent = SharedMetricsConsentResult
 
@@ -22,7 +22,7 @@ export type SharedMetricsRequester = <T = unknown>(method: string, params?: Reco
  * Name the profile on every consent RPC: an unscoped one resolves to the
  * backend's launch home, so on a shared backend the answer landed in another
  * profile's config.yaml and the focused profile's offer never retired (#130714).
- * `custom` is a ANAKOT_HOME outside profiles/ the backend cannot resolve by
+ * `custom` is a HERMES_HOME outside profiles/ the backend cannot resolve by
  * name; there the ambient route already is that home.
  */
 export function sharedMetricsProfileRequester(

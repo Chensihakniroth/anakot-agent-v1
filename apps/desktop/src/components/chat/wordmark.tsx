@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 
 /**
  * The oversized display lettering of an empty chat — the Collapse face that
- * writes "ANAKOT AGENT" across a fresh draft, and a bot's name across its own
+ * writes "HERMES AGENT" across a fresh draft, and a bot's name across its own
  * empty chat.
  *
  * The doubled children are load-bearing, not a typo: `.fit-text` sizes the
@@ -34,12 +34,12 @@ export function Wordmark({
         'wordmark fit-text mx-auto text-midground mix-blend-plus-lighter dark:text-foreground/90',
         className
       )}
-      style={{ '--fit-min': fitMin, '--fit-text-line-height': '0.9', width } as CSSProperties}
-      >
+      style={{ '--fit-min': fitMin, width } as CSSProperties}
+    >
       <span>
-        <span style={{ fontWeight: 700 }}>{text}</span>
+        <span>{text}</span>
       </span>
-      <span aria-hidden="true" style={{ fontWeight: 700 }}>{text}</span>
+      <span aria-hidden="true">{text}</span>
     </p>
   )
 }

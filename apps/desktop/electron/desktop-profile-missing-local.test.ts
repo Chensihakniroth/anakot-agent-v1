@@ -9,7 +9,7 @@ import { createDesktopProfilePreferences, type MissingLocalProfileCheck } from '
 import { localProfileIsLive } from './local-profile-liveness'
 
 // The preference file lives in Electron userData, which a Anakot reinstall
-// does not touch; the profiles live under ANAKOT_HOME, which it can wipe.
+// does not touch; the profiles live under HERMES_HOME, which it can wipe.
 let root = ''
 let target = ''
 let profilesRoot = ''

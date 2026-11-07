@@ -19,7 +19,7 @@ describe('local client version source', (): void => {
       expect(options.cwd).toBe('/isolated/anakot')
       expect(options.timeout).toBe(PROBE_TIMEOUT_MS)
       expect(options.maxBuffer).toBe(64 * 1024)
-      expect(options.env.ANAKOT_HOME).toBe('/isolated/home')
+      expect(options.env.HERMES_HOME).toBe('/isolated/home')
 
       return 'Anakot Agent v0.21.5+6644.gb412ee9 (local)\n'
     })

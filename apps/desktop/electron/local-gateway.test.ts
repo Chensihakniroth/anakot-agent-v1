@@ -7,9 +7,9 @@ import { shortSocketTmpDir } from './local-gateway.test-helpers'
 
 test('the ensure client inherits the caller-scrubbed parent env, not the raw Desktop env', async () => {
   // #68367: a sibling profile's `gateway ensure` must not see the launch profile's dotenv
-  // credentials. The parent env passed in IS the environment; only ANAKOT_HOME and the
+  // credentials. The parent env passed in IS the environment; only HERMES_HOME and the
   // backend's own entries are layered on top.
-  const printEnv = ['-e', 'process.stdout.write(JSON.stringify({ leak: process.env.LEAK ?? null, home: process.env.ANAKOT_HOME, own: process.env.OWN }))']
+  const printEnv = ['-e', 'process.stdout.write(JSON.stringify({ leak: process.env.LEAK ?? null, home: process.env.HERMES_HOME, own: process.env.OWN }))']
 
   const result = await runGatewayEnsure(
     { command: process.execPath, args: printEnv, env: { OWN: '1' }, shell: false },
@@ -22,16 +22,16 @@ test('the ensure client inherits the caller-scrubbed parent env, not the raw Des
 })
 
 test('the ensure client never hands a dev renderer origin to the long-lived local gateway', async () => {
-  // A dev Desktop's own env names its renderer (ANAKOT_DESKTOP_DEV_SERVER). The gateway `ensure`
+  // A dev Desktop's own env names its renderer (HERMES_DESKTOP_DEV_SERVER). The gateway `ensure`
   // starts outlives that session, and Desktop reaches it through main-process HTTP and Origin-less
   // socket dials, so it needs no renderer origin; inherited, it would keep trusting that port.
-  const printEnv = ['-e', 'process.stdout.write(JSON.stringify(process.env.ANAKOT_DESKTOP_DEV_SERVER ?? null))']
+  const printEnv = ['-e', 'process.stdout.write(JSON.stringify(process.env.HERMES_DESKTOP_DEV_SERVER ?? null))']
 
   const result = await runGatewayEnsure(
-    { command: process.execPath, args: printEnv, env: { ANAKOT_DESKTOP_DEV_SERVER: 'http://127.0.0.1:5174' }, shell: false },
+    { command: process.execPath, args: printEnv, env: { HERMES_DESKTOP_DEV_SERVER: 'http://127.0.0.1:5174' }, shell: false },
     process.cwd(),
     '/home/x/.anakot',
-    { PATH: process.env.PATH ?? '', ANAKOT_DESKTOP_DEV_SERVER: 'http://127.0.0.1:5174' }
+    { PATH: process.env.PATH ?? '', HERMES_DESKTOP_DEV_SERVER: 'http://127.0.0.1:5174' }
   )
 
   expect(JSON.parse(result.stdout)).toBeNull()
@@ -462,7 +462,7 @@ test.skipIf(process.platform === 'win32')('a group-accessible control socket is 
   }
 })
 
-// R7: the profile home keeps the operator's mode (Python `home_mode_unsafe`: ANAKOT_HOME_MODE
+// R7: the profile home keeps the operator's mode (Python `home_mode_unsafe`: HERMES_HOME_MODE
 // 0750/0701, a 0755 home); only write by another user can swap the socket. The socket stays 0600.
 test.skipIf(process.platform === 'win32')('a supported home mode mints its ticket; a home others can write is refused', async () => {
   const fs = await import('node:fs/promises')

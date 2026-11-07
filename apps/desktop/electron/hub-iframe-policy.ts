@@ -2,7 +2,7 @@
  * Capability carve-outs for the embedded Skills Hub iframe ONLY.
  *
  * The Skills Hub picker (Bot Mode) embeds the public docs site
- * (`https://hermes-agent.nousresearch.com/docs/skills?embed=picker`, or the
+ * (`https://anakot-agent.nousresearch.com/docs/skills?embed=picker`, or the
  * GitHub Pages mirror when Vercel refuses the network). Three default denials
  * make that embed nearly unusable — window.open is killed by the CVE-2026-70608
  * handler, clipboard writes by the session permission handlers, and the frame
@@ -12,11 +12,11 @@
  */
 
 /** The docs site served from Vercel. */
-export const ANAKOT_HUB_ORIGIN = 'https://hermes-agent.nousresearch.com'
+export const HERMES_HUB_ORIGIN = 'https://anakot-agent.nousresearch.com'
 /** The equivalent GitHub Pages deployment of the same site. */
-export const ANAKOT_HUB_FALLBACK_ORIGIN = 'https://nousresearch.github.io'
+export const HERMES_HUB_FALLBACK_ORIGIN = 'https://nousresearch.github.io'
 
-const HUB_ORIGINS = new Set([ANAKOT_HUB_ORIGIN, ANAKOT_HUB_FALLBACK_ORIGIN])
+const HUB_ORIGINS = new Set([HERMES_HUB_ORIGIN, HERMES_HUB_FALLBACK_ORIGIN])
 
 /**
  * Exact-origin membership — `origin` comes from the frame's own `origin`

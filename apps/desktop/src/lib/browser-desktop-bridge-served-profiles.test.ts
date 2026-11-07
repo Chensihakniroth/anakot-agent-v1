@@ -6,7 +6,7 @@ import { clearWebappSession, seedWebappSession } from '@/test/webapp-session'
 import { installBrowserDesktopBridge } from './browser-desktop-bridge'
 import { resolveDesktopGatewayWsUrl } from './gateway-ws-url'
 
-type ServedWindow = Window & { __ANAKOT_DASHBOARD_PROFILE__?: string; anakotDesktop?: Window['anakotDesktop'] }
+type ServedWindow = Window & { __HERMES_DASHBOARD_PROFILE__?: string; anakotDesktop?: Window['anakotDesktop'] }
 
 const win = window as unknown as ServedWindow
 
@@ -42,7 +42,7 @@ const callsTo = (fetchMock: ReturnType<typeof stubGateway>, path: string) =>
   fetchMock.mock.calls.filter(([url]) => url.pathname.endsWith(path)).length
 
 function installServedBridge(launchProfile = 'default') {
-  win.__ANAKOT_DASHBOARD_PROFILE__ = launchProfile
+  win.__HERMES_DASHBOARD_PROFILE__ = launchProfile
   seedWebappSession('served-token')
   expect(installBrowserDesktopBridge()).toBe(true)
 
@@ -50,7 +50,7 @@ function installServedBridge(launchProfile = 'default') {
 }
 
 afterEach(() => {
-  delete win.__ANAKOT_DASHBOARD_PROFILE__
+  delete win.__HERMES_DASHBOARD_PROFILE__
   clearWebappSession()
   Reflect.deleteProperty(win, 'anakotDesktop')
   document.documentElement.removeAttribute('data-anakot-desktop-host')
