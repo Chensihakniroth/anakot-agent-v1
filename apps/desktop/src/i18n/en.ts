@@ -2966,6 +2966,20 @@ export const en: Translations = {
   },
 
   cron: {
+    modelImpact: {
+      title: 'Scheduled jobs stay on their original model',
+      message: count =>
+        `${count} unpinned scheduled job${count === 1 ? '' : 's'} keep${count === 1 ? 's' : ''} running on the model ${
+          count === 1 ? 'it was' : 'they were'
+        } created under`,
+      detailMore: (list: string, remaining: number) => `${list}, and ${remaining} more`,
+      review: 'Review scheduled jobs',
+      saveFailed: 'That model change was not saved.',
+      declined: 'Model change cancelled.',
+      confirmTitle: 'Use an expensive model for scheduled jobs?',
+      confirmDetail: 'Scheduled jobs run unattended, so a costly model can spend without anyone watching.',
+      confirmAction: 'Confirm'
+    },
     control: enCronControl,
     close: 'Close cron',
     title: 'Scheduled jobs',
@@ -4892,6 +4906,12 @@ export const en: Translations = {
         title: 'A local engine update is available',
         text: 'Update the engine that runs your local models. Active local requests may be interrupted.',
         action: 'Update now'
+      },
+      // Not a rotation tip: the setup CTA is conditional and carries a button.
+      'local-setup': {
+        title: 'This machine could run a model locally',
+        text: 'Your hardware can run a model on this computer, so nothing leaves the machine.',
+        action: 'Set it up'
       },
       'right-pane': {
         title: 'The working pane',

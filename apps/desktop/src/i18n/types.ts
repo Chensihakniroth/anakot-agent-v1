@@ -2621,6 +2621,19 @@ export interface Translations extends NoticeTranslations {
   }
 
   cron: {
+    /** The model-change review sheet: what switching a model does to jobs that
+     *  never pinned one, and the confirm step for an expensive pick. */
+    modelImpact: {
+      title: string
+      message: (count: number) => string
+      detailMore: (list: string, remaining: number) => string
+      review: string
+      saveFailed: string
+      declined: string
+      confirmTitle: string
+      confirmDetail: string
+      confirmAction: string
+    }
     close: string
     control: CronControlCopy
     title: string
@@ -4303,6 +4316,7 @@ export interface Translations extends NoticeTranslations {
      *  a button, and `action` is its label. */
     items: Record<TipId, { title: string; text: string }> & {
       'local-runtime-update': { title: string; text: string; action: string }
+      'local-setup': { title: string; text: string; action: string }
     }
   }
 

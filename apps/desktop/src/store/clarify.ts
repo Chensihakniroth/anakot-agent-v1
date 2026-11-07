@@ -66,6 +66,25 @@ export function normalizeChoices(choices: unknown): string[] {
 }
 
 /**
+ * The model sent choices we could not read (a list it nested wrongly, an
+ * object, a number). Rendering the question with no options hides a real
+ * protocol mistake behind a free-text box, so say it once per source+question
+ * instead of on every re-render of the same card.
+ */
+const warnedDroppedChoices = new Set<string>()
+
+export function warnDroppedChoices(source: string, question: string, raw: unknown): void {
+  const key = `${source}\u0000${question}`
+
+  if (warnedDroppedChoices.has(key)) {
+    return
+  }
+
+  warnedDroppedChoices.add(key)
+  console.warn(`[clarify] dropped unusable ${source} choices for "${question}"`, raw)
+}
+
+/**
  * Validate and normalize a batch clarify payload's `questions` array.
  *
  * Keeps entries with a non-blank string `qid` and `question`; per-question

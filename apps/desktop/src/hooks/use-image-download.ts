@@ -4,6 +4,10 @@ import { useI18n } from '@/i18n'
 import { downloadBlob, downloadFilename, imageFilename } from '@/lib/download'
 import { notify, notifyError } from '@/store/notifications'
 
+// Call sites and tests import these from the hook; the implementations moved to
+// `@/lib/download`, so keep the hook's surface intact.
+export { downloadFilename, imageFilename }
+
 function isMissingIpcHandler(error: unknown): boolean {
   const message = error instanceof Error ? error.message : typeof error === 'string' ? error : ''
 
