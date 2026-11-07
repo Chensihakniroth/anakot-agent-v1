@@ -66,19 +66,21 @@ export const en: Translations = {
       offNote: 'Sign-ins are kept.'
     },
 
-    loading: 'Loading connectors…',
+    tab: 'Connectors',
+    search: 'Find a connector',
+    loading: 'Loading connectors...',
     loadFailed: 'Could not load connectors.',
     retry: 'Retry',
     refresh: 'Refresh connectors',
     connected: 'Connected',
-    pending: 'Connecting…',
+    pending: 'Connecting...',
     notConnected: 'Not connected',
     enable: name => `Enable ${name}`,
     disable: name => `Disable ${name}`,
     connect: 'Connect',
     reconnect: 'Reconnect',
     connectFailed: 'Could not start connector authorization.',
-    waiting: 'Waiting for sign-in…',
+    waiting: 'Waiting for sign-in...',
     policyUnavailable: 'Connector rules are unavailable for this account.',
     policyFailed: 'Could not update connector rules.',
     policyConflict: 'Connector rules changed. They have been refreshed; try again.',
@@ -87,7 +89,6 @@ export const en: Translations = {
     disconnect: 'Disconnect',
     disconnectConfirm: name => `Disconnect ${name}?`,
     disconnectFailed: 'Could not disconnect that account.',
-    tools: 'Tools',
     refreshTools: 'Refresh',
     toolsFailed: 'Could not load this connector’s tools.',
     noTools: 'No tools are available for this connector.',
@@ -1710,7 +1711,7 @@ export const en: Translations = {
             title: 'Connect your Nous account',
             message: 'Sign in with your Nous account to see your balance, plan and usage here.',
             action: 'Sign in'
-          },
+    },
           openPortal: 'Open portal ↗',
           noCard: {
             title: 'No payment method on file',
@@ -1755,18 +1756,18 @@ export const en: Translations = {
             captionResets: date => `Resets ${date}`,
             valueOf: (remaining, monthly) => `${remaining} of ${monthly} left`,
             valueOver: (remaining, monthly, over) => `${remaining} of ${monthly} left · ${over} over`
-          },
+    },
           topupCredits: {
             title: 'Top-up credits',
             caption: 'Does not expire'
-          },
+    },
           monthlyCap: {
             title: 'Monthly spend cap',
             barLabel: 'Monthly spend cap used',
             captionDefault: 'Default ceiling',
             captionSpending: 'Monthly remote spending',
             valueUsed: (spent, limit) => `${spent} of ${limit} used`
-          },
+    },
           window: {
             today: 'Today',
             week: 'This week',
@@ -1780,7 +1781,7 @@ export const en: Translations = {
             captionResetsIn: duration => `Resets in ${duration}`,
             captionIncluded: 'Included usage',
             valueUsed: percent => `${percent} used`
-          },
+    },
         },
         planCard: {
           freeTier: 'Free',
@@ -2050,7 +2051,7 @@ export const en: Translations = {
           bulletLocal: 'Nothing leaves this computer.',
           dontShowAgain: "Don't show again",
           notNow: 'Not now',
-          enable: 'Use my profile'
+    enable: 'Use my profile'
         }
       }
     }
@@ -4669,12 +4670,12 @@ export const en: Translations = {
         browser_navigate: { done: 'Opened page', pending: 'Opening page', pendingAction: 'Opening' },
         browser_snapshot: {
           done: 'Captured page snapshot',
-          pending: 'Capturing page snapshot',
+    pending: 'Capturing page snapshot',
           pendingAction: 'Capturing'
         },
         browser_take_screenshot: {
           done: 'Captured screenshot',
-          pending: 'Capturing screenshot',
+    pending: 'Capturing screenshot',
           pendingAction: 'Capturing'
         },
         browser_type: { done: 'Typed on page', pending: 'Typing on page', pendingAction: 'Typing' },
@@ -4690,7 +4691,7 @@ export const en: Translations = {
         search_files: { done: 'Searched files', pending: 'Searching files', pendingAction: 'Searching' },
         session_search_recall: {
           done: 'Searched session history',
-          pending: 'Searching session history',
+    pending: 'Searching session history',
           pendingAction: 'Searching'
         },
         terminal: { done: 'Ran command', pending: 'Running command', pendingAction: 'Running' },

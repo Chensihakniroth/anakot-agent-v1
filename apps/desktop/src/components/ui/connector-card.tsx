@@ -52,7 +52,8 @@ const SHELL_CLASS = `${WIDGET_SHELL_CLASS} text-[length:var(--conversation-text-
 const MARKS = {
   connected: { Icon: Check, className: 'text-emerald-600 dark:text-emerald-400' },
   idle: { Icon: CircleIcon, className: 'text-(--ui-text-quaternary)' },
-  waiting: { Icon: Loader2, className: 'animate-spin text-primary' }
+  // The spin is the only motion in the card; a reduced-motion reader keeps the mark, without it.
+  waiting: { Icon: Loader2, className: 'animate-spin text-primary motion-reduce:animate-none' }
 } satisfies Record<ConnectorRowMark, { Icon: typeof Check; className: string }>
 
 export function ConnectorCard({ children, title }: { children: ReactNode; title: string }) {

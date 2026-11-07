@@ -117,7 +117,9 @@ catalog: CatalogTranslations
       available: string
       off: string
       offNote: string
-    }
+          }
+    tab: string
+    search: string
     loading: string
     loadFailed: string
     retry: string
@@ -139,7 +141,6 @@ catalog: CatalogTranslations
     disconnect: string
     disconnectConfirm: (name: string) => string
     disconnectFailed: string
-    tools: string
     refreshTools: string
     toolsFailed: string
     noTools: string
@@ -1860,7 +1861,7 @@ catalog: CatalogTranslations
           bulletLocal: string
           dontShowAgain: string
           notNow: string
-          enable: string
+    enable: string
         }
       }
     }
