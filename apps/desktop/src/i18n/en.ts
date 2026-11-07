@@ -1,6 +1,8 @@
 import { FIELD_DESCRIPTIONS, FIELD_LABELS } from '@/app/settings/constants'
 
 import type { Translations } from './types'
+import { enCatalog } from './en_catalog'
+import { enCatalogInstall } from './en_catalog_install'
 
 export const en: Translations = {
   connectors: {
@@ -57,7 +59,31 @@ export const en: Translations = {
     policyFailed: 'Could not update connector rules.',
     policyConflict: 'Connector rules changed. They have been refreshed; try again.',
     policyReadOnly: 'Rules are read-only for this account.',
-    accounts: 'Accounts',
+    accounts: {
+      heading: 'Accounts',
+      count: (count: number) => `${count} account${count === 1 ? '' : 's'}`,
+      addAnother: 'Add another account',
+      aliasLabel: 'Account name',
+      aliasHint: 'Lowercase letters, numbers and dashes, up to 32. For example work or home.',
+      aliasInvalid: 'Use lowercase letters, numbers and dashes, starting with a letter or number.',
+      aliasTaken: 'That name is already used.',
+      add: 'Connect',
+      rename: 'Rename',
+      renameLabel: (name: string) => `New name for ${name}`,
+      renameGone: 'That account is no longer there. It was removed or replaced by a reconnect.',
+      remove: 'Remove',
+      removeTitle: (app: string, name: string) => `Remove the ${name} ${app} account?`,
+      removeBody: 'Anakot stops acting as this account. Your other accounts stay connected.',
+      retiredCount: (count: number) => `${count} retired`,
+      status: {
+        expired: 'Access expired',
+        failed: 'Could not connect',
+        inactive: 'Inactive',
+        pending: 'Waiting for sign-in',
+        retired: 'Replaced by a reconnect',
+        revoked: 'Access revoked'
+      }
+    },
     noAccounts: 'No connected accounts yet.',
     disconnect: 'Disconnect',
     disconnectConfirm: name => `Disconnect ${name}?`,
@@ -67,8 +93,80 @@ export const en: Translations = {
     toolsFailed: 'Could not load this connector’s tools.',
     noTools: 'No tools are available for this connector.',
     staleTools: 'Showing a cached tool list while the portal is unavailable.',
-    scopeNote: 'Connector settings apply to the selected profile and gateway.'
+    scopeNote: 'Connector settings apply to the selected profile and gateway.',
+    card: {
+      kindManaged: 'Managed',
+      kindCatalog: 'MCP · Catalog',
+      kindCustom: 'MCP · Custom',
+      kindPlugin: (plugin: string) => `MCP · Plugin ${plugin}`,
+      inCatalog: 'In the Anakot catalog',
+      hostedTwin: 'Managed version available',
+      alsoLocal: 'Also runs on this device',
+      open: (name: string) => `Open ${name}`,
+      turnServerOn: (name: string) => `Turn ${name} on`,
+      turnServerOff: (name: string) => `Turn ${name} off`,
+      state: {
+        accessExpired: 'Access expired',
+        available: 'Available',
+        connected: 'Connected',
+        connecting: 'Connecting',
+        connectionUnknown: 'State unknown',
+        couldNotConnect: 'Could not connect',
+        offByYourOrganisation: 'Off by your organisation',
+        offForYou: 'Off for you',
+        serverConnecting: 'Connecting…',
+        serverError: 'Error',
+        serverNeedsAuth: 'Needs authentication',
+        serverOff: 'Off',
+        serverOn: 'On',
+        serverOnUnused: 'On, unused'
+      },
+      fact: {
+        tools: (count: number) => `${count} tool${count === 1 ? '' : 's'}`,
+        toolsOff: (count: number) => `${count} tool${count === 1 ? '' : 's'} off`,
+        toolsOn: (count: number) => `${count} tool${count === 1 ? '' : 's'} on`,
+        toolsSomeOn: (total: number, on: number) => `${total} tools, ${on} on`
+      },
+      verb: {
+        authenticate: 'Authenticate',
+        connect: 'Connect',
+        install: 'Install',
+        openLogs: 'Open logs',
+        reconnect: 'Reconnect',
+        stopWaiting: 'Stop waiting',
+        tryAgain: 'Try again',
+        turnBackOn: 'Turn back on'
+      },
+      reason: {
+        finishSignIn: 'Finish the sign-in in your browser.',
+        reconnect: 'Reconnect to keep this app working.',
+        serverError: 'The server refused the connection.',
+        serverNeedsAuth: 'Sign in to let this server answer.'
+      }
+    },
+    page: {
+      loading: 'Reading the catalog and the servers on this computer',
+      emptyTitle: 'No apps here yet. Add a server on this computer to get started.',
+      noMatchTitle: 'No matching apps',
+      noMatchBody: 'Nothing here matches. Point Anakot at your own MCP server to add it.',
+      clearSearch: 'Clear the search',
+      hostedFailedTitle: 'Could not reach the hosted apps.',
+      hostedFailedBody: 'The servers on this computer are unaffected and still running. Nothing was turned off.',
+      retry: 'Retry',
+      matchesElsewhere: (count: number) => `${count} more match${count === 1 ? '' : 'es'} in other groups.`,
+      showAllMatches: 'Show all matches',
+      segmentNoMatch: (segment: string) => `No match in ${segment}, so every match is shown.`,
+      freeTierNote: 'Connections stay on this computer until you sign in.',
+      signInLine: 'Sign in to Nous to use managed apps.',
+      signIn: 'Sign in',
+      managedUnavailable: 'Managed apps are not available for this account yet.',
+      writeFailed: 'That change was not saved.',
+      refreshFailed: 'The tool list was not refreshed.',
+      disconnectNoAccount: 'Anakot has no account to disconnect here. Refresh the page and try again.',
+      disconnectRefused: 'Nous could not remove this sign-in right now. Turn the app off with the switch instead, or try again later.'
+    }
   },
+  catalog: enCatalog,
   sessionImport: {
     title: 'Continue from another app',
     subtitle: 'Bring a conversation into Anakot and pick up where you left off.',
@@ -4323,6 +4421,7 @@ export const en: Translations = {
       lateAnswerTip: 'Draft this answer as a follow-up message',
       lateAnswerHint: 'This prompt is no longer waiting. Pick an option to draft it as a follow-up message.'
     },
+    catalogInstall: enCatalogInstall,
     mcpSetup: {
       installTitle: 'Add MCP servers',
       enableTitle: 'Enable MCP servers',

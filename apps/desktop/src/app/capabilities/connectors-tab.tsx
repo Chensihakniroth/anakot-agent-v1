@@ -513,7 +513,7 @@ function ConnectorDetail({
       </div>
 
       <section className="grid gap-2">
-        <h4 className="text-xs font-semibold">{copy.accounts}</h4>
+        <h4 className="text-xs font-semibold">{copy.accounts.heading}</h4>
         {row.accounts.length === 0 ? (
           <p className="text-xs text-muted-foreground">{copy.noAccounts}</p>
         ) : (

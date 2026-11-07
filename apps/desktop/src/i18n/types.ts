@@ -7,6 +7,8 @@
 
 import type { ErrorCodeKey } from '@/lib/error-surface'
 import type { TipId } from '@/lib/tips/catalog'
+import type { CatalogTranslations } from './types_catalog'
+import type { CatalogInstallTranslations } from './types_catalog_install'
 
 export type Locale = 'en' | 'zh' | 'zh-hant' | 'ja' | 'ar' | 'ru'
 
@@ -95,6 +97,24 @@ export interface Translations {
     tab: string
     title: string
     search: string
+    searchPlaceholder: (count: number) => string
+    filterCategory: string
+    categoryAll: string
+    uncategorised: string
+    residencyLocal: string
+    segment: {
+      all: string
+      available: string
+      connected: string
+      off: string
+    }
+    group: {
+      connected: string
+      connectedNote: string
+      available: string
+      off: string
+      offNote: string
+    }
     loading: string
     loadFailed: string
     retry: string
@@ -112,7 +132,31 @@ export interface Translations {
     policyFailed: string
     policyConflict: string
     policyReadOnly: string
-    accounts: string
+    accounts: {
+      heading: string
+      count: (count: number) => string
+      addAnother: string
+      aliasLabel: string
+      aliasHint: string
+      aliasInvalid: string
+      aliasTaken: string
+      add: string
+      rename: string
+      renameLabel: (name: string) => string
+      renameGone: string
+      remove: string
+      removeTitle: (app: string, name: string) => string
+      removeBody: string
+      retiredCount: (count: number) => string
+      status: {
+        expired: string
+        failed: string
+        inactive: string
+        pending: string
+        retired: string
+        revoked: string
+      }
+    }
     noAccounts: string
     disconnect: string
     disconnectConfirm: (name: string) => string
@@ -123,7 +167,79 @@ export interface Translations {
     noTools: string
     staleTools: string
     scopeNote: string
+    card: {
+      kindManaged: string
+      kindCatalog: string
+      kindCustom: string
+      kindPlugin: (plugin: string) => string
+      inCatalog: string
+      hostedTwin: string
+      alsoLocal: string
+      open: (name: string) => string
+      turnServerOn: (name: string) => string
+      turnServerOff: (name: string) => string
+      state: {
+        accessExpired: string
+        available: string
+        connected: string
+        connecting: string
+        connectionUnknown: string
+        couldNotConnect: string
+        offByYourOrganisation: string
+        offForYou: string
+        serverConnecting: string
+        serverError: string
+        serverNeedsAuth: string
+        serverOff: string
+        serverOn: string
+        serverOnUnused: string
+      }
+      fact: {
+        tools: (count: number) => string
+        toolsOff: (count: number) => string
+        toolsOn: (count: number) => string
+        toolsSomeOn: (total: number, on: number) => string
+      }
+      verb: {
+        authenticate: string
+        connect: string
+        install: string
+        openLogs: string
+        reconnect: string
+        stopWaiting: string
+        tryAgain: string
+        turnBackOn: string
+      }
+      reason: {
+        finishSignIn: string
+        reconnect: string
+        serverError: string
+        serverNeedsAuth: string
+      }
+    }
+    page: {
+      loading: string
+      emptyTitle: string
+      noMatchTitle: string
+      noMatchBody: string
+      clearSearch: string
+      hostedFailedTitle: string
+      hostedFailedBody: string
+      retry: string
+      matchesElsewhere: (count: number) => string
+      showAllMatches: string
+      segmentNoMatch: (segment: string) => string
+      freeTierNote: string
+      signInLine: string
+      signIn: string
+      managedUnavailable: string
+      writeFailed: string
+      refreshFailed: string
+      disconnectNoAccount: string
+      disconnectRefused: string
+    }
   }
+  catalog: CatalogTranslations
   sessionImport: {
     title: string
     subtitle: string
@@ -3687,6 +3803,7 @@ export interface Translations {
       lateAnswerTip: string
       lateAnswerHint: string
     }
+    catalogInstall: CatalogInstallTranslations
     mcpSetup: {
       installTitle: string
       enableTitle: string
