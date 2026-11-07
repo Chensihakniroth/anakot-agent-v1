@@ -3927,6 +3927,7 @@ catalog: CatalogTranslations
   assistant: {
     thread: {
       loadingSession: string
+    contentRefusedNotice: string
       showEarlier: string
       loadingResponse: string
       loadingLocalModel: (model: string) => string

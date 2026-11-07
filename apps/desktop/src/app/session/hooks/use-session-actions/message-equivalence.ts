@@ -48,7 +48,8 @@ const COMPARED_FIELDS = [
   'completedAt',
   // Turn wall-clock duration — stamps the visible "⏱ 38s" badge, so a change
   // must re-render (set once at completion; stable afterwards).
-  'durationS'
+  'durationS',
+  'contentRefused'
 ] as const
 
 const IGNORED_FIELDS = ['attachmentRefs', 'parts', 'serverRowSpan'] as const

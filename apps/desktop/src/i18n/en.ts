@@ -4470,6 +4470,7 @@ export const en: Translations = {
   assistant: {
     thread: {
       loadingSession: 'Loading session',
+      contentRefusedNotice: 'That request was refused. Ask Anakot to try a different approach.',
       showEarlier: 'Show earlier messages',
       loadingResponse: 'Anakot is loading a response',
       loadingLocalModel: model => `Loading ${model} into memory`,
