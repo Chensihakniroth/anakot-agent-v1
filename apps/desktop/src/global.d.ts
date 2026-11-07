@@ -38,6 +38,16 @@ declare global {
         connectionId?: null | string
         profile?: null | string
       }) => Promise<GatewayWsUrlResult>
+      // One-use plugin socket URL for a local gateway (its native grant rides
+      // a header main attaches to that dial); null for every other backend;
+      // { refused: 'permission' } when main refused the grant mint for a
+      // permission reason. Any other failure rejects.
+      getPluginWsUrl?: (payload: {
+        connectionId?: null | string
+        path: string
+        pluginId: string
+        profile?: null | string
+      }) => Promise<null | string | { refused: 'permission' }>
       // Union agent roster across every registered connection.
       getAgentRoster?: () => Promise<DesktopAgentRoster>
       // Credential-free routes across the union connection registry. The
@@ -833,7 +843,7 @@ export interface AnakotConnection {
   // 'cloud' saved-config entry resolves to a 'remote' connection under the hood
   // (cloud-auto-discovery Q3/Q6), so this never carries 'cloud'.
   mode?: 'local' | 'remote'
-  authMode?: 'oauth' | 'token'
+  authMode?: 'native' | 'oauth' | 'token'
   remoteHost?: string
   remoteIdentity?: string
   remoteKind?: 'cloud' | 'ssh' | 'url'

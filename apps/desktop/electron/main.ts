@@ -258,6 +258,9 @@ import { createIntroRevealWindowController } from './intro-reveal-window'
 import { createLinkTitleWindow, guardLinkTitleSession, readLinkTitleWindowTitle } from './link-title-window'
 import { notifyLauncherWindowRevealed } from './linux-launcher-ready'
 import { createLocalBackendLifecycle, waitForTeardown } from './local-backend-lifecycle'
+import { configurePythonGatewayTicketClient, createLocalGatewayDials, localGatewayDial, redialLocalGateway } from './local-gateway'
+import { closeGatewayTicketBridges, createGatewayTicketResolver } from './local-gateway-python'
+import { createPluginWsUrlHandler } from './plugin-ws-url'
 import { ensureMainWindow } from './main-window-lifecycle'
 import {
   assertManagedUpdatePreflightClear,
@@ -371,6 +374,7 @@ import {
 } from './remote-liveness'
 import { resolveRemoteOauthTicket, rosterSourceEnumerationTimeoutMs } from './remote-oauth-ticket'
 import {
+  applyRemoteRequestHeaders,
   attachRemoteRequestHeaderListener,
   collectRemoteHeaderSources,
   createRegistryGatewayWsUrlHandler,
@@ -510,6 +514,10 @@ import { readWindowsUserEnvVar } from './windows-user-env'
 import { isPackagedInstallPath as isPackagedInstallPathUnderRoots } from './workspace-cwd'
 import { readWslWindowsClipboardImage } from './wsl-clipboard-image'
 import { resolvePickerDefaultPath, setActiveGatewayProfile, setWslBridgeProfileState } from './wsl-path-bridge'
+
+const localGatewayDials = createLocalGatewayDials()
+configurePythonGatewayTicketClient(createGatewayTicketResolver(
+  async () => ensureRuntime(await resolveAnakotBackend([]), () => undefined), resolveAnakotCwd))
 
 const USER_DATA_OVERRIDE = process.env.ANAKOT_DESKTOP_USER_DATA_DIR
 
@@ -8385,13 +8393,53 @@ async function mintGatewayWsTicket(baseUrl, headers = {}) {
   )
 }
 
+async function forgetLocalGatewayDescriptor(profile, request?: { method?: string; path?: string }) {
+  const key = profile && String(profile).trim() ? String(profile).trim() : primaryProfileKey()
+  // Resolve the route the failed call used (B2-15): an unscopable mutation's stale entry is pooled.
+  const route = resolveProfileBackendRoute(key, profileRouteOptions(key, request))
+
+  if (route.backend === 'primary') {
+    const attempt = backendConnectionState.startAttempt()
+    attempt.promise = backendConnectionState.getPromise()
+    backendConnectionState.clearPromiseForAttempt(attempt)
+    rememberLog(`[gateway] forgot stale canonical endpoint for primary "${key}"; re-ensuring`)
+
+    return
+  }
+
+  if (backendPool.delete(key)) {
+    rememberLog(`[gateway] forgot stale canonical endpoint for profile "${key}"; re-ensuring`)
+  }
+}
+
+// Registry twin of forgetLocalGatewayDescriptor: a 'local' registry connection
+// either delegates to the v1 profile route or pools a forced-local child under
+// its composite key, so the stale descriptor lives wherever ensureRegistryBackend
+// put it.
+async function forgetRegistryLocalGatewayDescriptor(connectionId, profile) {
+  const profileKey = String(profile ?? '').trim() || 'default'
+
+  const localRoute = resolveRegistryLocalRoute(profileKey, {
+    globalRemote: globalRemoteActive(),
+    profileRemoteOverride: Boolean(profileHasRemoteOverride(profileKey))
+  })
+
+  if (localRoute.delegate) {
+    return forgetLocalGatewayDescriptor(profile)
+  }
+
+  if (backendPool.delete(localRoute.poolKey)) {
+    rememberLog(`[gateway] forgot stale canonical endpoint for connection "${String(connectionId || '').trim() || 'primary'}" profile "${profileKey}"; re-ensuring`)
+  }
+}
+
 // Build a fresh WS URL for the *current* connection. Critical for reconnects:
 // OAuth WS tickets are single-use with a ~30s TTL, so the ticket baked into
 // the cached connection's wsUrl is stale on the second connect. The renderer
 // calls this immediately before every gateway.connect() so each WS upgrade
 // carries a freshly-minted ticket. For local/token connections this just
 // reuses the static token (no minting needed).
-async function freshGatewayWsUrl(profile) {
+async function freshGatewayWsUrl(profile, webContentsId) {
   // Mint for the requested profile's backend, NOT always the primary. The
   // renderer re-mints right before every gateway.connect(); when swapping to a
   // pooled profile we must return THAT backend's ws URL, otherwise the connect
@@ -8399,6 +8447,11 @@ async function freshGatewayWsUrl(profile) {
   // the wrong profile's DB. A null/empty profile resolves to the primary, so
   // legacy callers and single-profile users are unchanged.
   const connection = await ensureBackend(profile)
+
+  if (connection.gatewayEndpoint) {
+    return localGatewayDial({ ensure: () => ensureBackend(profile), forget: () => forgetLocalGatewayDescriptor(profile), launchHome: ANAKOT_HOME,
+      prepare: (baseUrl, ticket) => localGatewayDials.prepare(baseUrl, ticket, webContentsId), profile: String(profile ?? '') })
+  }
 
   if (connection.authMode === 'oauth') {
     const ticket = await mintGatewayWsTicket(connection.baseUrl, connection.headers)
@@ -9029,6 +9082,25 @@ function installRemoteHeaderRulesOnSession(sess) {
   }
 
   remoteHeaderSessions.add(sess)
+
+  if (sess === session.defaultSession) {
+    // Native one-use gateway dials (renderer WebSocket) drop Origin and ride
+    // the minted ticket; every other request keeps the remote-header path.
+    sess.webRequest.onBeforeSendHeaders((details, callback) => {
+      const nativeHeaders = localGatewayDials.headers(details as any)
+
+      if (nativeHeaders) {
+        callback({ requestHeaders: nativeHeaders })
+
+        return
+      }
+
+      applyRemoteRequestHeaders(details as any, callback, headersForRemoteRequest)
+    })
+
+    return
+  }
+
   attachRemoteRequestHeaderListener(sess, headersForRemoteRequest)
 }
 
@@ -11178,7 +11250,7 @@ function profileRouteOptions(profile, request?) {
 // Resolve a backend connection for the given profile, per the routing table in
 // resolveProfileBackendRoute(). An empty / unknown profile resolves to the
 // primary, so legacy callers are unchanged.
-async function ensureBackend(profile, opts: { passive?: boolean; spawnPriority?: LocalBackendSpawnPriority } = {}) {
+async function ensureBackend(profile, opts: { passive?: boolean; spawnPriority?: LocalBackendSpawnPriority; request?: { method?: string; path?: string } } = {}) {
   localBackendLifecycle.assertCanStart()
   const key = profile && String(profile).trim() ? String(profile).trim() : primaryProfileKey()
   const spawnPriority = spawnPriorityFrom(opts.spawnPriority)
@@ -11187,7 +11259,7 @@ async function ensureBackend(profile, opts: { passive?: boolean; spawnPriority?:
 
   profileDeletionGate.assertCanStart(key)
 
-  const route = resolveProfileBackendRoute(key, profileRouteOptions(key))
+  const route = resolveProfileBackendRoute(key, profileRouteOptions(key, opts.request))
 
   if (route.backend === 'primary') {
     const connection = await startAnakot()
@@ -15044,8 +15116,8 @@ ipcMain.handle('anakot:pool-limits:set', async (_event, raw) => {
 
   return { ok: true, limits: next }
 })
-ipcMain.handle('anakot:gateway:ws-url', async (_event, profile) => {
-  return gatewayWsUrlIpcResult(() => freshGatewayWsUrl(profile))
+ipcMain.handle('anakot:gateway:ws-url', async (event, profile) => {
+  return gatewayWsUrlIpcResult(() => freshGatewayWsUrl(profile, event.sender.id))
 })
 ipcMain.handle('anakot:window:openSession', async (_event, sessionId, opts) => {
   if (typeof sessionId !== 'string' || !sessionId.trim()) {
@@ -15837,9 +15909,24 @@ const registryGatewayWsUrlHandler = createRegistryGatewayWsUrlHandler({
   rememberHeaders: rememberRemoteWsHeaders
 })
 
-ipcMain.handle('anakot:gateway:ws-url-for', async (_event, payload) => {
-  return gatewayWsUrlIpcResult(() => registryGatewayWsUrlHandler(payload))
+ipcMain.handle('anakot:gateway:ws-url-for', async (event, payload) => {
+  return gatewayWsUrlIpcResult(async () => {
+    const connection = await ensureRegistryBackend(payload?.connectionId, payload?.profile)
+
+    if (connection.gatewayEndpoint) {
+      return localGatewayDial({ ensure: () => ensureRegistryBackend(payload?.connectionId, payload?.profile), launchHome: ANAKOT_HOME,
+        forget: () => forgetRegistryLocalGatewayDescriptor(payload?.connectionId, payload?.profile), profile: String(payload?.profile ?? ''),
+        prepare: (baseUrl, ticket) => localGatewayDials.prepare(baseUrl, ticket, event.sender.id) })
+    }
+
+    return registryGatewayWsUrlHandler(payload)
+  })
 })
+
+const pluginWsUrl = createPluginWsUrlHandler({ ensureBackend, ensureRegistryBackend, forgetLocalGatewayDescriptor,
+  forgetRegistryLocalGatewayDescriptor, launchHome: ANAKOT_HOME, prepare: localGatewayDials.preparePlugin })
+
+ipcMain.handle('anakot:plugin:ws-url', (event, payload) => pluginWsUrl(payload ?? {}, event.sender.id))
 
 // Transactional update for a Desktop-managed SSH install. Unlike the generic
 // fleet fan-out below, this path owns the remote serve lifecycle: it gates new
@@ -16697,15 +16784,26 @@ async function handleAnakotApiRequest(request) {
   let connection
 
   try {
-    connection = await ensureBackend(routeProfile, { passive: request?.passive, spawnPriority })
+    // The redial reuses these options: without the request an unscopable mutation's retry
+    // resolves the shared primary and writes in the wrong profile (B2-15).
+    const ensureOpts = { passive: request?.passive, spawnPriority, request: { method: request?.method, path: request?.path } }
+    connection = await ensureBackend(routeProfile, ensureOpts)
     const timeoutMs = resolveTimeoutMs(request?.timeoutMs, DEFAULT_FETCH_TIMEOUT_MS)
 
-    response = await fetchJsonForBackend(connection, apiRoute.requestPath, {
+    const send = current => fetchJsonForBackend(current, apiRoute.requestPath, {
       method: request?.method,
       body: request?.body,
       upload: request?.upload,
       timeoutMs
     })
+
+    response = connection.gatewayEndpoint
+      ? await redialLocalGateway({
+          ensure: () => ensureBackend(routeProfile, ensureOpts),
+          forget: () => forgetLocalGatewayDescriptor(routeProfile, ensureOpts.request),
+          use: send
+        })
+      : await send(connection)
   } catch (error) {
     // A failed rename PATCH must not strand the app on the temporary primary:
     // restore the original active profile and restart its backend.
@@ -17155,6 +17253,7 @@ app.on('before-quit', () => {
 // Close the pooled keep-alive sockets on quit so lingering connections can't
 // hold the event loop open or leak FDs past app teardown.
 app.on('will-quit', () => {
+  closeGatewayTicketBridges()
   sshIsolatedKeepalives.stopAll()
   destroyKeepaliveAgents()
 })

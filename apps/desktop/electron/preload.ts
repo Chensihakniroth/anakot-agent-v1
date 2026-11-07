@@ -40,6 +40,8 @@ contextBridge.exposeInMainWorld('anakotDesktop', {
   // Registry-scoped fresh WS URL: { connectionId, profile } → result shape of
   // getGatewayWsUrl, minted against that connection's backend.
   getGatewayWsUrlFor: payload => ipcRenderer.invoke('anakot:gateway:ws-url-for', payload),
+  // { connectionId, profile, pluginId, path } → one-use local plugin socket URL, null, or { refused: 'permission' }.
+  getPluginWsUrl: payload => ipcRenderer.invoke('anakot:plugin:ws-url', payload),
   // Union agent roster across every registered connection.
   getAgentRoster: () => ipcRenderer.invoke('anakot:agents:roster'),
   openSessionWindow: (sessionId, opts) => ipcRenderer.invoke('anakot:window:openSession', sessionId, opts),
