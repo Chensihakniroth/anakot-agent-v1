@@ -9,7 +9,7 @@ import { RECONNECT_ATTEMPT_TIMEOUT_MS, withTimeout } from '@/lib/with-timeout'
 // the second dial fails (tunnel/token are per-backend) and the closed socket
 // poisons the active gateway with "not connected" even though the primary is
 // open right next to it.
-export async function sharedPrimaryRoute(profile: string): Promise<boolean> {
+export async function sharedPrimaryRoute(profile: string, spawnPriority: 'background' | 'foreground' = 'background'): Promise<boolean> {
   const desktop = window.anakotDesktop
 
   if (!desktop) {
@@ -21,8 +21,13 @@ export async function sharedPrimaryRoute(profile: string): Promise<boolean> {
     // like any other failure, not hang the route decision forever, since
     // every caller (gatewayForProfile → requestGatewayForProfile/Agent) awaits
     // this before it can fall back to dialing a secondary.
+    //
+    // This probe can START the profile's spawn, so the priority travels with it:
+    // an untagged probe has main queue the spawn as a background slot wait and a
+    // user-initiated open then sits out the probe's timeout before anything
+    // promotes it (#102281).
     const conn = await withTimeout(
-      desktop.getConnection(profile),
+      desktop.getConnection(profile, spawnPriority === 'foreground' ? { priority: 'foreground' } : undefined),
       RECONNECT_ATTEMPT_TIMEOUT_MS,
       `Timed out resolving the shared-primary route for profile "${profile}"`
     )

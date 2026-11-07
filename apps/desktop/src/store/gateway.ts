@@ -361,7 +361,11 @@ function isPrimaryRegistryRoute(connectionId: null | string, profile: string): b
  *  the chat's transport fan-out and the renderer receives every event twice
  *  (garbled streaming text + a duplicate interim bubble, #120005). Isolated
  *  SSH/pooled backends (neither flag) still get their own secondary. */
-async function ridesPrimaryBackend(connectionId: null | string, profile: string): Promise<boolean> {
+async function ridesPrimaryBackend(
+  connectionId: null | string,
+  profile: string,
+  spawnPriority: SpawnPriority = 'background'
+): Promise<boolean> {
   const id = String(connectionId ?? '').trim()
   const key = normKey(profile)
 
@@ -385,7 +389,11 @@ async function ridesPrimaryBackend(connectionId: null | string, profile: string)
   // same dial `openSecondary` makes next, coalesced by main's claim key.
   try {
     const conn = await withTimeout(
-      desktop.getConnectionFor({ connectionId: id, profile: key }),
+      desktop.getConnectionFor({
+        connectionId: id,
+        profile: key,
+        ...(spawnPriority === 'foreground' ? { priority: 'foreground' } : {})
+      }),
       RECONNECT_ATTEMPT_TIMEOUT_MS,
       `Timed out resolving the backend route for "${key}"`
     )
@@ -611,7 +619,7 @@ function clearTimer(entry: Secondary): void {
   }
 }
 
-async function openSecondary(entry: Secondary): Promise<void> {
+async function openSecondary(entry: Secondary, spawnPriority: SpawnPriority = 'background'): Promise<void> {
   const desktop = window.anakotDesktop
 
   const reauthError = g.reauthFailures.get(entry.scope)?.error
@@ -683,15 +691,20 @@ async function openSecondary(entry: Secondary): Promise<void> {
     // ready sentinel), which is the SOURCE_SWITCH_DIAL budget, while a local
     // profile's pooled child spawns on this machine (measured ~9 s; the
     // reconnect-class budget is not the binding constraint there).
+    // A user-initiated open must reach main as a FOREGROUND dial on its FIRST
+    // IPC: an untagged dial starts the spawn as a background slot wait, and the
+    // click then waits out the probe before anything promotes it (#102281).
+    const priorityArg = spawnPriority === 'foreground' ? { priority: 'foreground' } : undefined
+
     const conn =
       entry.connectionId && desktop.getConnectionFor
         ? await withTimeout(
-            desktop.getConnectionFor({ connectionId: entry.connectionId, profile: entry.profile }),
+            desktop.getConnectionFor({ connectionId: entry.connectionId, profile: entry.profile, ...priorityArg }),
             SOURCE_SWITCH_DIAL_TIMEOUT_MS,
             `Timed out connecting to profile "${entry.profile}"`
           )
         : await withTimeout(
-            desktop.getConnection(entry.profile),
+            desktop.getConnection(entry.profile, priorityArg),
             RECONNECT_ATTEMPT_TIMEOUT_MS,
             `Timed out connecting to profile "${entry.profile}"`
           )
@@ -849,7 +862,7 @@ async function openSecondaryForRequest(entry: Secondary, spawnPriority: SpawnPri
   }
 
   try {
-    await openSecondary(entry)
+    await openSecondary(entry, spawnPriority)
   } catch (error) {
     recordDialFailure(entry, error)
     throw error
@@ -1039,7 +1052,7 @@ async function gatewayForProfile(
     throw new Error(`Backend for "${key}" is reconnecting; retry after it settles.`)
   }
 
-  if (notePrimaryRider(primaryIdentity(), key, await sharedPrimaryRoute(key))) {
+  if (notePrimaryRider(primaryIdentity(), key, await sharedPrimaryRoute(key, spawnPriority))) {
     return { gateway: g.primaryGateway, key, release: noRelease, scopeProfile: true }
   }
 
@@ -1177,7 +1190,7 @@ export async function requestGatewayForAgent<T>(
     return requestGatewayForProfile<T>(key, method, params, timeoutMs, signal, { spawnPriority })
   }
 
-  if (notePrimaryRider(primaryIdentity(), scope, await ridesPrimaryBackend(connectionId, key))) {
+  if (notePrimaryRider(primaryIdentity(), scope, await ridesPrimaryBackend(connectionId, key, spawnPriority))) {
     traceAgentRoute(scope, 'primary-shared')
 
     return requestOnPrimaryGateway<T>(method, { ...params, profile: key }, timeoutMs, signal)
@@ -1398,7 +1411,7 @@ export async function retainGatewayForAgent(
     return route.release
   }
 
-  if (isPrimaryRegistryRoute(connectionId, key) || (await ridesPrimaryBackend(connectionId, key))) {
+  if (isPrimaryRegistryRoute(connectionId, key) || (await ridesPrimaryBackend(connectionId, key, spawnPriority))) {
     // Primary socket stays open for the window lifetime — no secondary to hold.
     return () => undefined
   }
@@ -1454,7 +1467,7 @@ export async function retainGatewayForAgent(
 
   try {
     if (!isOpen(entry.gateway)) {
-      await openSecondary(entry)
+      await openSecondary(entry, spawnPriority)
     }
   } catch (error) {
     release()
@@ -1665,7 +1678,7 @@ export async function openGatewayForAgent(
     return openGatewayForProfile(profile, { spawnPriority })
   }
 
-  if (await ridesPrimaryBackend(connectionId, profile)) {
+  if (await ridesPrimaryBackend(connectionId, profile, spawnPriority)) {
     if (!isOpen(g.primaryGateway)) {
       throw new Error('Anakot gateway unavailable')
     }
@@ -1692,7 +1705,7 @@ export async function openGatewayForAgent(
   }
 
   try {
-    await openSecondary(entry)
+    await openSecondary(entry, spawnPriority)
   } catch (error) {
     if (activationLease) {
       entry.activationLeaseUntil = 0
@@ -1721,7 +1734,7 @@ export async function ensureGatewayForAgent(
 
   const activationEpoch = beginGatewayActivation()
 
-  if (await ridesPrimaryBackend(connectionId, profile)) {
+  if (await ridesPrimaryBackend(connectionId, profile, 'foreground')) {
     // A retained primary can be open while the foreground still points at a
     // different source. Reusing its socket must also move the active route.
     return Boolean(isOpen(g.primaryGateway) && !signal?.aborted && applyActive(g.primaryProfile, activationEpoch))
@@ -1750,7 +1763,7 @@ export async function ensureGatewayForAgent(
     entry.reconnectAttempt = 0
 
     try {
-      await openSecondary(entry)
+      await openSecondary(entry, 'foreground')
     } catch {
       scheduleReconnect(entry)
     }
@@ -1788,6 +1801,8 @@ export async function ensureGatewayForAgent(
 
 // Make `profile` the active gateway, lazily opening its socket if needed. The
 // primary is a no-op fast path. Background sockets are never closed here.
+// This is the profile activation door: always a user-initiated open, so every
+// dial it makes is a foreground one (#102281).
 export async function ensureGatewayForProfile(profile: string): Promise<void> {
   const key = normKey(profile)
   const activationEpoch = beginGatewayActivation()
@@ -1803,7 +1818,7 @@ export async function ensureGatewayForProfile(profile: string): Promise<void> {
   // primary instead of dialing a doomed duplicate socket at the same
   // descriptor — $activeGatewayProfile still moves to `key`, so request
   // scoping and profile-aware surfaces behave identically.
-  if (await sharedPrimaryRoute(key)) {
+  if (await sharedPrimaryRoute(key, 'foreground')) {
     applyActive(g.primaryProfile, activationEpoch)
 
     return
@@ -1827,7 +1842,7 @@ export async function ensureGatewayForProfile(profile: string): Promise<void> {
       entry.reconnectAttempt = 0
 
       try {
-        await openSecondary(entry)
+        await openSecondary(entry, 'foreground')
       } catch (error) {
         // #81094: a failed secondary dial must NOT fall through to setActive()
         // with a closed socket — that silently routes the user's messages to the
