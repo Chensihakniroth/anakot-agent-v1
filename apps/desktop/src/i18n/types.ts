@@ -97,7 +97,9 @@ export interface Translations extends NoticeTranslations {
   connectors: ConnectorCardTranslations
 catalog: CatalogTranslations
   connectorsPage: {
+    tab: string
     title: string
+    search: string
     searchPlaceholder: (count: number) => string
     filterCategory: string
     categoryAll: string
@@ -116,6 +118,33 @@ catalog: CatalogTranslations
       off: string
       offNote: string
     }
+    loading: string
+    loadFailed: string
+    retry: string
+    refresh: string
+    connected: string
+    pending: string
+    notConnected: string
+    enable: (name: string) => string
+    disable: (name: string) => string
+    connect: string
+    reconnect: string
+    connectFailed: string
+    waiting: string
+    policyUnavailable: string
+    policyFailed: string
+    policyConflict: string
+    policyReadOnly: string
+    noAccounts: string
+    disconnect: string
+    disconnectConfirm: (name: string) => string
+    disconnectFailed: string
+    tools: string
+    refreshTools: string
+    toolsFailed: string
+    noTools: string
+    staleTools: string
+    scopeNote: string
     card: {
       kindManaged: string
       kindCatalog: string
