@@ -28,7 +28,7 @@
  */
 
 // Relative, not `@anakot/shared`: esbuild bundles electron/ without tsconfig paths.
-import { HERMES_CLOUD_MANAGED, isAnakotCloudUrl } from '../../shared/src/anakot-cloud'
+import { ANAKOT_CLOUD_MANAGED, isAnakotCloudUrl } from '../../shared/src/anakot-cloud'
 
 import {
   hostLabelFromBaseUrl,
@@ -897,7 +897,7 @@ function pickCanonicalConnection<T extends { connection: RegistryConnection; ord
 export interface UpdateEligibility {
   eligible: boolean
   /** Present when not eligible: 'cloud-managed' (platform updates it). */
-  reason?: typeof HERMES_CLOUD_MANAGED
+  reason?: typeof ANAKOT_CLOUD_MANAGED
 }
 
 /**
@@ -908,7 +908,7 @@ export interface UpdateEligibility {
  */
 export function updateEligibility(connection: RegistryConnection): UpdateEligibility {
   if (connection.kind === 'cloud' || isAnakotCloudUrl(connection.url)) {
-    return { eligible: false, reason: HERMES_CLOUD_MANAGED }
+    return { eligible: false, reason: ANAKOT_CLOUD_MANAGED }
   }
 
   return { eligible: true }
