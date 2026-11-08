@@ -691,22 +691,25 @@ def _stop_desktop_processes_locking_build(desktop_dir: Path) -> list[int]:
 
     me = os.getpid()
     victims = []
-    try:
-        proc_iter = psutil.process_iter(["pid", "name", "exe", "cwd", "ppid"])
-    except Exception:
-        return []
-    for proc in proc_iter:
+    # No attrs= on process_iter: it runs as_dict INSIDE the generator, outside the
+    # per-process guard below, and as_dict does not swallow raw OSError — cwd()
+    # reads the target's PEB via ReadProcessMemory and raises WinError 87 on
+    # protected processes, so one unreadable process aborted the whole scan.
+    # Gather attributes inside the guard; cwd is only needed for conhost.
+    for proc in psutil.process_iter():
         try:
-            info = proc.info
+            info = proc.as_dict(attrs=["pid", "name", "exe", "ppid"], ad_value=None)
             pid = info.get("pid")
             if pid is None or pid == me:
                 continue
             parent_alive = None
-            if (info.get("name") or "").lower() == "conhost.exe" and info.get("cwd"):
-                cwd = Path(info["cwd"]).resolve()
-                if release_dir in cwd.parents:
-                    parent_pid = info.get("ppid")
-                    parent_alive = parent_pid is None or psutil.pid_exists(parent_pid)
+            if (info.get("name") or "").lower() == "conhost.exe":
+                info["cwd"] = proc.cwd()
+                if info.get("cwd"):
+                    cwd = Path(info["cwd"]).resolve()
+                    if release_dir in cwd.parents:
+                        parent_pid = info.get("ppid")
+                        parent_alive = parent_pid is None or psutil.pid_exists(parent_pid)
         except Exception:
             continue
         if _desktop_process_holds_release(info, release_dir, parent_alive=parent_alive):
