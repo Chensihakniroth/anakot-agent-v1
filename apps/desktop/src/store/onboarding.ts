@@ -33,6 +33,7 @@ import { $gatewayBootGeneration } from '@/store/live-sync'
 import { $localModelsEnabled } from '@/store/local-models-flag'
 import { setMainModelAssignment } from '@/store/model-assignment'
 import { dismissNotification, notify, notifyError } from '@/store/notifications'
+import { guidedOnboardingActive } from '@/store/onboarding-gate'
 import { afterOnboardingSurfaceClear, onboardingSurfaceOpen } from '@/store/onboarding-presence'
 import { captureOnboardingScope, type OnboardingScope } from '@/store/onboarding-scope'
 import { requestRoute } from '@/store/recovery-requests'
@@ -661,11 +662,17 @@ async function refreshProviders() {
 }
 
 export function requestDesktopOnboarding(reason = DEFAULT_ONBOARDING_REASON) {
-  // Not over first-run onboarding. The free account may still be in
-  // the making, and a credential probe that fires meanwhile would drop the
-  // provider picker over it; onboarding hands over to the picker
-  // itself when the account fails.
-  afterOnboardingSurfaceClear(() => patch({ reason: reason.trim() || DEFAULT_ONBOARDING_REASON, requested: true }))
+  // Not during the guided first launch. The free tier carries inference there,
+  // and a credential probe that fires anyway (a free-tier token mid refresh, a
+  // setup-profile session before its runtime settles) would drop the provider
+  // picker over the guide the user is in the middle of. Sign-in is offered
+  // where the guide chooses to, on its own ready screen — outside the guide the
+  // picker opens immediately, exactly as it did before the guide existed.
+  if (guidedOnboardingActive()) {
+    return
+  }
+
+  patch({ reason: reason.trim() || DEFAULT_ONBOARDING_REASON, requested: true })
 }
 
 /** Credential warning delivered passively (session create/activate/resume
@@ -682,8 +689,12 @@ let pendingCredentialWarning: null | string = null
 export function requestDesktopOnboardingForCredentialWarning(reason: null | string | undefined) {
   const warning = reason?.trim()
 
-  // Stash while the due check is still undecided: submit consumes it later. Drop only under an open onboarding.
-  if (!warning || !isProviderSetupErrorMessage(warning) || onboardingSurfaceOpen()) {
+  // Stash while the due check is still undecided: submit consumes it later.
+  // Drop under an open onboarding SURFACE, and equally while the guide itself
+  // is running (cinematic / guided / handoff): the free tier is the provider
+  // for those phases and the guide's own ready screen is where sign-in is
+  // offered, so a credential warning must never be pushed over it.
+  if (!warning || !isProviderSetupErrorMessage(warning) || guidedOnboardingActive() || onboardingSurfaceOpen()) {
     pendingCredentialWarning = null
 
     return
