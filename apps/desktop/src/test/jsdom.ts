@@ -13,7 +13,11 @@ export class InertResizeObserver {
 
 /** A ResizeObserver that accepts observers and never calls them back. */
 export function stubResizeObserver() {
-  vi.stubGlobal('ResizeObserver', InertResizeObserver)
+  // A plain assignment, deliberately not `vi.stubGlobal`: these suites call
+  // `vi.unstubAllGlobals()` in afterEach, which would strip a stubbed observer
+  // from every test after the first in the file. This is an environment
+  // stand-in, not a mock a test opts out of.
+  ;(globalThis as { ResizeObserver?: unknown }).ResizeObserver = InertResizeObserver
 }
 
 /** The pointer-capture and scroll calls Radix and cmdk make while opening a
