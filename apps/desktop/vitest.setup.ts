@@ -57,14 +57,23 @@ globalThis.IntersectionObserver = class {
 // jsdom has no scrolling at all. Panels that recentre a list on mount (command
 // palettes, catalog browsers, log panes) only need the call to exist; the
 // geometry assertions that care live in a real browser.
-;(Element.prototype as unknown as { scrollTo?: () => void }).scrollTo ??= () => undefined
+//
+// Guarded: the `node` environment has no Element at all, and reaching for
+// `Element.prototype` here would throw while the setup file loads, failing
+// every node-environment file before a single test runs.
+if (typeof Element !== 'undefined') {
+  ;(Element.prototype as unknown as { scrollTo?: () => void }).scrollTo ??= () => undefined
+}
 
 // jsdom has no CSS.supports at all, and component code reads it to choose a
 // layout branch (`CSS.supports('display','grid-lanes')`). Answer "not
 // supported" so the fallback branch renders — the same one a browser without
-// the feature takes.
-;(globalThis as any).CSS ??= {}
-;(globalThis as any).CSS.supports ??= () => false
+// the feature takes. Keyed off `document`: jsdom may not define `CSS` either,
+// so the object is created here, while the node environment gets neither.
+if (typeof document !== 'undefined') {
+  ;(globalThis as any).CSS ??= {}
+  ;(globalThis as any).CSS.supports ??= () => false
+}
 
 // React 19 + Testing Library 16: opt into the act environment so render(),
 // fireEvent(), and findBy* queries automatically flush state updates without
