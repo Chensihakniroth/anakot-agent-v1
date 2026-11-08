@@ -49,6 +49,7 @@ from anakot_state_fts import SessionFtsSetupMixin, load_fts5_cjk_extension
 from anakot_state_portability import SessionPortabilityMixin
 from anakot_state_telegram import SessionTelegramTopicsMixin
 from anakot_state_profile_repair import SessionProfileRepairMixin
+from anakot_state_prompt_refresh import SessionPromptRefreshMixin
 from anakot_state_schema import SessionSchemaMixin
 import anakot_state_holders as _state_holders
 import anakot_state_lockguard as _lockguard
@@ -444,6 +445,7 @@ class SessionDB(
     SessionPortabilityMixin, SessionTelegramTopicsMixin, SessionCompressionMixin,
     SessionGatewayMixin, SessionMaintenanceMixin, SessionUsageMixin, SessionTitlesMixin,
     SessionMessagesMixin, SessionRewindMixin, SessionProfileRepairMixin,
+    SessionPromptRefreshMixin,
 ):
     """SQLite-backed session storage with FTS5 search; many reader threads, one writer (WAL)."""
 

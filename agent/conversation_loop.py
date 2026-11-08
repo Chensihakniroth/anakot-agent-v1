@@ -656,6 +656,37 @@ def _persist_system_prompt(agent, failure_message: str, *, persist_tools: bool =
         logger.warning(failure_message, agent.session_id, exc)
 
 
+def _refresh_bot_chat_tools(agent) -> None:
+    """Rebuild ``agent.tools`` for a Bot Chat capability refresh through the builder that
+    created the session, so the refreshed set is what a fresh desktop/TUI session gets.
+    A canonical Bot Chat never forks, so its ``tools[]`` is otherwise a fossil of session
+    creation: ``anakot tools enable/disable`` writes ``platform_toolsets`` and the automatic
+    between-turns refresh reuses the build-time selection. Only the desktop/TUI gateway keeps
+    agents alive across turns; every other surface builds a fresh agent whose ``tools[]``
+    already reflects config. No prefix preservation: a disabled toolset must drop, and the
+    prompt rebuild this rides on already breaks the cache."""
+    from gateway.session_policy import active_policy
+    policy = active_policy()
+    platform = getattr(agent, "platform", None)
+    if policy is None and platform not in ("desktop", "tui"):
+        return
+    try:
+        from tools.mcp_tool_agent import refresh_agent_mcp_tools
+        if policy is not None:
+            # Gateway-owned session (managed worker / owner turn): toolsets are frozen in its
+            # launch policy, so live config edits never widen or narrow a running session.
+            refresh_agent_mcp_tools(agent, enabled_override=list(policy.toolsets),
+                                    quiet_mode=True, content_aware=True)
+            return
+        from tui_gateway.server import _load_disabled_toolsets, _load_enabled_toolsets
+        refresh_agent_mcp_tools(
+            agent, enabled_override=_load_enabled_toolsets(platform),
+            disabled_override=_load_disabled_toolsets(), quiet_mode=True, content_aware=True)
+    except Exception as exc:
+        logger.warning("Bot Chat capability refresh kept the previous tools for session %s: %s",
+                       agent.session_id, exc)
+
+
 def _restore_or_build_system_prompt(agent, system_message, conversation_history):
     """Restore the cached system prompt from the session DB or build it fresh.
 
@@ -694,6 +725,7 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
                 clear_skills_system_prompt_cache(clear_snapshot=True)
             except Exception:
                 pass
+            _refresh_bot_chat_tools(agent)
             agent._cached_system_prompt = agent._build_system_prompt(system_message)
             stage_surface_switch_note(agent, agent._cached_system_prompt, conversation_history)
             # Persist so the NEXT turn restores the new bytes verbatim (cache break is
@@ -707,6 +739,15 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
         # Continuing session — reuse the exact system prompt from the
         # previous turn so the Anthropic cache prefix matches.
         agent._cached_system_prompt = stored_prompt
+        # An operator refresh (`anakot sessions refresh-prompts`) outranks the stored bytes:
+        # rebuild once from current sources, then keep everything below — the tool pin,
+        # plugin sections and static prefix — operating on the NEW prompt, so tools[] and the
+        # rest of the request do not move with it (one break, and only for the prompt).
+        from agent.prompt_refresh import rebuild_for_refresh, stored_prompt_refresh_epoch
+
+        if (refresh_epoch := stored_prompt_refresh_epoch(agent, session_row)):
+            rebuild_for_refresh(agent, system_message, conversation_history, refresh_epoch)
+            stored_prompt = agent._cached_system_prompt
         # The reused bytes may describe the surface this conversation STARTED on; correct that
         # at the tail of the request instead of rebuilding the prompt in front of it (#104414).
         announced_switch = stage_surface_switch_note(agent, stored_prompt, conversation_history)
@@ -758,7 +799,13 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
         )
 
     # First turn of a new session (or recovering from a broken stored prompt).
+    # Read the epoch BEFORE the build: a request that lands mid-build must fire next turn,
+    # and this build already satisfies anything recorded up to now.
+    from agent.prompt_refresh import requested_epoch, stamp_prompt_epoch
+
+    pending_refresh_epoch = requested_epoch(agent)
     agent._cached_system_prompt = agent._build_system_prompt(system_message)
+    stamp_prompt_epoch(agent, pending_refresh_epoch)
 
     # The rebuilt prompt describes the CURRENT surface, but a surface note left in the
     # transcript by an earlier switch does not — retire it here too, or a rebuild for an

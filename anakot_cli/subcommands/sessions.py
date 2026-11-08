@@ -261,6 +261,19 @@ def build_sessions_parser(subparsers, *, cmd_sessions: Callable) -> None:
     sessions_retitle.add_argument(
         "--limit", type=int, default=200, help="Maximum sessions to examine (default: 200)")
 
+    sessions_refresh = sessions_subparsers.add_parser(
+        "refresh-prompts",
+        help="Record a prompt-source refresh so continuing sessions rebuild their prompt once",
+        description="A continuing session replays its stored system prompt so the provider "
+            "prefix cache stays warm, so edits to SOUL.md, skills, or project context files "
+            "never reach it before /new. This records a refresh epoch for the profile (or one "
+            "session); each affected session rebuilds its system prompt once on its next turn "
+            "and then replays the new prefix.")
+    sessions_refresh.add_argument(
+        "--session", metavar="SESSION_ID",
+        help="Refresh only this session (id or unique prefix); default: every session")
+    add_json_flag(sessions_refresh, "Emit the recorded epoch as JSON")
+
     sessions_browse = sessions_subparsers.add_parser(
         "browse", help="Interactive session picker — browse, search, and resume sessions")
     sessions_browse.add_argument("--source", help="Filter by source (cli, telegram, discord, etc.)")

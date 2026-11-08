@@ -974,6 +974,23 @@ def _cmd_stats(db, args):
         print(f"Database size: {_size_mb(db.db_path):.1f} MB")
 
 
+def _cmd_refresh_prompts(db, args):
+    """Record a prompt-source refresh so continuing sessions rebuild once, then replay."""
+    wanted = getattr(args, "session", None)
+    session_id = db.resolve_session_id(wanted) if wanted else None
+    if wanted and not session_id:
+        print(f"No session matches {wanted!r}.")
+        return 1
+    epoch = db.request_prompt_refresh(session_id)
+    affected = 1 if session_id else db.count_sessions_with_stored_prompt()
+    if getattr(args, "json", False):
+        print(json.dumps({"epoch": epoch, "session": session_id, "sessions": affected}))
+    else:
+        noun = "session" if affected == 1 else "sessions"
+        print(f"Prompt refresh recorded (epoch {epoch}); {affected} {noun} rebuild once on the next turn.")
+    return 0
+
+
 # -- dispatch -----------------------------------------------------------------
 
 def _cmd_repair_profiles(args):
@@ -993,6 +1010,7 @@ _DB_HANDLERS = {
     "retitle-skills": _cmd_retitle_skills, "browse": _cmd_browse, "optimize": _cmd_optimize,
     "clean-markers": _cmd_clean_markers, "optimize-storage": _cmd_optimize_storage,
     "repair-routing": _cmd_repair_routing, "stats": _cmd_stats,
+    "refresh-prompts": _cmd_refresh_prompts,
 }
 
 
