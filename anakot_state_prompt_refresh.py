@@ -39,12 +39,35 @@ class SessionPromptRefreshMixin:
         return self._execute_write(_do)
 
     def prompt_refresh_epoch(self, session_id: str) -> int:
-        """The newest refresh epoch that applies to ``session_id`` (0 = never requested)."""
+        """The newest refresh epoch that applies to ``session_id`` (0 = never requested).
+
+        A request recorded against a conversation's original id still applies after it rotates
+        into compression children, so the read covers the session and every ancestor it
+        continues — a flag aimed at the root reaches the tip now replaying the prompt.
+        """
+        keys = [PROFILE_KEY] + [SESSION_KEY_PREFIX + sid for sid in self._refresh_scope_ids(session_id)]
         row = self._read_one(
-            "SELECT MAX(CAST(value AS INTEGER)) FROM state_meta WHERE key IN (?, ?)",
-            (PROFILE_KEY, SESSION_KEY_PREFIX + session_id),
+            f"SELECT MAX(CAST(value AS INTEGER)) FROM state_meta WHERE key IN ({','.join('?' * len(keys))})",
+            tuple(keys),
         )
         return int(row[0] or 0) if row else 0
+
+    def _refresh_scope_ids(self, session_id: str) -> list:
+        """The session id plus the compression ancestors it continues, newest first."""
+        ids = [str(session_id)]
+        seen = set(ids)
+        current = ids[0]
+        for _ in range(32):  # bounded: a lineage deeper than this is corrupt, not a conversation
+            try:
+                parent = (self.get_session(current) or {}).get("parent_session_id")
+            except Exception:
+                break
+            if not parent or str(parent) in seen:
+                break
+            current = str(parent)
+            seen.add(current)
+            ids.append(current)
+        return ids
 
     def count_sessions_with_stored_prompt(self) -> int:
         """Sessions whose next turn would replay a stored prompt (the ones a refresh rebuilds)."""

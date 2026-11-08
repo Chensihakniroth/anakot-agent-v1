@@ -66,6 +66,12 @@ def stamp_prompt_epoch(agent: Any, epoch: int) -> None:
 
 def _persist_epoch(agent: Any, epoch: int) -> bool:
     db = getattr(agent, "_session_db", None)
+    # Mirror onto the session-init config so a compression rotation hands it to the child:
+    # `publish_compression_child` seeds the new row from this dict, and the child's prompt
+    # was built from the same sources — it already satisfies the epoch.
+    init_config = getattr(agent, "_session_init_model_config", None)
+    if isinstance(init_config, dict):
+        init_config[SESSION_EPOCH_KEY] = epoch
     if not db:
         return True
     try:
