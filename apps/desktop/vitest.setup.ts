@@ -48,11 +48,23 @@ globalThis.IntersectionObserver = class {
   takeRecords(): IntersectionObserverEntry[] { return [] }
 } as typeof IntersectionObserver
 
-// jsdom has no idle scheduler either; components that defer warm-up work to
+// jsdom implements no idle scheduler either; components that defer warm-up work to
 // requestIdleCallback only need it to fire, not to fire late.
 ;(globalThis as any).requestIdleCallback ??= (callback: (deadline: { didTimeout: boolean; timeRemaining: () => number }) => void) =>
   setTimeout(() => callback({ didTimeout: false, timeRemaining: () => 0 }), 0)
 ;(globalThis as any).cancelIdleCallback ??= (handle: ReturnType<typeof setTimeout>) => clearTimeout(handle)
+
+// jsdom has no scrolling at all. Panels that recentre a list on mount (command
+// palettes, catalog browsers, log panes) only need the call to exist; the
+// geometry assertions that care live in a real browser.
+;(Element.prototype as unknown as { scrollTo?: () => void }).scrollTo ??= () => undefined
+
+// jsdom has no CSS.supports at all, and component code reads it to choose a
+// layout branch (`CSS.supports('display','grid-lanes')`). Answer "not
+// supported" so the fallback branch renders — the same one a browser without
+// the feature takes.
+;(globalThis as any).CSS ??= {}
+;(globalThis as any).CSS.supports ??= () => false
 
 // React 19 + Testing Library 16: opt into the act environment so render(),
 // fireEvent(), and findBy* queries automatically flush state updates without
