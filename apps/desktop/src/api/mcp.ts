@@ -2,6 +2,10 @@ import type { McpCatalogResponse, McpServerSummary } from '@/types/anakot'
 
 import { capabilityScoped, anakotApi, type ProfileScope, profileScoped } from './client'
 
+/** A catalog read that probes the backend host for installed apps is slower
+ *  than the plain read, so it gets its own bounded budget. */
+const CATALOG_DETECT_TIMEOUT_MS = 5000
+
 export interface McpTestResult {
   ok: boolean
   error?: string
@@ -83,10 +87,14 @@ export function setMcpServerEnabled(name: string, enabled: boolean): Promise<{ o
   })
 }
 
-export function getMcpCatalog(profile?: ProfileScope): Promise<McpCatalogResponse> {
+export function getMcpCatalog(profile?: ProfileScope, detectApps = false): Promise<McpCatalogResponse> {
+  // `detect_apps` asks the backend host to probe which apps it can see; it is
+  // slower than a plain read, so it carries its own bounded budget instead of
+  // inheriting the transport default.
   return window.anakotDesktop.api<McpCatalogResponse>({
     ...capabilityScoped(profile),
-    path: '/api/mcp/catalog'
+    path: `/api/mcp/catalog${detectApps ? '?detect_apps=true' : ''}`,
+    ...(detectApps ? { timeoutMs: CATALOG_DETECT_TIMEOUT_MS } : {})
   })
 }
 
