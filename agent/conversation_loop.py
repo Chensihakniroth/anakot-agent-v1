@@ -726,7 +726,11 @@ def _restore_or_build_system_prompt(agent, system_message, conversation_history)
             except Exception:
                 pass
             _refresh_bot_chat_tools(agent)
+            from agent.prompt_refresh import requested_epoch, stamp_prompt_epoch
+
+            pending_refresh = requested_epoch(agent)
             agent._cached_system_prompt = agent._build_system_prompt(system_message)
+            stamp_prompt_epoch(agent, pending_refresh)
             stage_surface_switch_note(agent, agent._cached_system_prompt, conversation_history)
             # Persist so the NEXT turn restores the new bytes verbatim (cache break is
             # once per capability change). on_session_start not re-fired: continuation.
@@ -1513,6 +1517,14 @@ def _run_conversation_turn(
     agent._last_compaction_in_place = agent._last_compression_attempt_recorded = False
     agent._last_compression_attempt_in_place = None
     begin_fast_mode_turn(agent, conversation_history)
+
+    # A warm agent (gateway agent cache, TUI/Desktop) keeps its built prompt across turns, so
+    # an operator refresh recorded since it was built never reaches the turn loop's restore
+    # path. Adopt it here — one-time prefix-cache break. Fresh agents carry no cached prompt
+    # and no epoch yet, so this is a no-op for them.
+    from agent.prompt_refresh import refresh_warm_prompt
+
+    refresh_warm_prompt(agent, system_message, conversation_history)
 
     # Adopt ~/.anakot/.env credential/base-url edits made since the last turn — a
     # Settings save updates .env, not this worker's client (#67821). No-op if unchanged.

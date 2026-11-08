@@ -1119,6 +1119,26 @@ def clear_skills_system_prompt_cache(*, clear_snapshot: bool = False) -> None:
         logger.debug("Could not remove skills prompt snapshot: %s", e)
 
 
+def file_cache_version(path: str, st: os.stat_result, *, always_digest: bool = False) -> tuple:
+    """Cache key for one prompt source file: its stat signature, plus a content digest on demand.
+
+    Coarse filesystems can leave an in-place, same-size edit with an unchanged stat signature
+    (``utils.RACY_MTIME_WINDOW_NS``), so a caller that must see such an edit anyway passes
+    ``always_digest=True`` and gets the bytes mixed in. Kept separate from ``file_signature``
+    so a rebuild can ask for the stronger key without paying for a digest on every turn.
+    """
+    signature = tuple(file_signature(st))
+    if not always_digest:
+        return signature
+    try:
+        import hashlib
+
+        with open(path, "rb") as handle:
+            return (*signature, int.from_bytes(hashlib.blake2b(handle.read(), digest_size=8).digest(), "big"))
+    except OSError:
+        return signature
+
+
 def _build_skills_manifest(skills_dir: Path) -> dict[str, list[int]]:
     """File-signature manifest of every SKILL.md and DESCRIPTION.md; only the ACTIVE org mirror participates, and
     the ``.active_org`` marker is included so switching/leaving an org invalidates the snapshot by itself."""
@@ -1144,7 +1164,7 @@ def _build_skills_manifest(skills_dir: Path) -> dict[str, list[int]]:
             try:
                 if filename in files:
                     st = os.stat(path)
-                    manifest[path[prefix_len:]] = list(file_signature(st))
+                    manifest[path[prefix_len:]] = list(file_cache_version(path, st))
             except OSError:
                 pass
     return manifest
