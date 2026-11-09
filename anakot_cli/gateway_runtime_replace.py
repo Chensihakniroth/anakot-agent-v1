@@ -107,6 +107,18 @@ def _wait_gone(pid: int, seconds: float) -> bool:
     return True
 
 
+def _stop_windows_owner(control: Path) -> None:
+    """Use the profile's normal stop path so Task Scheduler cannot revive the old owner."""
+    from anakot_constants import reset_anakot_home_override, set_anakot_home_override
+    from anakot_cli.gateway_windows import stop
+
+    token = set_anakot_home_override(control)
+    try:
+        stop()
+    finally:
+        reset_anakot_home_override(token)
+
+
 def replace_incompatible_owner(home: Path, *, deadline: float) -> str | None:
     """Stop the older-Anakot gateway answering for *home*; None once it is gone, else a refusal code
     (see :data:`REFUSAL_DETAIL`). Never starts anything: the caller's ensure loop does that."""
@@ -128,9 +140,12 @@ def replace_incompatible_owner(home: Path, *, deadline: float) -> str | None:
     _write_planned_stop(control, pid, start_time)
     graceful = min(_GRACEFUL_STOP_SECONDS, max(deadline - time.monotonic() - _FORCED_STOP_SECONDS, 1.0))
     try:
-        if os.name != "nt":
-            # Windows has no SIGTERM for an asyncio loop: the marker watcher IS its graceful stop.
-            terminate_pid(pid, expected_start_time=start_time)
+        if os.name == "nt":
+            # Windows gateway owners may be relaunched by their Scheduled Task unless its instance
+            # is ended before the process is killed.
+            _stop_windows_owner(control)
+            return None if _wait_gone(pid, max(deadline - time.monotonic(), 0.0)) else "owner_did_not_exit"
+        terminate_pid(pid, expected_start_time=start_time)
         if _wait_gone(pid, graceful):
             return None
         terminate_pid(pid, force=True, expected_start_time=start_time)
