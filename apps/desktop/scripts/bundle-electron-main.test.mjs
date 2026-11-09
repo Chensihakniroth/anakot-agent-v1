@@ -6,7 +6,7 @@ import { pathToFileURL } from 'node:url'
 
 import { afterAll, beforeAll, expect, test } from 'vitest'
 
-import { bundleElectronMain } from './bundle-electron-main.mjs'
+import { bundleElectronMain, createElectronBundleDefines } from './bundle-electron-main.mjs'
 
 const repo = resolve(import.meta.dirname, '../../..')
 let root
@@ -26,7 +26,6 @@ beforeAll(async () => {
     `
     import { readFileSync } from 'node:fs'
     import { registerHooks } from 'node:module'
-    Object.defineProperty(process, 'platform', { value: 'linux' })
     if (process.argv.some(arg => arg.startsWith('--ozone-platform='))) {
       console.log(JSON.stringify({ relaunched: process.argv.slice(2) }))
       process.exit(0)
@@ -81,55 +80,79 @@ function launch(env, config, extraEnv = {}) {
   return JSON.parse(out.trim().split('\n').at(-1))
 }
 
-test('the bundled entry relaunches native Wayland sessions with the wayland ozone platform', () => {
-  expect(launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' })).toEqual({
-    relaunched: ['.', '--ozone-platform=wayland']
+test('production Electron bundles bake the install stamp into the main process', () => {
+  const stamp = { commit: 'a'.repeat(40), branch: 'main' }
+  const define = createElectronBundleDefines({
+    dev: false,
+    productIdentity: { appId: 'com.nousresearch.anakot' },
+    installStamp: stamp
   })
+
+  expect(JSON.parse(define.__HERMES_INSTALL_STAMP__)).toEqual(stamp)
+  expect(JSON.parse(define['process.env.ANAKOT_DESKTOP_IS_PACKAGED'])).toBe(true)
 })
 
-test('the bundled entry keeps the WSLg Wayland relaunch', () => {
+test.skipIf(process.platform !== 'linux')(
+  'the bundled entry relaunches native Wayland sessions with the wayland ozone platform',
+  () => {
+    expect(launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' })).toEqual({
+      relaunched: ['.', '--ozone-platform=wayland']
+    })
+  }
+)
+
+test.skipIf(process.platform !== 'linux')('the bundled entry keeps the WSLg Wayland relaunch', () => {
   expect(launch({ WSL_DISTRO_NAME: 'Ubuntu', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' })).toEqual({
     relaunched: ['.', '--ozone-platform=wayland']
   })
 })
 
-test('the bundled entry lets desktop.electron_flags choose the ozone platform', () => {
-  const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
+test.skipIf(process.platform !== 'linux')(
+  'the bundled entry lets desktop.electron_flags choose the ozone platform',
+  () => {
+    const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
 
-  expect(launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, config)).toEqual({
-    relaunched: ['.', '--ozone-platform=x11']
-  })
-})
+    expect(launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, config)).toEqual({
+      relaunched: ['.', '--ozone-platform=x11']
+    })
+  }
+)
 
 // The bundled entry must read config.yaml from the same home main.ts does
 // (resolveDesktopAnakotHome), or desktop.electron_flags set for the real
 // profile silently never reaches the relaunch. The two cases below are the
 // ones the inline resolution in configuredElectronFlags() got wrong: the
 // data-dir suffix channel installs rely on, and multiplexed profiles/ homes.
-test('the bundled entry reads desktop.electron_flags through a suffixed home', () => {
-  const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
-  const home = mkdtempSync(join(root, 'suffixed-home-'))
-  mkdirSync(join(home, '.anakot-canary'), { recursive: true })
-  writeFileSync(join(home, '.anakot-canary', 'config.yaml'), config)
+test.skipIf(process.platform !== 'linux')(
+  'the bundled entry reads desktop.electron_flags through a suffixed home',
+  () => {
+    const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
+    const home = mkdtempSync(join(root, 'suffixed-home-'))
+    mkdirSync(join(home, '.anakot-canary'), { recursive: true })
+    writeFileSync(join(home, '.anakot-canary', 'config.yaml'), config)
 
-  expect(
-    launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, undefined, {
-      ANAKOT_DATA_DIR_SUFFIX: '-canary',
-      ANAKOT_HOME: '',
-      HOME: home
-    })
-  ).toEqual({ relaunched: ['.', '--ozone-platform=x11'] })
-})
+    expect(
+      launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, undefined, {
+        ANAKOT_DATA_DIR_SUFFIX: '-canary',
+        ANAKOT_HOME: '',
+        HOME: home
+      })
+    ).toEqual({ relaunched: ['.', '--ozone-platform=x11'] })
+  }
+)
 
-test('the bundled entry reads desktop.electron_flags from the parent of a profiles/-rooted ANAKOT_HOME', () => {
-  const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
-  const home = mkdtempSync(join(root, 'profiles-home-'))
-  mkdirSync(home, { recursive: true })
-  writeFileSync(join(home, 'config.yaml'), config)
+test.skipIf(process.platform !== 'linux')(
+  'the bundled entry reads desktop.electron_flags from the parent of a profiles/-rooted ANAKOT_HOME',
+  () => {
+    const config = 'desktop:\n  electron_flags:\n    - --ozone-platform=x11\n'
+    const home = mkdtempSync(join(root, 'profiles-home-'))
+    mkdirSync(home, { recursive: true })
+    writeFileSync(join(home, 'config.yaml'), config)
 
-  expect(
-    launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, undefined, {
-      ANAKOT_HOME: join(home, 'profiles', 'alpha')
-    })
-  ).toEqual({ relaunched: ['.', '--ozone-platform=x11'] })
-})
+    expect(
+      launch({ XDG_SESSION_TYPE: 'wayland', WAYLAND_DISPLAY: 'wayland-0', DISPLAY: ':0' }, undefined, {
+        ANAKOT_HOME: join(home, 'profiles', 'alpha')
+      })
+    ).toEqual({ relaunched: ['.', '--ozone-platform=x11'] })
+  }
+)
