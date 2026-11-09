@@ -13,8 +13,16 @@ from agent.context_compressor import (
     _DB_PERSISTED_MARKER as _DB_PERSISTED_MARKER_KEY, _is_checkpoint_item, _newest_checkpoint_carrier,
     split_user_originated_turn)
 from agent.memory_manager import sanitize_context
+from agent.message_metadata import (
+    ABSORBED_MESSAGE_UIDS, MESSAGE_UID, TOOL_CALL_UID, TOOL_CALL_UIDS, index_tool_call_uids,
+    mint_uid, message_uid_or_none, resolve_tool_call_uid, stamp_message_uid,
+)
 from agent.message_sanitization import _sanitize_surrogates
 from anakot_cli.timefmt import coerce_epoch
+from anakot_state_identity import (
+    _absorbed_uids_json, _restore_identity_columns, _tool_call_uid_map, _tool_call_uid_or_none,
+    _tool_call_uids_json,
+)
 from anakot_state_common import (
     _COMPRESSION_LOCK_ROW_SQL, _ENDED_ROW_SQL, _RESET_END_REASONS, _RESET_END_REASONS_SQL, _ended_by_compression,
     _legacy_reset_child_sql, _placeholders, _sql_json_extract)
@@ -26,8 +34,8 @@ _INSERT_MESSAGE_SQL = """INSERT INTO messages (session_id, role, content, tool_c
                    tool_calls, tool_name, effect_disposition, timestamp, token_count, finish_reason,
                    reasoning, reasoning_content, reasoning_details, codex_reasoning_items,
                    codex_message_items, platform_message_id, observed, _compressed_summary, active, api_content, display_kind,
-                   display_metadata, display_identity)
-                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
+                   display_metadata, display_identity, message_uid, absorbed_message_uids, tool_call_uids, tool_call_uid)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"""
 _BUMP_GENERATION_SQL = """
             INSERT INTO conversation_generations (source, session_key, generation)
             VALUES (?, ?, 1)
@@ -251,6 +259,9 @@ class SessionMessagesMixin:
         encoded_tool_calls = json.dumps(tool_calls) if tool_calls else None
         encoded_tool_name = _scrub_surrogates(msg.get("tool_name"))
         display_metadata = self._encode_display_metadata(msg.get("display_metadata"))
+        stamp_message_uid(msg)
+        if role == "assistant" and tool_calls:
+            self._stamp_tool_call_uids(msg, tool_calls, {})
         identity_row = {
             "role": role, "content": encoded_content, "timestamp": message_timestamp,
             "tool_call_id": msg.get("tool_call_id"), "tool_calls": encoded_tool_calls,
@@ -266,7 +277,30 @@ class SessionMessagesMixin:
             msg.get("platform_message_id") or msg.get("message_id"),
             1 if msg.get("observed") else 0, 1 if msg.get("_compressed_summary") else 0, 1,
             _str_or_none(msg.get("api_content")), _str_or_none(msg.get("display_kind")),
-            display_metadata, self._display_identity(self._display_dedupe_key(identity_row)))
+            display_metadata, self._display_identity(self._display_dedupe_key(identity_row)),
+            message_uid_or_none(msg), _absorbed_uids_json(msg),
+            _tool_call_uids_json(msg), _tool_call_uid_or_none(msg))
+
+    @staticmethod
+    def _stamp_tool_call_uids(msg: Dict[str, Any], tool_calls: Any, batch_index: Dict[str, str]) -> None:
+        """Assign durable call identities and associate tool results with the nearest preceding call."""
+        role = msg.get("role")
+        if role == "assistant" and tool_calls:
+            uids = _tool_call_uid_map(msg)
+            from agent.message_sanitization import coalesce_tool_call_id
+            for call in tool_calls:
+                call_id = coalesce_tool_call_id(call)
+                if call_id and call_id not in uids:
+                    uids[call_id] = mint_uid()
+            if uids:
+                msg[TOOL_CALL_UIDS] = uids
+            index_tool_call_uids(batch_index, msg)
+        elif role == "user":
+            batch_index.clear()
+        elif role == "tool" and _tool_call_uid_or_none(msg) is None:
+            uid = resolve_tool_call_uid(batch_index, msg.get("tool_call_id"))
+            if uid:
+                msg[TOOL_CALL_UID] = uid
 
     @staticmethod
     def _bump_session_counters(conn, session_id: str, inserted: int, tool_calls: int, *, unit: bool) -> None:
@@ -500,10 +534,13 @@ class SessionMessagesMixin:
         Never touches sessions.* counters (callers reconcile differently); reasoning kept for assistant rows."""
         now_ts = time.time()
         inserted = tool_calls_total = 0
+        batch_tool_index: Dict[str, str] = {}
         for msg in messages:
             role = msg.get("role", "unknown")
             tool_calls = _parse_tool_calls(msg.get("tool_calls"))
             message_timestamp = _coerce_timestamp(msg.get("timestamp"), now_ts)
+            stamp_message_uid(msg)
+            self._stamp_tool_call_uids(msg, tool_calls, batch_tool_index)
             cur = conn.execute(_INSERT_MESSAGE_SQL, self._message_row_params(
                 session_id, role, msg, tool_calls, message_timestamp, keep_reasoning=role == "assistant"))
             if cur.lastrowid is not None:
@@ -1078,6 +1115,7 @@ class SessionMessagesMixin:
             if row["tool_calls"]:
                 msg["tool_calls"] = _json_or(
                     row["tool_calls"], [], "Failed to deserialize tool_calls in conversation replay, falling back to []")
+            _restore_identity_columns(row, msg)
             if row["platform_message_id"]:  # platform-side id exposed as ``message_id`` (JSONL transcript compat)
                 msg["message_id"] = row["platform_message_id"]
             if row["observed"]:

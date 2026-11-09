@@ -74,8 +74,8 @@ class GatewayProfileReconcileMixin:
 
     async def _profile_reconcile_watcher(self, interval: float = _PROFILE_RESCAN_INTERVAL_SECS) -> None:
         """Supervised safety net: rescan ``profiles/`` every ``interval`` seconds (creators signal the
-        control socket for an immediate rescan). Returns at once, never respawned, when multiplexing is off."""
-        if not self._multiplex_on():
+        control socket for an immediate rescan). It also detects when a safe standalone host can migrate."""
+        if not self._running:
             return
         while self._running:
             await asyncio.sleep(interval)
@@ -96,25 +96,35 @@ class GatewayProfileReconcileMixin:
         profiles' adapters are never touched. Returns ``{"added", "removed", "rescanned", "served_profiles"}``."""
         from gateway.run import MultiplexConfigError, _multiplex_profile_homes
         result: Dict[str, Any] = {"added": [], "removed": [], "rescanned": [], "reason": reason}
-        if not self._multiplex_on():
-            return {**result, "multiplex": False, "served_profiles": self.served_profile_names()}
-        if not self._running or self._served_profile_homes is None:
+        if not self._running:
             # Startup enumerates profiles/ itself; a rescan before it finishes has nothing to diff against.
-            return {**result, "pending": True, "served_profiles": self.served_profile_names()}
+            return {**result, "multiplex": self._multiplex_on(), "pending": True,
+                    "served_profiles": self.served_profile_names()}
+        if self._served_profile_homes is None:
+            from anakot_cli.profiles import get_active_profile_name, profiles_to_serve
+            active = getattr(self, "_primary_profile_name", None) or get_active_profile_name() or "default"
+            self._record_served_profiles(active, profiles_to_serve(multiplex=False))
         async with self._reconcile_lock():
+            if not self._multiplex_on() and not self._enable_multiplex_for_new_profile():
+                return {**result, "multiplex": False, "served_profiles": self.served_profile_names()}
             active = getattr(self, "_primary_profile_name", None) or "default"
             current = {str(name): Path(home) for name, home in _multiplex_profile_homes(self.config)}
             known = dict(self._served_profile_homes or {})
             sigs = self._served_profile_signatures or {}
+            retained: set[str] = set()
             added = [n for n in current if n not in known and n != active]
             removed = [n for n in known if n not in current and n != active]
             changed = [n for n in current if n in known and n != active and n not in added
                        and profile_serve_signature(current[n]) != sigs.get(n)]
             if not (added or removed or changed):
-                return {**result, "served_profiles": self.served_profile_names()}
+                return {**result, "multiplex": True, "served_profiles": self.served_profile_names()}
             for name in removed:
-                await self._unserve_profile(name, known[name])
-                result["removed"].append(name)
+                if await self._unserve_profile(name, known[name]):
+                    result["removed"].append(name)
+                else:
+                    current[name] = known[name]
+                    retained.add(name)
+                    result.setdefault("retained", []).append(name)
             claimed = self._live_resource_claims(active)
             for name in added + changed:
                 # Only acknowledge the configuration observed before connecting;
@@ -140,15 +150,48 @@ class GatewayProfileReconcileMixin:
             # A profile deleted while an adapter above was still connecting must not be recorded back
             # (the deleter's signal timed out against this lock and rmtree already ran).
             live_now = {str(name) for name, _home in _multiplex_profile_homes(self.config)}
-            for name in [n for n in current if n not in live_now and n != active]:
-                await self._unserve_profile(name, current.pop(name))
-                result["removed"].append(name)
-                added = [n for n in added if n != name]
+            for name in [n for n in current if n not in live_now and n != active and n not in retained]:
+                if await self._unserve_profile(name, current[name]):
+                    current.pop(name)
+                    result["removed"].append(name)
+                    added = [n for n in added if n != name]
+                else:
+                    result.setdefault("retained", []).append(name)
             self._record_served_profiles(active, list(current.items()))
             if added:
                 await self._after_profiles_added([(n, current[n]) for n in added])
             result["served_profiles"] = self.served_profile_names()
+            result["multiplex"] = True
             return result
+
+    def _enable_multiplex_for_new_profile(self) -> bool:
+        """Switch a safe default-profile host in place when a second profile appears."""
+        from anakot_cli.gateway_migrate_guards import auto_migration_opted_out
+        from anakot_cli.gateway_multiplex_mode import explicit_multiplex_flag, implicit_multiplex_blocker
+        from anakot_cli.profiles import profiles_to_serve
+
+        profiles = profiles_to_serve(multiplex=True)
+        if len(profiles) < 2:
+            return False
+        active = getattr(self, "_primary_profile_name", None) or "default"
+        if active != "default":
+            return False
+        default_home = profiles[0][1]
+        if explicit_multiplex_flag(default_home) is False:
+            return False
+        if auto_migration_opted_out(default_home):
+            logger.info("Keeping standalone gateway: gateway.auto_multiplex_migration is disabled")
+            return False
+        blocker = implicit_multiplex_blocker()
+        if blocker:
+            logger.info("Keeping standalone gateway; profile migration is blocked: %s", blocker)
+            return False
+        self.config.multiplex_profiles = True
+        from agent.secret_scope import set_multiplex_active
+        set_multiplex_active(True)
+        from gateway.status import write_runtime_status
+        write_runtime_status(multiplex_standalone_reason=None)
+        return True
 
     def _live_resource_claims(self, active: str) -> Dict[tuple, str]:
         """Startup's ``claimed`` map rebuilt from what is live now: primary claims plus every connected
@@ -167,11 +210,22 @@ class GatewayProfileReconcileMixin:
         """Per-profile startup side effects for hot-added profiles: log routing + scoped MCP discovery."""
         from gateway.run import _enable_multiplex_log_routing, _profile_runtime_scope
         from contextvars import copy_context
+        from gateway.run_runtime import serve_profile_runtime
         with _log_suppressed(logging.DEBUG, "log routing refresh failed", exc_info=True):
             _enable_multiplex_log_routing(self.config)
         from tools.mcp_oauth import suppress_interactive_oauth
         loop = asyncio.get_running_loop()
         for profile_name, profile_home in profile_homes:
+            if getattr(self, "session_authorities", None) is not None:
+                try:
+                    await serve_profile_runtime(self, profile_name, profile_home)
+                except Exception:
+                    if not await self._unserve_profile(profile_name, profile_home):
+                        logger.error("Profile '%s' runtime could not be retired after hot-serve failed", profile_name)
+                        raise
+                    active = getattr(self, "_primary_profile_name", None) or "default"
+                    self._record_served_profiles(active, list((self._served_profile_homes or {}).items()))
+                    raise
             try:
                 from tools.mcp_tool_discovery import discover_mcp_tools
                 with _profile_runtime_scope(Path(profile_home)), suppress_interactive_oauth():
@@ -179,9 +233,12 @@ class GatewayProfileReconcileMixin:
             except Exception:
                 logger.warning("MCP tool discovery failed for profile '%s'", profile_name, exc_info=True)
 
-    async def _unserve_profile(self, name: str, home: "Path") -> None:
+    async def _unserve_profile(self, name: str, home: "Path") -> bool:
         """Stop and unroute one deleted profile: cancel its reconnects, tear down its adapters, drop its
         bookkeeping and release this process's handles into its home so the deleter's rmtree succeeds."""
+        from gateway.run_runtime import unserve_profile_runtime
+        if not await unserve_profile_runtime(self, home):
+            return False
         from gateway.run import _write_runtime_status_quiet
         pending = (getattr(self, "_profile_failed_platforms", None) or {}).pop(name, None) or {}
         tasks = [t for t in pending.values() if isinstance(t, asyncio.Task) and not t.done()]
@@ -215,6 +272,66 @@ class GatewayProfileReconcileMixin:
             from plugins.memory.holographic.store import MemoryStore
             MemoryStore.release_all_under(home)
         logger.info("[MULTIPLEX] Profile '%s' deleted — %d adapter(s) stopped and unrouted", name, len(adapters))
+        return True
+
+
+def _profile_lifecycle_verb(runner, *, serve: bool):
+    """Build on the owning loop; control-socket handlers themselves run on executor threads."""
+    loop = asyncio.get_running_loop()
+
+    async def apply(name):
+        from anakot_cli.profiles import profile_is_parked, profiles_to_serve
+
+        if not runner._multiplex_on() or not runner._running or runner._served_profile_homes is None:
+            return {"error": "host multiplexer is not ready"}
+        active = getattr(runner, "_primary_profile_name", None) or "default"
+        if not isinstance(name, str) or not name or name == active:
+            return {"error": "a non-launch profile name is required"}
+
+        if serve:
+            installed = dict(profiles_to_serve(multiplex=True))
+            if name not in installed:
+                return {"error": f"unknown profile '{name}'"}
+            if profile_is_parked(installed[name]):
+                return {"error": f"profile '{name}' is parked (gateway.parked)"}
+            if name in runner._served_profile_homes:
+                return {"error": f"profile '{name}' is already served"}
+            result = await runner.reconcile_served_profiles(reason="control-socket")
+            if name not in result["added"]:
+                return {"error": f"profile '{name}' is already served"}
+            if name not in result["served_profiles"]:
+                return {"error": f"profile '{name}' was removed or parked during startup"}
+            return {"served": name, "served_profiles": result["served_profiles"]}
+
+        async with runner._reconcile_lock():
+            known = dict(runner._served_profile_homes or {})
+            if name not in known:
+                return {"error": f"profile '{name}' is not served"}
+            if not await runner._unserve_profile(name, known[name]):
+                return {"error": f"profile '{name}' workers did not stop; ownership retained"}
+            known.pop(name)
+            runner._record_served_profiles(active, list(known.items()))
+            return {"unserved": name, "served_profiles": runner.served_profile_names()}
+
+    def handler(params):
+        future = asyncio.run_coroutine_threadsafe(apply(params.get("name")), loop)
+        try:
+            return future.result(timeout=5.0)
+        except TimeoutError:
+            return {"pending": True, "served_profiles": runner.served_profile_names()}
+        except Exception as exc:
+            logger.warning("Profile lifecycle request failed", exc_info=True)
+            return {"error": f"{type(exc).__name__}: {exc}"}
+
+    return handler
+
+
+def unserve_profile_verb(runner):
+    return _profile_lifecycle_verb(runner, serve=False)
+
+
+def serve_profile_verb(runner):
+    return _profile_lifecycle_verb(runner, serve=True)
 
 
 def _mcp_config_reconciler(runner=None):

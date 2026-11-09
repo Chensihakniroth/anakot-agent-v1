@@ -2315,6 +2315,8 @@ def _merge_anchor_into_user_message(target: dict, anchor: dict) -> None:
     else:
         merged = f"{anchor_content or ''}\n\n{target_content or ''}".strip()
         _replace_message_content(target, merged)
+    from agent.message_metadata import record_absorbed_message
+    record_absorbed_message(target, anchor, dropped_leads=True)
     for flag in _SYNTHETIC_USER_FLAGS:
         target.pop(flag, None)
 

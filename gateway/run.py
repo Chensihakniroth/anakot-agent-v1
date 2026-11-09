@@ -40,6 +40,16 @@ from agent.interrupt_compat import request_hard_interrupt
 from agent.turn_context import compression_made_progress
 from agent.session_activity import ActivityProvenance
 from anakot_cli.config import _is_ssh_remote_tilde_cwd, cfg_get
+from gateway.run_host_lifecycle import (
+    _claim_host_gateway_role,
+    _host_attach_or_none,
+    _log_standalone_profiles_at_boot,
+    _migrate_command,
+    _owner_is_standalone,
+    _refresh_host_gateway_record,
+    _refuse_second_host_gateway,
+    _start_gateway_make_restart_signal_handler,
+)
 
 # Per-session AIAgent cache bounds (agents are heavy); see _enforce_agent_cache_cap/_session_housekeeping_watcher.
 _AGENT_CACHE_MAX_SIZE = 128
@@ -1629,8 +1639,9 @@ class HygieneTurnHoldExceeded(Exception):
 
 def _multiplex_profile_homes(config: object) -> list[tuple[str, "Path"]]:
     """Return the authoritative profile set for one multiplex gateway config."""
-    from anakot_cli.profiles import profiles_to_serve
-    return list(profiles_to_serve(multiplex=True))
+    from anakot_cli.profiles import profile_is_parked, profiles_to_serve
+    return [(name, home) for name, home in profiles_to_serve(multiplex=True)
+            if name == "default" or not profile_is_parked(home)]
 
 
 def _cron_tick_profile_homes(config: object) -> list[tuple[str, "Path"]]:
@@ -1720,13 +1731,13 @@ def _load_profile_secret_scope(profile_home: "Path") -> dict:
     """Hydrate and load one profile's secrets under its home override."""
     from anakot_constants import set_anakot_home_override, reset_anakot_home_override
     # Caller already hydrated external sources off-loop (#99519).
-    from agent.secret_scope import build_profile_secret_scope
+    from tui_gateway.launch_profile_policy import owner_secret_scope
     from anakot_cli.env_loader import hydrate_profile_secret_sources
 
     home_token = set_anakot_home_override(str(profile_home))
     try:
         hydrate_profile_secret_sources(Path(profile_home))
-        return build_profile_secret_scope(Path(profile_home))
+        return owner_secret_scope(Path(profile_home))
     finally:
         reset_anakot_home_override(home_token)
 
@@ -1748,8 +1759,8 @@ def _profile_runtime_scope(
     elif hydrate_secrets:
         secrets = _load_profile_secret_scope(Path(profile_home))
     else:
-        from agent.secret_scope import build_profile_secret_scope  # caller already hydrated off-loop
-        secrets = build_profile_secret_scope(Path(profile_home))
+        from tui_gateway.launch_profile_policy import owner_secret_scope  # caller already hydrated off-loop
+        secrets = owner_secret_scope(Path(profile_home))
     secret_token = set_secret_scope(secrets)
     # Install the routed profile's COMPLETE terminal policy, never ambient TERMINAL_* a prior turn set.
     # Without it terminal_tool reads the process-global TERMINAL_* vars a previous profile's turn may have
@@ -5532,6 +5543,7 @@ def main():
         # planned-restart, and service-restart paths, all of which complete teardown first. Routing those
         # codes through the same os._exit backstop means EVERY exit path is wedge-proof, not just the
         # boolean-return ones.
+        from gateway.run_bootstrap import start_gateway
         success = asyncio.run(start_gateway(config))
         exit_code = 0 if success else 1
     except SystemExit as e:

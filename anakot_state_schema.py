@@ -42,6 +42,10 @@ _FTS_HOLDER_FUTILE_SECONDS = 1800.0
 # retries are non-blocking probes whose spacing doubles up to the cap.
 _FTS_STALE_RETRY_SECONDS = 60.0
 _FTS_STALE_RETRY_MAX_SECONDS = 3600.0
+_MESSAGE_UID_BACKFILL_DONE = "message_uid_backfill"
+_MESSAGE_UID_BACKFILL_CURSOR = "message_uid_backfill_id"
+_MESSAGE_UID_BACKFILL_CHUNK = 2000
+_MESSAGE_UID_BACKFILL_BUDGET_S = 1.0
 
 
 def _holder_cmdline(pid: int) -> str:
@@ -985,7 +989,8 @@ class SessionSchemaMixin:
             now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
             cursor.executemany(
                 "INSERT OR IGNORE INTO state_meta (key, value) VALUES (?, ?)",
-                [("store_instance_id", str(uuid.uuid4())), ("store_created_at_utc", now_iso)],
+                [("store_instance_id", str(uuid.uuid4())), ("store_created_at_utc", now_iso),
+                 (_MESSAGE_UID_BACKFILL_DONE, "1")],
             )
         else:
             self._run_data_migrations(cursor, row[0], fts5_available)
@@ -1056,6 +1061,7 @@ class SessionSchemaMixin:
             # v30: delegate-child transcripts too (FTS_TRIGRAM_EXCLUDED_SOURCES + _delegate_from).
             # Rebuild once so rows indexed by older view/trigger definitions do not linger.
             fts_migrations_complete = self._migrate_trigram_cron_exclusion(cursor)
+        self._advance_message_uid_backfill(cursor)
 
         # Stamp the FTS layout version (fresh/optimized DBs); a legacy DB keeps its absent/0
         # marker until optimize-storage runs. An INTERRUPTED optimize (markers, trash, or an
@@ -1099,6 +1105,30 @@ class SessionSchemaMixin:
         # one skip: claiming current would lie.
         if current_version < SCHEMA_VERSION and fts_migrations_complete and fts5_available:
             cursor.execute("UPDATE schema_version SET version = ?", (SCHEMA_VERSION,))
+
+    def _advance_message_uid_backfill(self, cursor: sqlite3.Cursor) -> None:
+        """Fill legacy rows in bounded id ranges so startup never holds a table-wide write lock."""
+        if cursor.execute("SELECT 1 FROM state_meta WHERE key = ? LIMIT 1",
+                          (_MESSAGE_UID_BACKFILL_DONE,)).fetchone() is not None:
+            return
+        row = cursor.execute("SELECT value FROM state_meta WHERE key = ?",
+                             (_MESSAGE_UID_BACKFILL_CURSOR,)).fetchone()
+        done_through = int(row[0]) if row else 0
+        high = cursor.execute("SELECT MAX(id) FROM messages").fetchone()[0] or 0
+        deadline = time.monotonic() + _MESSAGE_UID_BACKFILL_BUDGET_S
+        while done_through < high:
+            upper = done_through + _MESSAGE_UID_BACKFILL_CHUNK
+            cursor.execute(
+                "UPDATE messages SET message_uid = lower(hex(randomblob(16))) "
+                "WHERE id > ? AND id <= ? AND message_uid IS NULL",
+                (done_through, upper),
+            )
+            done_through = upper
+            if done_through < high and time.monotonic() >= deadline:
+                self.set_meta(_MESSAGE_UID_BACKFILL_CURSOR, str(done_through), cursor=cursor)
+                return
+        self.set_meta(_MESSAGE_UID_BACKFILL_DONE, "1", cursor=cursor)
+        cursor.execute("DELETE FROM state_meta WHERE key = ?", (_MESSAGE_UID_BACKFILL_CURSOR,))
 
     def _migrate_v22_session_model_usage(self, cursor: sqlite3.Cursor) -> None:
         """v22: ``task`` joins the session_model_usage PRIMARY KEY ('' = main loop; aux calls

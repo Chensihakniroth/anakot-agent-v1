@@ -216,6 +216,39 @@ def _db_flush_collect(agent, messages: List[Dict], conversation_history: Optiona
             msg["display_metadata"] = {**(msg.get("display_metadata") or {}), "notification_category": "diagnostic"}
         batch_rows.append(_db_flush_row(agent, msg, ov_idx == msg_idx or msg is pending_cli_message))
         batch_msgs.append(msg)
+    if batch_msgs:
+        from agent.message_metadata import (
+            TOOL_CALL_UID, TOOL_CALL_UIDS, index_tool_call_uids, mint_uid,
+            resolve_tool_call_uid, stamp_message_uid,
+        )
+        from agent.message_sanitization import coalesce_tool_call_id
+        from anakot_state_identity import _tool_call_uid_map, _tool_call_uid_or_none
+        batch_ids = {id(msg) for msg in batch_msgs}
+        tool_index: Dict[str, str] = {}
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            role = msg.get("role")
+            if role == "user":
+                tool_index.clear()
+            elif role == "assistant" and isinstance(calls := msg.get("tool_calls"), list):
+                if id(msg) in batch_ids:
+                    stamp_message_uid(msg)
+                    uids = _tool_call_uid_map(msg)
+                    for call in calls:
+                        call_id = coalesce_tool_call_id(call)
+                        if call_id and call_id not in uids:
+                            uids[call_id] = mint_uid()
+                    if uids:
+                        msg[TOOL_CALL_UIDS] = uids
+                index_tool_call_uids(tool_index, msg)
+            elif role == "tool" and id(msg) in batch_ids and _tool_call_uid_or_none(msg) is None:
+                if uid := resolve_tool_call_uid(tool_index, msg.get("tool_call_id")):
+                    msg[TOOL_CALL_UID] = uid
+        from agent.message_metadata import copy_identity_fields
+        for msg, row in zip(batch_msgs, batch_rows):
+            stamp_message_uid(msg)
+            copy_identity_fields(msg, row)
     return batch_rows, batch_msgs
 
 

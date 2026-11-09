@@ -15,6 +15,7 @@ receiving bot's own profile — so nothing here changes the wire format or any h
 from __future__ import annotations
 
 import dataclasses
+import json
 import logging
 from contextlib import suppress
 import weakref
@@ -27,9 +28,37 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+_AUTH_SUBJECT_PREFIX = "auth:v1:"
 _IDENTITY_ATTR = "_identity"
 # Wire-invisible provenance copied alongside the identity when a source is duplicated.
 _PROVENANCE_ATTRS = ("_transport_adapter_ref", "_authorization_profile_home", _IDENTITY_ATTR)
+
+
+def authenticated_subject(identity: Any) -> str:
+    """Canonical stable subject for an authenticated provider identity."""
+    if not isinstance(identity, dict):
+        return ""
+    provider = str(identity.get("provider") or "").strip()
+    issuer = str(identity.get("issuer") or "").strip()
+    user_id = str(identity.get("user_id") or "").strip()
+    if not user_id:
+        return ""
+    return _AUTH_SUBJECT_PREFIX + json.dumps([provider, issuer, user_id], separators=(",", ":"), ensure_ascii=False)
+
+
+def parse_authenticated_subject(subject: Any) -> Optional[tuple[str, str, str]]:
+    """Parse a provider-qualified ``auth:v1`` subject; malformed and legacy labels fail closed."""
+    if not isinstance(subject, str) or not subject.startswith(_AUTH_SUBJECT_PREFIX):
+        return None
+    try:
+        parts = json.loads(subject[len(_AUTH_SUBJECT_PREFIX):])
+    except json.JSONDecodeError:
+        return None
+    if (not isinstance(parts, list) or len(parts) != 3
+            or any(not isinstance(part, str) for part in parts)
+            or not parts[0].strip() or not parts[2].strip()):
+        return None
+    return parts[0], parts[1], parts[2]
 
 
 class IdentityUnresolved(RuntimeError):

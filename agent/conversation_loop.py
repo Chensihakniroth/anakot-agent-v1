@@ -573,20 +573,83 @@ def _billing_terminal_label(summary: str, unverified: bool) -> str:
     return f"Billing or credits exhausted: {summary}"
 
 
+def _usage_window_refusal(agent, classified, api_messages=None) -> tuple[str, Optional[float], Optional[dict]]:
+    """A usage-window 402 in the words of the credits limit line ("You've hit your daily limit · resets
+    15:56 · /topup to add credits") plus when that allowance frees up (epoch
+    seconds), so the chat and the error card say exactly what the notice says and the card can offer
+    a retry at the reset. The third item is the structured limit (:class:`agent.plan_limits.LimitHit`
+    payload: what ran out, the recommended models that still work, the credits option) every surface
+    renders as buttons or a sentence. ``("", None, None)`` for every other billing failure."""
+    context = getattr(classified, "error_context", None) or {}
+    if not context.get("usage_window"):
+        return "", None, None
+    try:
+        from agent.credits_tracker import _window_hard_stop, window_stop_resets_at_ms
+        from agent.plan_limits import current_model_is_top_tier
+        state = getattr(agent, "_credits_state", None)
+        top_tier = current_model_is_top_tier(agent)
+        stop = _window_hard_stop(state, model_is_free=False, model_is_top_tier=top_tier) if state is not None else None
+        # The server may word the refusal itself (``display_message`` on the 402): shown verbatim, so a
+        # reword ships with the API. Without it, the stop line Anakot builds from the gauges.
+        display = context.get("display_message")
+        server_message = str(getattr(classified, "message", "") or "").strip()
+        if isinstance(display, str) and display.strip():
+            message = display.strip()
+        elif stop:
+            message = stop.removeprefix("✕ ").strip()
+        elif server_message:
+            # Local state says nothing is spent (stale snapshot, or it thinks credits will pay) but the
+            # server refused with the window code: its own sentence still beats the generic "out of
+            # credits" wall, and keeps the turn on the window card (one place, Open billing) instead of
+            # a billing toast + banner + Switch provider card.
+            message = server_message
+        else:
+            return "", None, None
+        resets_ms = window_stop_resets_at_ms(state, model_is_top_tier=top_tier) if state is not None else None
+        limit = None
+        try:
+            from agent.model_metadata import estimate_messages_tokens_rough
+            from agent.plan_limits import limit_hit
+            hit = limit_hit(agent, message=message,
+                            needed_tokens=estimate_messages_tokens_rough(api_messages or []) if api_messages else None)
+            limit = hit.to_payload() if hit is not None else None
+        except Exception:
+            logger.debug("Usage-window limit payload unavailable", exc_info=True)
+            limit = None
+        return (message, resets_ms / 1000 if isinstance(resets_ms, int) and resets_ms > 0 else None, limit)
+    except Exception:
+        logger.debug("Usage-window refusal parse failed", exc_info=True)
+        return "", None, None
+
+
 def _billing_failure_result(
     *, classified, summary: str, messages, api_call_count: int, provider: str, base_url, model: str,
     guidance: Optional[str] = None,
+    usage_window: tuple[str, Optional[float], Optional[dict]] = ("", None, None),
 ) -> dict:
     """Structured terminal result for a billing-classified failure — the single construction
-    point for the non-retryable abort and max-retries paths (#82154)."""
+    point for the non-retryable abort and max-retries paths (#82154). A usage-window refusal
+    reads as its one stop-line sentence instead of the generic "billing exhausted" text."""
     unverified = bool(getattr(classified, "billing_unverified", False))
-    if guidance is None:
+    if guidance is None and not (tuple(usage_window) + ("",))[0]:  # a window refusal is its own message: no portal fetch
         guidance = _billing_or_entitlement_message(
             capability="model access", provider=provider, base_url=str(base_url), model=model,
             unverified=unverified,
         )
-    final = _billing_terminal_label(summary, unverified) + (f"\n\n{guidance}" if guidance else "")
+    usage_window_message, usage_window_resets_at, usage_limit = (tuple(usage_window) + (None, None, None))[:3]
+    final = usage_window_message or (
+        _billing_terminal_label(summary, unverified) + (f"\n\n{guidance}" if guidance else ""))
+    extra: dict = {}
+    if usage_window_message:
+        extra["usage_window_message"] = usage_window_message
+        if usage_window_resets_at is not None:
+            extra["failure_resets_at"] = usage_window_resets_at
+        if usage_limit:
+            # Structured: the CLI and the messaging gateway read it off the result; the error surface
+            # carries it to the TUI and the desktop card.
+            extra["usage_limit"] = usage_limit
     return {
+        **extra,
         "final_response": final, "messages": messages, "api_calls": api_call_count,
         "completed": False, "failed": True, "error": summary,
         "failure_reason": classified.reason.value,
@@ -1275,7 +1338,8 @@ def _apply_context_engine_selection(
     # Require a NON-EMPTY list of dicts: ``all([])`` is ``True``, so a ``[]`` from a
     # buggy engine would otherwise replace the request instead of failing open.
     if isinstance(selected, list) and selected and all(isinstance(m, dict) for m in selected):
-        return selected
+        from agent.message_metadata import without_persistence_fields
+        return [without_persistence_fields(_clone_message_for_send(m)) for m in selected]
     logger.warning(
         "Context engine select_context returned an invalid value "
         "(not a non-empty list of dicts); ignoring (session=%s)", session_label,

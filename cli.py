@@ -4478,7 +4478,7 @@ def _run_legacy_gateway():
     with suppress(Exception):
         from anakot_startup_watchdog import arm_startup_watchdog
         arm_startup_watchdog()
-    from gateway.run import start_gateway
+    from gateway.run_bootstrap import start_gateway
     print("Starting Anakot Gateway (messaging platforms)...")
     asyncio.run(start_gateway())
 

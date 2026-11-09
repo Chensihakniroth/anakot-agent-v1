@@ -4600,6 +4600,8 @@ Write only the summary body. Do not include any preamble or prefix."""
             )
             carrier[_INFLIGHT_REPLAY_MERGED_KEY] = True
             drop_stale_api_content(carrier)
+            from agent.message_metadata import record_absorbed_message
+            record_absorbed_message(carrier, inflight)
             return compressed
 
         compressed.append(replay)

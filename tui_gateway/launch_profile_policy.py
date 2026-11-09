@@ -96,3 +96,25 @@ def launch_profile_runtime_scope(launch_home: "str | Path") -> Iterator[None]:
     finally:
         reset_terminal_scope(terminal_token)
         reset_secret_scope(secret_token)
+
+
+def launch_profile_scope_if_multiplexed():
+    """Bind the launch profile explicitly only after this process activates multiplexing."""
+    from agent.secret_scope import is_multiplex_active
+    if not is_multiplex_active():
+        return contextlib.nullcontext()
+    from anakot_constants import get_anakot_home
+    return launch_profile_runtime_scope(get_anakot_home())
+
+
+def launch_body():
+    """Scope a body running for the launch profile without changing single-profile behavior."""
+    return launch_profile_scope_if_multiplexed()
+
+
+def owner_secret_scope(home: "str | Path") -> Dict[str, str]:
+    """Return the secret mapping for a profile: launch_secret_scope if launch home, else build_profile_secret_scope."""
+    from agent.secret_scope import _is_process_home, build_profile_secret_scope
+    if _is_process_home(Path(home)):
+        return launch_secret_scope(home)
+    return build_profile_secret_scope(Path(home))

@@ -25,14 +25,16 @@ import sys
 import threading
 import time
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Optional, Protocol
+from typing import Any, Awaitable, Callable, Optional, Protocol, TypeVar
 
 logger = logging.getLogger(__name__)
 
 __all__ = [
     "MAX_SAFE_TIMEOUT_S", "BoundedResult", "DeadlineExpired", "clamp_timeout", "resolve_timeout",
-    "run_bounded_async", "run_bounded_sync", "kill_process_tree",
+    "run_bounded_async", "run_bounded_sync", "kill_process_tree", "poll_until",
 ]
+
+_T = TypeVar("_T")
 
 # One year: semantically "unbounded" yet far below any platform time_t limit (#83220).
 MAX_SAFE_TIMEOUT_S = 31_536_000.0
@@ -109,6 +111,23 @@ def clamp_timeout(timeout: Optional[float]) -> Optional[float]:
         logger.warning("clamp_timeout: NaN timeout; treating as unbounded")
         return None
     return None if value <= 0 else min(value, MAX_SAFE_TIMEOUT_S)
+
+
+def poll_until(predicate: Callable[[], _T], timeout: float, interval: float) -> _T:
+    """Poll until *predicate* returns a truthy value or the deadline passes.
+
+    The first check is immediate, the final sleep is bounded by the remaining time, and a
+    non-positive timeout performs exactly one check.
+    """
+    deadline = time.monotonic() + timeout
+    while True:
+        result = predicate()
+        if result:
+            return result
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            return result
+        time.sleep(min(interval, remaining))
 
 
 # --- Timeout resolution: config ``timeouts:`` > legacy env var > default ------

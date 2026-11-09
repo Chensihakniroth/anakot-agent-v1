@@ -5,11 +5,21 @@
 from __future__ import annotations
 
 import json
+import logging
 from typing import Any, Dict, List, Mapping, MutableMapping, Optional, Tuple
 
 from agent.message_metadata import ABSORBED_MESSAGE_UIDS, MESSAGE_UID, TOOL_CALL_UID, TOOL_CALL_UIDS, uid_list
 from agent.message_sanitization import coalesce_tool_call_id
-from anakot_state_common import _json_or
+
+logger = logging.getLogger("anakot_state")
+
+
+def _identity_json_or(raw: Any, fallback: Any, warning: str) -> Any:
+    try:
+        return json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        logger.warning(warning)
+        return fallback
 
 
 def _live_or_column(msg: Mapping[str, Any], live_key: str, column: str) -> Any:
@@ -21,7 +31,7 @@ def _uid_list(value: Any) -> list[str]:
     """Normalize a uid list (a live list, or the JSON text an export/import carries) to unique non-empty
     strings in order; anything else is ``[]``."""
     if isinstance(value, str):
-        value = _json_or(value, [], "Failed to deserialize a message uid list, falling back to []")
+        value = _identity_json_or(value, [], "Failed to deserialize a message uid list, falling back to []")
     return uid_list(value)
 
 
@@ -30,7 +40,7 @@ def _uid_map(value: Any) -> dict[str, Any]:
     non-empty string uid, or a list of them for a provider id repeated inside one row (one per occurrence,
     see ``merge_tool_call_uids``); anything else is dropped, and a non-map is ``{}``."""
     if isinstance(value, str):
-        value = _json_or(value, {}, "Failed to deserialize a tool-call uid map, falling back to {}")
+        value = _identity_json_or(value, {}, "Failed to deserialize a tool-call uid map, falling back to {}")
     if not isinstance(value, dict):
         return {}
     return {k: v for k, v in value.items() if isinstance(k, str) and k and (
@@ -104,7 +114,7 @@ def _stable_tool_key(row: Any) -> Optional[tuple[Any, ...]]:
     from compacted history and transcript exports, and distinct id-less calls never merge."""
     if row["role"] != "assistant":
         return None
-    calls = _json_or(row["tool_calls"] or "[]", [], "Failed to deserialize tool_calls, falling back to []")
+    calls = _identity_json_or(row["tool_calls"] or "[]", [], "Failed to deserialize tool_calls, falling back to []")
     call_ids = tuple(coalesce_tool_call_id(tc) for tc in calls or ())
     if call_ids and all(call_ids):
         return ("assistant", None, row["timestamp"], row["tool_call_id"], call_ids, row["tool_name"])

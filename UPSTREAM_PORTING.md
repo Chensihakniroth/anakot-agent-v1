@@ -767,16 +767,14 @@ server requests without a contract: setup_beat, theme.apply, theme.pick
 3. Re-run: `scripts/gen_gateway_contracts.py`, then
    `scripts/run_tests.sh tests/tui_gateway/contracts/ -q`.
 
-**Known larger gap, deliberately not started**
+**Known larger gap (PORTED 2026-11-09)**
 
-`agent/credits_tracker.py` has no usage-window denominator support at all: `denominator_kind` only
-knows `"subscription_cap" | "none"` (no `"usage_window"`), `CreditsState` has no `gauges` field, and
-`_window_seed_fields` does not exist. `anakot_cli/nous_account.py` is a generation behind Hermes's
-(639 vs 776 lines) and lacks `NousUsageWindowInfo`, `cached_nous_portal_account_info` and
-`format_usage_window_block_guidance` — the 3 public symbols; 8 total. Its dependencies
-(`agent/usage_gauges.parse_gauges`/`all_scope`, `agent.plan_limits.credits_action`/`USE_CREDITS`,
-`nous_portal_billing_url`/`nous_portal_topup_url`) **already exist** in Anakot, so the port is
-self-contained. This is what `tests/tui_gateway/test_billing_plan_usage.py` (a synced file) exercises.
+`agent/credits_tracker.py`, `anakot_cli/nous_account.py`, `tui_gateway/billing_view.py`,
+`agent/account_usage.py`, `agent/billing_usage.py`, `agent/error_classifier.py`,
+`agent/rate_limit_credits.py`, `agent/conversation_loop.py`, `agent/turn_recovery.py`,
+and `agent/error_surface.py` usage-window denominator and gauges support ported and verified.
+All 128 tests in `tests/agent/test_credits_usage_window.py` and 5 in
+`tests/tui_gateway/test_billing_plan_usage.py` pass.
 
 ---
 

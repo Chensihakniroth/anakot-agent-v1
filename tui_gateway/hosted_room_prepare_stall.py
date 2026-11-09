@@ -28,7 +28,7 @@ _EVENT_PREFIX = "prepare-stalled:"
 _MAX_ERROR_CHARS = 300
 # Contention or an ownership move, not a broken room: never counted toward the stall.
 _TRANSIENT = (
-    sqlite3.OperationalError, hosted_rooms.AuthorityConflictError, hosted_rooms.EventCursorConflictError,
+    sqlite3.OperationalError, hosted_rooms.AuthorityConflictError,
     hosted_rooms.RoomNotFoundError, driver.LeaseHeldError, driver.StaleLeaseError, driver.RoomUnavailableError)
 
 

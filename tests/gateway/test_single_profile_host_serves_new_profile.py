@@ -16,13 +16,15 @@ import anakot_constants
 from agent.secret_scope import is_multiplex_active
 from gateway.config import GatewayConfig
 from gateway.run import GatewayRunner
-from gateway.status import flush_runtime_status, write_runtime_status
+from gateway.status import write_runtime_status
 from anakot_cli import gateway_migrate as gm
 from anakot_cli.gateway_multiplex_mode import SINGLE_PROFILE_REASON
 
 
 @pytest.fixture
 def standalone_host(tmp_path, monkeypatch):
+    from agent.secret_scope import set_multiplex_active
+    set_multiplex_active(False)
     home = tmp_path / ".anakot"
     (home / "profiles").mkdir(parents=True)
     (home / "config.yaml").write_text("model: {default: m}\n", encoding="utf-8")
@@ -36,17 +38,19 @@ def standalone_host(tmp_path, monkeypatch):
     monkeypatch.setenv("OPENAI_API_KEY", "launch-key")
     runner = GatewayRunner(GatewayConfig(multiplex_profiles=False))
     runner._running = True
-    runner.session_runtime_descriptor = {"state": "ready", "served_profiles": [], "capabilities": []}
+    runner.session_runtime_descriptor = {
+        "state": "ready", "served_profiles": [], "capabilities": [], "runtime_protocol": 1,
+    }
     runner.session_ticket_store = None
     restarts = []
     runner.request_restart = lambda **kw: restarts.append(kw) or True
     write_runtime_status(gateway_state="running", multiplex_standalone_reason=SINGLE_PROFILE_REASON,
                          served_profiles=[])
-    flush_runtime_status()
     yield runner, home, restarts
     from gateway.runtime_ownership import process_ownership
     for profile in (home / "profiles").iterdir():
         process_ownership.release(profile.resolve())
+    set_multiplex_active(False)
 
 
 def _mkprofile(home, name):
@@ -67,6 +71,8 @@ async def test_profile_created_after_a_single_profile_boot_is_served_without_a_r
     server = await _start_gateway_start_control_socket(runner)
     assert server is not None
     try:
+        identity = await asyncio.to_thread(control_socket.identify_gateway, home)
+        assert identity is not None and identity["runtime_protocol"] == 1
         answer = await asyncio.to_thread(control_socket.rescan_gateway_profiles, home)
         assert answer["multiplex"] is False and not is_multiplex_active()
 

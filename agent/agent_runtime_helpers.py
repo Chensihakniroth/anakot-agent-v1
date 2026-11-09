@@ -369,12 +369,25 @@ def _is_codex_interim(m: Dict) -> bool:
     )
 
 
-def _merge_assistant_into(prev: Dict, msg: Dict) -> None:
-    """Fold a consecutive assistant ``msg`` into ``prev`` (union tool_calls, concat text)."""
+def _merge_assistant_into(prev: Dict, msg: Dict) -> bool:
+    """Fold a consecutive assistant message into ``prev``; return whether its text survives."""
+    from agent.context_compressor import _DB_PERSISTED_MARKER
+    from agent.message_metadata import (
+        TOOL_CALL_UIDS, merge_tool_call_uids, per_occurrence_tool_call_uids,
+    )
+
     prev_calls = list(prev.get("tool_calls") or [])
     new_calls = list(msg.get("tool_calls") or [])
+    calls_changed = False
     if new_calls:
         prev["tool_calls"] = prev_calls + new_calls
+        if isinstance(extra := msg.get(TOOL_CALL_UIDS), dict) and extra:
+            own = prev.get(TOOL_CALL_UIDS)
+            prev[TOOL_CALL_UIDS] = merge_tool_call_uids(
+                per_occurrence_tool_call_uids(own if isinstance(own, dict) else {}, prev_calls),
+                per_occurrence_tool_call_uids(extra, new_calls),
+            )
+        calls_changed = True
     elif prev_calls:
         prev["tool_calls"] = prev_calls
     else:
@@ -389,12 +402,15 @@ def _merge_assistant_into(prev: Dict, msg: Dict) -> None:
         # resume, subagents, cron) and is replayed on the next turn — which is how #58755 kept reproducing
         # after the chokepoint fix (#77921). Popping is non-destructive: an empty array carries no
         # information.
+        calls_changed = "tool_calls" in prev
         prev.pop("tool_calls", None)
     # Concatenate plain-text content only; leave multimodal (list) content alone.
     prev_content = prev.get("content")
     new_content = msg.get("content")
     content_rewritten = False
+    text_kept = not new_content
     if isinstance(prev_content, str) and isinstance(new_content, str):
+        text_kept = True
         joined = "\n".join(p for p in (prev_content.strip(), new_content.strip()) if p)
         prev["content"] = joined
         # A falsy new_content leaves ``joined`` == prev_content; that is not a rewrite.
@@ -404,10 +420,13 @@ def _merge_assistant_into(prev: Dict, msg: Dict) -> None:
     elif not prev_content and new_content is not None:
         prev["content"] = new_content
         content_rewritten = new_content != prev_content
+        text_kept = True
     # Carry reasoning_content from the later turn only if the earlier lacks it (strict thinking
     # providers need one on the merged tool-call turn).
+    reasoning_carried = False
     if not prev.get("reasoning_content") and msg.get("reasoning_content"):
         prev["reasoning_content"] = msg["reasoning_content"]
+        reasoning_carried = True
     # A stale ``api_content`` sidecar overrides ``content`` at API-build time and would replay
     # pre-merge bytes; drop it only when content actually changed.
     # ``prev`` may carry an ``api_content`` sidecar (the exact bytes previously sent to the API, e.g. a
@@ -424,6 +443,30 @@ def _merge_assistant_into(prev: Dict, msg: Dict) -> None:
     # invariant for no reason (wz-heng, #78063 review).
     if content_rewritten:
         drop_stale_api_content(prev)
+    if content_rewritten or calls_changed or reasoning_carried:
+        prev.pop(_DB_PERSISTED_MARKER, None)
+    return text_kept
+
+
+def _remember_absorbed_row(survivor: Dict[str, Any], dropped: Dict[str, Any], *, folded: bool) -> None:
+    """Retire the dropped row IDs and retain a message UID only when its text was folded in."""
+    from agent.message_metadata import record_absorbed_message
+
+    own_id = survivor.get("_row_id")
+    row_id = dropped.get("_row_id")
+    ids = []
+    if isinstance(row_id, int) and not isinstance(row_id, bool) and row_id > 0 and row_id != own_id:
+        ids.append(row_id)
+    for older in dropped.get("_absorbed_row_ids") or ():
+        if isinstance(older, int) and not isinstance(older, bool) and older > 0 and older not in ids:
+            ids.append(older)
+    if ids:
+        absorbed = survivor.setdefault("_absorbed_row_ids", [])
+        for absorbed_id in ids:
+            if absorbed_id not in absorbed:
+                absorbed.append(absorbed_id)
+    if folded:
+        record_absorbed_message(survivor, dropped)
 
 
 def _merge_consecutive_assistants(messages: List[Dict]) -> Tuple[List[Dict], int]:
@@ -439,9 +482,10 @@ def _merge_consecutive_assistants(messages: List[Dict]) -> Tuple[List[Dict], int
         ):
             # A provisional verification candidate is superseded, not unioned.
             if prev.get("finish_reason") in {"verification_required", "verify_hook_continue"}:
+                _remember_absorbed_row(msg, prev, folded=False)
                 collapsed[-1] = msg
             else:
-                _merge_assistant_into(prev, msg)
+                _remember_absorbed_row(prev, msg, folded=_merge_assistant_into(prev, msg))
             repairs += 1
             continue
         collapsed.append(msg)
@@ -526,7 +570,8 @@ def _prune_unanswered_tool_calls(messages: List[Dict]) -> Tuple[List[Dict], int]
 
 def _merge_consecutive_users(messages: List[Dict]) -> Tuple[List[Dict], int]:
     """Pass 3: merge consecutive plain-text user messages (no user input lost)."""
-    from agent.context_compressor import split_user_originated_turn
+    from agent.context_compressor import _DB_PERSISTED_MARKER, split_user_originated_turn
+    from agent.message_metadata import MERGED_TURN_PREFIX
 
     repairs = 0
     merged: List[Dict] = []
@@ -545,11 +590,28 @@ def _merge_consecutive_users(messages: List[Dict]) -> Tuple[List[Dict], int]:
             and isinstance(prev.get("content", ""), str) and isinstance(msg.get("content", ""), str)
         ):
             prev_content, new_content = prev.get("content", ""), msg.get("content", "")
-            prev["content"] = (
+            merged_content = (
                 (prev_content + "\n\n" + new_content) if prev_content and new_content else (prev_content or new_content)
             )
+            had_api_sidecar = "api_content" in prev
+            prev["content"] = merged_content
+            if prev_content:
+                prev[MERGED_TURN_PREFIX] = prev_content
             # Merged content invalidates the api_content sidecar; drop it so replay cannot use stale bytes.
             drop_stale_api_content(prev)
+            if prev.get("display_kind") and not msg.get("display_kind"):
+                marker_row_id = prev.get("_row_id")
+                prev.pop("display_kind", None)
+                if msg.get("_row_id") is not None:
+                    if isinstance(marker_row_id, int) and not isinstance(marker_row_id, bool):
+                        absorbed_ids = prev.setdefault("_absorbed_row_ids", [])
+                        if marker_row_id not in absorbed_ids:
+                            absorbed_ids.append(marker_row_id)
+                    prev["_row_id"] = msg["_row_id"]
+                prev.pop(_DB_PERSISTED_MARKER, None)
+            if merged_content != prev_content or had_api_sidecar:
+                prev.pop(_DB_PERSISTED_MARKER, None)
+            _remember_absorbed_row(prev, msg, folded=True)
             repairs += 1
             continue
         merged.append(msg)

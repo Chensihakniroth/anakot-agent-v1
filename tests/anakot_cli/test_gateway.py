@@ -25,6 +25,7 @@ def _install_fake_gateway_run(monkeypatch, start_gateway):
 
     setattr(module, "_exit_after_graceful_shutdown", _exit_after_graceful_shutdown)
     monkeypatch.setitem(sys.modules, "gateway.run", module)
+    monkeypatch.setitem(sys.modules, "gateway.run_bootstrap", module)
     # ``run_gateway()`` calls ``refresh_systemd_unit_if_needed()`` on every
     # invocation so that restart settings stay current after exit-code-75
     # respawns. That helper writes to ``Path.home() / ".config/systemd/user
@@ -65,7 +66,7 @@ def _run_native_windows_gateway_start_diag(
 
         import anakot_cli.gateway as gateway_cli
 
-        async def start_gateway(*, replace, verbosity):
+        async def start_gateway(*, replace, verbosity, force=False):
             assert "_ANAKOT_GATEWAY_BREAKAWAY" not in os.environ
             return True
 
@@ -73,6 +74,7 @@ def _run_native_windows_gateway_start_diag(
         fake_run.start_gateway = start_gateway
         fake_run._exit_after_graceful_shutdown = lambda code: None
         sys.modules["gateway.run"] = fake_run
+        sys.modules["gateway.run_bootstrap"] = fake_run
 
         gateway_cli._guard_official_docker_root_gateway = lambda: None
         gateway_cli._guard_named_profile_under_multiplexer = lambda force=False: None
@@ -179,7 +181,7 @@ def test_gateway_run_subprocess_preserves_daemon_exit_codes(
 
         outcome = os.environ["ANAKOT_TEST_GATEWAY_OUTCOME"]
 
-        async def start_gateway(*, replace, verbosity):
+        async def start_gateway(*, replace, verbosity, force=False):
             if outcome == "failure":
                 return False
             raise SystemExit(int(outcome.split(":", 1)[1]))
@@ -188,6 +190,7 @@ def test_gateway_run_subprocess_preserves_daemon_exit_codes(
         fake_run.start_gateway = start_gateway
         setattr(fake_run, "_exit_after_graceful_shutdown", sys.exit)
         sys.modules["gateway.run"] = fake_run
+        sys.modules["gateway.run_bootstrap"] = fake_run
 
         gateway_cli._guard_official_docker_root_gateway = lambda: None
         gateway_cli._guard_named_profile_under_multiplexer = lambda force=False: None

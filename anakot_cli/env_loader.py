@@ -93,6 +93,13 @@ def get_secret_source(env_var: str) -> str | None:
     return _SECRET_SOURCES.get(env_var)
 
 
+def dotenv_published_values(env_var: str) -> frozenset[str]:
+    """Values this process most recently published for *env_var* from a dotenv file."""
+    with _DOTENV_LOCK:
+        record = _DOTENV_PUBLISHED.get(env_var)
+        return frozenset((record[1],)) if record is not None else frozenset()
+
+
 def secret_source_names() -> tuple[str, ...]:
     """Every env-var name some profile's external secret source supplied (names only — the map is
     process-wide, so a value must be resolved through the active profile's secret scope)."""

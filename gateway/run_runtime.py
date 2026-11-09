@@ -457,7 +457,9 @@ async def serve_profile_runtime(runner, name, home):
     from gateway.session_local_recovery import recover_local_sessions
     from gateway.platforms.webhook_ingress import recover_webhook_finalizations
     home = await asyncio.to_thread(Path(home).resolve)
-    registry = runner.session_authorities
+    registry = getattr(runner, 'session_authorities', None)
+    if registry is None:
+        return None
     existing = registry.for_home(home)
     if existing is not None and getattr(existing, 'retiring', False):
         # An earlier failed attempt kept this authority because its writer outlived Stop. It refuses
@@ -531,7 +533,9 @@ async def unserve_profile_runtime(runner, home):
     False when one of its turns outlived the Stop deadline (keep the reservation); True otherwise,
     including for a profile this process never served."""
     home = await asyncio.to_thread(Path(home).resolve)
-    registry = runner.session_authorities
+    registry = getattr(runner, 'session_authorities', None)
+    if registry is None:
+        return True
     authority = registry.for_home(home)
     if authority is None:
         return True

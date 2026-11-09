@@ -4,6 +4,7 @@ from unittest.mock import Mock
 import pytest
 
 import gateway.run as gateway_run
+import gateway.run_bootstrap as gateway_bootstrap
 
 
 class _ExitCalled(Exception):
@@ -29,7 +30,7 @@ def test_main_terminates_via_os_exit_not_systemexit(monkeypatch):
     stdout = SimpleNamespace(flush=Mock())
     stderr = SimpleNamespace(flush=Mock())
 
-    monkeypatch.setattr(gateway_run, "start_gateway", fake_start_gateway)
+    monkeypatch.setattr(gateway_bootstrap, "start_gateway", fake_start_gateway)
     monkeypatch.setattr(gateway_run.os, "_exit", _raise_exit)
     monkeypatch.setattr(gateway_run.sys, "argv", ["gateway.run"])
     monkeypatch.setattr(gateway_run.sys, "stdout", stdout)
@@ -53,7 +54,7 @@ def test_main_routes_systemexit_through_os_exit(monkeypatch):
     stdout = SimpleNamespace(flush=Mock())
     stderr = SimpleNamespace(flush=Mock())
 
-    monkeypatch.setattr(gateway_run, "start_gateway", fake_start_gateway)
+    monkeypatch.setattr(gateway_bootstrap, "start_gateway", fake_start_gateway)
     monkeypatch.setattr(gateway_run.os, "_exit", _raise_exit)
     monkeypatch.setattr(gateway_run.sys, "argv", ["gateway.run"])
     monkeypatch.setattr(gateway_run.sys, "stdout", stdout)

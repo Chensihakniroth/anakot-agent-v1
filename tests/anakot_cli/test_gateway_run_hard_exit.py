@@ -22,6 +22,7 @@ class _HardExitObserved(BaseException):
 def _prepare(monkeypatch):
     import anakot_cli.gateway as gateway_cli
     import gateway.run as gateway_run
+    import gateway.run_bootstrap as gateway_bootstrap
 
     monkeypatch.setattr(gateway_cli, "_guard_official_docker_root_gateway", lambda: None)
     monkeypatch.setattr(gateway_cli, "_guard_named_profile_under_multiplexer", lambda force=False: None)
@@ -31,23 +32,27 @@ def _prepare(monkeypatch):
     monkeypatch.setattr(gateway_cli.sys, "stdin", types.SimpleNamespace(isatty=lambda: False))
     monkeypatch.setenv("ANAKOT_GATEWAY_EXIT_DIAG", "0")
 
-    async def _start_gateway(*args, **kwargs):  # pragma: no cover - never awaited by fake run
+    async def _start_gateway(*args, **kwargs):
         return True
 
     def _hard_exit(code: int) -> None:
         raise _HardExitObserved(code)
 
-    monkeypatch.setattr(gateway_run, "start_gateway", _start_gateway)
+    async def _legacy_start_gateway(*args, **kwargs):
+        pytest.fail("run_gateway must use the runtime bootstrap entry point")
+
+    monkeypatch.setattr(gateway_bootstrap, "start_gateway", _start_gateway)
+    monkeypatch.setattr(gateway_run, "start_gateway", _legacy_start_gateway)
     monkeypatch.setattr(gateway_run, "_exit_after_graceful_shutdown", _hard_exit)
     return gateway_cli
 
 
 def test_run_gateway_hard_exits_after_clean_return(monkeypatch):
     gateway_cli = _prepare(monkeypatch)
+    original_run = gateway_cli.asyncio.run
 
     def _fake_run(coro):
-        coro.close()
-        return True
+        return original_run(coro)
 
     monkeypatch.setattr(gateway_cli.asyncio, "run", _fake_run)
 

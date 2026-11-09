@@ -37,6 +37,20 @@ _STOPPABLE_STATUSES = ("queued", "running", "indeterminate", "deferred", "stoppi
 _RETRYABLE_STATUSES = ("indeterminate", "deferred")
 
 
+def task_member_id(task: Mapping[str, Any]) -> str:
+    return str(task["payload"].get("target_member_id") or task["payload"]["target_profile"])
+
+
+def attempt_action(kind: str, task: Mapping[str, Any]) -> dict[str, Any]:
+    """A pending action naming the exact attempt the retry/discard operation fences on."""
+    return {
+        "kind": kind,
+        "member_id": task_member_id(task),
+        "task_id": task["identity"].task_id,
+        "execution_generation": task["execution_generation"],
+    }
+
+
 def _hosted_room_turn_timeout_seconds() -> float:
     try:
         agent_timeout = float(os.getenv("ANAKOT_AGENT_TIMEOUT", "1800"))

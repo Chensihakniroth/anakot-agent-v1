@@ -912,7 +912,16 @@ async def start_gateway(config: Optional[GatewayConfig] = None, replace: bool = 
         finally:
             if _planned_stop_watcher_stop is not None:
                 _planned_stop_watcher_stop.set()
-            if _control_server is not None:
-                await _control_server.stop()
-            remove_pid_file()
-            release_gateway_runtime_lock()
+            from gateway.host_rendezvous import ROLE_GATEWAY, clear_record, release_host_lock
+            try:
+                if _control_server is not None:
+                    await _control_server.stop()
+            finally:
+                try:
+                    clear_record(ROLE_GATEWAY)
+                finally:
+                    try:
+                        release_host_lock(ROLE_GATEWAY)
+                    finally:
+                        remove_pid_file()
+                        release_gateway_runtime_lock()
