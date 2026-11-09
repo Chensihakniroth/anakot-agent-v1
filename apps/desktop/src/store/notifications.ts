@@ -1,8 +1,8 @@
 import { atom } from 'nanostores'
 
 import { translateNow } from '@/i18n'
-import { isOutOfSyncRpcParams } from '@/lib/gateway-rpc'
 import { servedByAnakotCloud } from '@/lib/anakot-cloud-host'
+import { isOutOfSyncRpcParams } from '@/lib/gateway-rpc'
 import { isTimeoutError } from '@/lib/with-timeout'
 import { type ErrorToastCategory, recordFriction } from '@/store/desktop-metrics'
 import { requestBackendRestart, requestRoute } from '@/store/recovery-requests'

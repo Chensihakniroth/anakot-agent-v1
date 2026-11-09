@@ -1,10 +1,10 @@
 import { type ReactNode, useEffect, useRef, useState } from 'react'
 
+import { getLogs } from '@/anakot'
 import { StatusDot } from '@/components/status-dot'
 import { Button } from '@/components/ui/button'
 import { LogView } from '@/components/ui/log-view'
 import { Tip } from '@/components/ui/tooltip'
-import { getLogs } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { LayoutDashboard, Power, RefreshCw } from '@/lib/icons'
 import { platformStatusTone } from '@/lib/platform-status'

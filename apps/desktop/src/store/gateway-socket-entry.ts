@@ -1,5 +1,5 @@
-import type { AnakotConnection } from '@/global'
 import type { AnakotGateway } from '@/anakot'
+import type { AnakotConnection } from '@/global'
 
 /** One secondary (pool) socket the gateway registry (store/gateway.ts) keeps. */
 export interface Secondary {

@@ -1,12 +1,12 @@
 import type {
+  AnakotConfig,
+  AnakotConfigRecord,
   AppHandoffStatus,
   ConfigSchemaResponse,
   CustomEndpointsResponse,
   CustomEndpointUpdate,
   CustomEndpointValidationResponse,
   EnvVarInfo,
-  AnakotConfig,
-  AnakotConfigRecord,
   LogsResponse,
   OAuthPollResponse,
   OAuthProvidersResponse,
@@ -15,7 +15,7 @@ import type {
   StatusResponse
 } from '@/types/anakot'
 
-import { capabilityScoped, anakotApi, type ProfileScope, profileScoped, STARTUP_REQUEST_TIMEOUT_MS } from './client'
+import { anakotApi, capabilityScoped, type ProfileScope, profileScoped, STARTUP_REQUEST_TIMEOUT_MS } from './client'
 
 type ConfigReadOrigin = { connectionId?: string; priority?: 'foreground'; profile?: string }
 

@@ -3,8 +3,8 @@
 // self-accept so this module's own reload doesn't reset the cache. Prod strips
 // import.meta.hot → byte-for-byte unchanged live unmount.
 
-import type { AnakotConnection } from '@/global'
 import type { AnakotGateway } from '@/anakot'
+import type { AnakotConnection } from '@/global'
 
 export interface GatewaySurvivor {
   gateway: AnakotGateway

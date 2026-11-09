@@ -103,7 +103,8 @@ export const userMessagesEn = {
         localRuntimeUnavailable: {
           title: 'The local model server is not running',
           hint: 'Try /retry once it is up, or switch with /model.',
-          hintNoRetry: 'Start the local model server (Anakot desktop app, or `anakot model` → Local models), or switch with /model.'
+          hintNoRetry:
+            'Start the local model server (Anakot desktop app, or `anakot model` → Local models), or switch with /model.'
         },
         modelNotFound: {
           title: 'The model provider does not know this model',

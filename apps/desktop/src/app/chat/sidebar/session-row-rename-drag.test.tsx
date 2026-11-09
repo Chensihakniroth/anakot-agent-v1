@@ -4,9 +4,9 @@ import { act, cleanup, fireEvent, render, screen, within } from '@testing-librar
 import { atom } from 'nanostores'
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest'
 
+import type { SessionInfo } from '@/anakot'
 import { startSessionDrag } from '@/app/chat/session-drag'
 import type * as SessionDrag from '@/app/chat/session-drag'
-import type { SessionInfo } from '@/anakot'
 import type * as ChatRuntime from '@/lib/chat-runtime'
 import type * as GatewayStore from '@/store/gateway'
 import type * as ProjectsStore from '@/store/projects'

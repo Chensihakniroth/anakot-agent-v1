@@ -1,4 +1,3 @@
-import type { ToolCallMessagePart } from '@assistant-ui/react'
 import type {
   CatalogApproved,
   CatalogAppState,
@@ -18,6 +17,7 @@ import type {
   ConnectionUpdatePayload,
   InstallPhase
 } from '@anakot/shared'
+import type { ToolCallMessagePart } from '@assistant-ui/react'
 import { atom, computed } from 'nanostores'
 
 import { resolveSessionOwner } from '@/app/session/hooks/use-session-actions/utils'

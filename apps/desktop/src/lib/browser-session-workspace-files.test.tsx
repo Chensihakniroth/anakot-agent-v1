@@ -1,7 +1,7 @@
 import '@/store/session-states'
 
-import { EditorView } from '@codemirror/view'
 import { LOCAL_CONNECTION_ID } from '@anakot/shared'
+import { EditorView } from '@codemirror/view'
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { atom } from 'nanostores'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -154,7 +154,14 @@ describe('text previews in a session sandbox', () => {
       {
         id: 'file:note',
         sessionId: 'stored-1',
-        target: { kind: 'file', label: 'note.txt', path: NOTE, previewKind: 'text', source: NOTE, url: `file://${NOTE}` }
+        target: {
+          kind: 'file',
+          label: 'note.txt',
+          path: NOTE,
+          previewKind: 'text',
+          source: NOTE,
+          url: `file://${NOTE}`
+        }
       }
     ])
 
@@ -191,7 +198,14 @@ describe('Save in a session sandbox', () => {
         <LocalFilePreview
           reloadKey={0}
           sessionId="stored-1"
-          target={{ kind: 'file', label: 'note.txt', path: NOTE, previewKind: 'text', source: NOTE, url: `file://${NOTE}` }}
+          target={{
+            kind: 'file',
+            label: 'note.txt',
+            path: NOTE,
+            previewKind: 'text',
+            source: NOTE,
+            url: `file://${NOTE}`
+          }}
         />
       )
 

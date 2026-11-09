@@ -23,8 +23,8 @@
 
 import { atom } from 'nanostores'
 
-import { ambientOwnerConnectionId } from '@/api/client'
 import { setSessionPinnedRemote } from '@/anakot'
+import { ambientOwnerConnectionId } from '@/api/client'
 import { onConnectionScopeChange } from '@/lib/connection-scoped'
 import { $primaryGatewayRoute } from '@/store/gateway-primary-route'
 import { $pinnedSessionIds, pinSession, unpinSession } from '@/store/layout'

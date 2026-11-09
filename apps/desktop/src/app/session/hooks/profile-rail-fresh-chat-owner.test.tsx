@@ -4,9 +4,9 @@ import { act, cleanup, render, waitFor } from '@testing-library/react'
 import { useEffect, useMemo, useRef } from 'react'
 import { afterEach, beforeEach, describe, expect, it, type Mock, vi } from 'vitest'
 
+import { getSession } from '@/anakot'
 import { createSessionRpcDispatcher } from '@/app/contrib/session-rpc-dispatcher'
 import { prepareDefaultNewSession } from '@/app/session/new-session-route'
-import { getSession } from '@/anakot'
 import { $defaultProfileRoute } from '@/store/default-profile'
 import {
   activeGateway,

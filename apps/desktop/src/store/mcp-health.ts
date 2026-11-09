@@ -21,8 +21,8 @@
 
 import type { McpServersStatusResult } from '@anakot/shared'
 
-import { $apiRequestScope } from '@/api/client'
 import { getAnakotConfigRecord, setMcpServerEnabled } from '@/anakot'
+import { $apiRequestScope } from '@/api/client'
 import { translateNow } from '@/i18n'
 import { isLoopbackPreviewUrl } from '@/lib/local-preview'
 import { getServers, type McpServerEntry, serverEnabled } from '@/lib/mcp-servers'

@@ -1,3 +1,4 @@
+export { ANAKOT_CLOUD_MANAGED, isAnakotCloudUrl } from './anakot-cloud'
 export { hasAnsi, sanitizeAnsiForRender, stripAnsi } from './ansi'
 export { backendScopeKey, backendScopePrefix, LOCAL_CONNECTION_ID, registryBackendScopeKey } from './backend-scope'
 export {
@@ -66,7 +67,6 @@ export { fileUrlToNativePath } from './file-url'
 export { compactNumber } from './format'
 export { type FuzzyMatch, fuzzyRank, fuzzyScore, fuzzyScoreMulti, type RankedItem } from './fuzzy'
 export * from './gateway-events'
-export { ANAKOT_CLOUD_MANAGED, isAnakotCloudUrl } from './anakot-cloud'
 export {
   applyDocumentLocale,
   type EndonymLocale,
@@ -199,13 +199,13 @@ export {
 export { type UpdateDebt, updateDebt, type UpdateDebtReceipt, type UpdateDebtStep } from './update-debt'
 export { mergeUsage, usageFromTick, type UsageTickPayload } from './usage-tick'
 export {
+  type AnakotWebSocketUrlOptions,
   BROWSER_NATIVE_DIAL,
   buildAnakotWebSocketUrl,
   type GatewayAuthMode,
   GatewayReauthRequiredError,
   type GatewayWsConnection,
   type GatewayWsUrlResult,
-  type AnakotWebSocketUrlOptions,
   isGatewayReauthRequired,
   normalizeBasePath,
   resolveGatewayWsUrl,

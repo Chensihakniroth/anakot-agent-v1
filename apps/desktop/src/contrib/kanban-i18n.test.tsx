@@ -1,12 +1,12 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import type { AnakotConfigRecord } from '@/anakot'
 import { PALETTE_AREA, usePaletteContributions } from '@/app/command-palette/contrib'
 import { ROUTES_AREA, SIDEBAR_NAV_AREA, type SidebarNavContribution } from '@/app/routes'
 import { createPluginContext } from '@/contrib/plugin'
 import { useContributions } from '@/contrib/react/use-contributions'
 import { registry } from '@/contrib/registry'
-import type { AnakotConfigRecord } from '@/anakot'
 import { I18nProvider, useI18n } from '@/i18n'
 import type { I18nContextValue } from '@/i18n'
 import { setRuntimeI18nLocale } from '@/i18n/runtime'

@@ -9,7 +9,10 @@ import { RECONNECT_ATTEMPT_TIMEOUT_MS, withTimeout } from '@/lib/with-timeout'
 // the second dial fails (tunnel/token are per-backend) and the closed socket
 // poisons the active gateway with "not connected" even though the primary is
 // open right next to it.
-export async function sharedPrimaryRoute(profile: string, spawnPriority: 'background' | 'foreground' = 'background'): Promise<boolean> {
+export async function sharedPrimaryRoute(
+  profile: string,
+  spawnPriority: 'background' | 'foreground' = 'background'
+): Promise<boolean> {
   const desktop = window.anakotDesktop
 
   if (!desktop) {

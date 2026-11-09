@@ -4,9 +4,9 @@ import { act, cleanup, render } from '@testing-library/react'
 import { useRef } from 'react'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import { getLatestSessionMessages } from '@/anakot'
 import { useMessageStream } from '@/app/session/hooks/use-message-stream'
 import { useSessionStateCache } from '@/app/session/hooks/use-session-state-cache'
-import { getLatestSessionMessages } from '@/anakot'
 import { chatMessageText, toChatMessages } from '@/lib/chat-messages'
 import { resetLiveSync } from '@/store/live-sync'
 import {

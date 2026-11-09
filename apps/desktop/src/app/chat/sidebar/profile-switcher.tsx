@@ -1,3 +1,4 @@
+import { LOCAL_CONNECTION_ID } from '@anakot/shared'
 import {
   closestCenter,
   DndContext,
@@ -18,11 +19,11 @@ import {
   useSortable
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { LOCAL_CONNECTION_ID } from '@anakot/shared'
 import { useStore } from '@nanostores/react'
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 
+import { getProfileSoul, updateProfileSoul } from '@/anakot'
 import type { ProfileScope } from '@/api/client'
 import { CodeEditor } from '@/components/chat/code-editor'
 import { Button } from '@/components/ui/button'
@@ -44,7 +45,6 @@ import { Popover, PopoverAnchor, PopoverContent } from '@/components/ui/popover'
 import { ProfileGlyph } from '@/components/ui/profile-glyph'
 import { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import type { DesktopRegistryConnection } from '@/global'
-import { getProfileSoul, updateProfileSoul } from '@/anakot'
 import { useResizeObserver } from '@/hooks/use-resize-observer'
 import { type Translations, useI18n } from '@/i18n'
 import { sortConnectionsForDisplay } from '@/lib/connection-display'

@@ -1,8 +1,8 @@
 import { atom } from 'nanostores'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
 import { anakotApi } from '@/anakot'
+import type { SidebarProjectTree } from '@/app/chat/sidebar/projects/workspace-groups'
 import { $gateway, activeGateway, activeGatewayConnectionId, isActivePrimary } from '@/store/gateway'
 import { $activeGatewayProfile, $profiles, setShowAllProfiles } from '@/store/profile'
 import { $sessions } from '@/store/session'

@@ -9,8 +9,8 @@ import { queryClient } from '@/lib/query-client'
 import { $connection } from '@/store/session'
 
 import {
-  HERMES_CONFIG_KEY,
   anakotConfigCacheWriter,
+  HERMES_CONFIG_KEY,
   setAnakotConfigCache,
   useAnakotConfigRecord
 } from './use-config-record'

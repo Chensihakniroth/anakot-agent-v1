@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import type { DesktopConnectionsRegistry, AnakotConnection } from '@/global'
 import type * as Anakot from '@/anakot'
+import type { AnakotConnection, DesktopConnectionsRegistry } from '@/global'
 
 vi.mock('@/app/contrib/hooks/use-background-sync', () => ({ resetLiveRuntimeTracking: vi.fn() }))
 vi.mock('@/anakot', async importOriginal => {
@@ -29,11 +29,7 @@ vi.mock('@/anakot', async importOriginal => {
   }
 })
 
-import {
-  _resetConnectionsForTests,
-  selectConnection,
-  setConnectionsRegistry
-} from '@/store/connections'
+import { _resetConnectionsForTests, selectConnection, setConnectionsRegistry } from '@/store/connections'
 import {
   closeSecondaryGateways,
   configureGatewayRegistry,

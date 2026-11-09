@@ -9,12 +9,12 @@ import {
 } from '@anakot/shared'
 import { useEffect, useRef } from 'react'
 
+import { AnakotGateway } from '@/anakot'
 import { canonicalOwnerProfile } from '@/api/canonical-protocol'
 import { createGatewayEventDedupe } from '@/app/gateway/gateway-event-dedupe'
 import { reportStartupLatency } from '@/app/gateway/report-startup-latency'
 import { shouldApplyPostBootProgressError } from '@/components/boot-failure-reauth'
-import type { DesktopBootProgress, AnakotConnection, AnakotWindowState } from '@/global'
-import { AnakotGateway } from '@/anakot'
+import type { AnakotConnection, AnakotWindowState, DesktopBootProgress } from '@/global'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd } from '@/lib/desktop-fs'
 import {
@@ -191,7 +191,9 @@ async function openWebappTabProfile(desktop: Window['anakotDesktop'], primary: s
   const routes = await desktop.getProfileRoutes?.([profile]).catch(() => null)
 
   if (routes && !routes.some(route => normalizeProfileKey(route.profile) === normalizeProfileKey(profile))) {
-    console.warn(`[gateway] this gateway has no profile "${profile}" or does not serve it; this tab stays on "${primary}"`)
+    console.warn(
+      `[gateway] this gateway has no profile "${profile}" or does not serve it; this tab stays on "${primary}"`
+    )
     await desktop.profile?.remember?.(primary)
 
     return

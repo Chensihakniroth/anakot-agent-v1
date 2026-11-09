@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
 
+import { getTerminalBackends, selectTerminalBackend } from '@/anakot'
 import type { ProfileScope } from '@/api/client'
 import { Button } from '@/components/ui/button'
-import { getTerminalBackends, selectTerminalBackend } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { AlertTriangle, Check, Loader2, RefreshCw } from '@/lib/icons'
 import { cn } from '@/lib/utils'

@@ -1,8 +1,8 @@
 import { useState } from 'react'
 
+import type { ProfileScope } from '@/anakot'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from '@/components/ui/dialog'
-import type { ProfileScope } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 

@@ -2,6 +2,7 @@ import { useStore } from '@nanostores/react'
 import { useQueryClient } from '@tanstack/react-query'
 import { type ReactNode, useEffect, useId } from 'react'
 
+import { getGlobalModelOptions } from '@/anakot'
 import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import { CAPABILITIES_ROUTE } from '@/app/routes'
 import type { ModelSelection } from '@/app/shell/model-menu-panel'
@@ -14,7 +15,6 @@ import {
   DialogTitle,
   preventCloseButtonAutoFocus
 } from '@/components/ui/dialog'
-import { getGlobalModelOptions } from '@/anakot'
 import { type Translations, useI18n } from '@/i18n'
 import { CheckCircle2, Loader2 } from '@/lib/icons'
 import {

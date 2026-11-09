@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { AnakotConnection } from '@/global'
 import type * as Anakot from '@/anakot'
+import type { AnakotConnection } from '@/global'
 import type { LocalCatalogModel, LocalModelsStatus } from '@/types/anakot'
 
 const backend = vi.hoisted(() => ({ catalog: vi.fn(), status: vi.fn() }))

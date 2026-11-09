@@ -65,7 +65,10 @@ function isPolicyConflict(error: unknown): boolean {
   return reason === 'POLICY_CONFLICT' || (error instanceof Error && /policy (?:changed|conflict)/i.test(error.message))
 }
 
-function statusVariant(status: ConnectorPageRow['status'], connected: boolean): 'default' | 'muted' | 'success' | 'warn' {
+function statusVariant(
+  status: ConnectorPageRow['status'],
+  connected: boolean
+): 'default' | 'muted' | 'success' | 'warn' {
   if (connected || status === 'active') {
     return 'success'
   }
@@ -77,10 +80,7 @@ function statusVariant(status: ConnectorPageRow['status'], connected: boolean): 
   return 'muted'
 }
 
-function statusText(
-  copy: ReturnType<typeof useI18n>['t']['connectorsPage'],
-  row: ConnectorPageRow
-): string {
+function statusText(copy: ReturnType<typeof useI18n>['t']['connectorsPage'], row: ConnectorPageRow): string {
   if (row.connected) {
     return copy.connected
   }
@@ -102,10 +102,10 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
   const activeProfile = useStore($activeGatewayProfile)
 
   const profileKey = normalizeProfileKey(
-    typeof profile === 'object' && profile ? profile.profile ?? activeProfile : profile ?? activeProfile
+    typeof profile === 'object' && profile ? (profile.profile ?? activeProfile) : (profile ?? activeProfile)
   )
 
-  const connectionId = profile && typeof profile === 'object' ? profile.connectionId ?? null : null
+  const connectionId = profile && typeof profile === 'object' ? (profile.connectionId ?? null) : null
 
   const request = useCallback(
     <T,>(method: string, params: Record<string, unknown> = {}, timeoutMs = 30_000): Promise<T> =>
@@ -136,12 +136,16 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
       // "Could not load connectors." tells the user nothing when the backend
       // says NEEDS_NOUS_AUTH / CONNECTORS_UNAVAILABLE / timeout / etc.
       let firstError: unknown = null
-      const track = <T,>(promise: Promise<T>) => promise.catch((error: unknown) => {
-        if (firstError === null) {
-          firstError = error
-        }
-        return null as T | null
-      })
+
+      const track = <T,>(promise: Promise<T>) =>
+        promise.catch((error: unknown) => {
+          if (firstError === null) {
+            firstError = error
+          }
+
+          return null as T | null
+        })
+
       const [catalog, list, accounts, policy] = await Promise.all([
         track(request<ConnectorsCatalogResult>('connectors.catalog')),
         track(request<ConnectorsListResult>('connectors.list', { owner: ACCOUNT_OWNER })),
@@ -153,6 +157,7 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
         if (firstError !== null) {
           console.error('[connectors] initial load failed', firstError)
         }
+
         throw firstError instanceof Error ? firstError : new Error(copy.loadFailed)
       }
 
@@ -186,7 +191,8 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
 
   const rows = useMemo(() => (snapshot ? deriveConnectorRows(snapshot) : []), [snapshot])
   const visibleRows = useMemo(() => filterConnectorRows(rows, query), [query, rows])
-  const selected = visibleRows.find(row => row.slug === selectedSlug) ?? rows.find(row => row.slug === selectedSlug) ?? rows[0] ?? null
+  const selected =
+    visibleRows.find(row => row.slug === selectedSlug) ?? rows.find(row => row.slug === selectedSlug) ?? rows[0] ?? null
 
   useEffect(() => {
     if (selected && selected.slug !== selectedSlug) {
@@ -361,11 +367,14 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
   const removeAccount = async (accountId: string): Promise<void> => {
     const account = snapshot?.accounts.find(candidate => candidate.connection_id === accountId)
 
-    if (!account || !(await confirm({
-      confirmLabel: copy.disconnect,
-      destructive: true,
-      title: copy.disconnectConfirm(account.alias || account.label)
-    }))) {
+    if (
+      !account ||
+      !(await confirm({
+        confirmLabel: copy.disconnect,
+        destructive: true,
+        title: copy.disconnectConfirm(account.alias || account.label)
+      }))
+    ) {
       return
     }
 
@@ -407,7 +416,13 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
           <ListStrip
             left={<span className="pl-2 text-[0.68rem] font-medium text-muted-foreground">{copy.title}</span>}
             right={
-              <Button aria-label={copy.refresh} className="size-5 p-0" onClick={() => void load()} size="icon" variant="ghost">
+              <Button
+                aria-label={copy.refresh}
+                className="size-5 p-0"
+                onClick={() => void load()}
+                size="icon"
+                variant="ghost"
+              >
                 <RefreshCw className="size-3" />
               </Button>
             }
@@ -424,7 +439,10 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
               onClick={() => setSelectedSlug(row.slug)}
               type="button"
             >
-              <ConnectorLogo className="size-5 shrink-0 rounded" connector={{ name: row.slug, title: row.name, url: row.logoUrl }} />
+              <ConnectorLogo
+                className="size-5 shrink-0 rounded"
+                connector={{ name: row.slug, title: row.name, url: row.logoUrl }}
+              />
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{row.name}</span>
                 <span className="block truncate text-[0.65rem] text-muted-foreground">{statusText(copy, row)}</span>
@@ -447,9 +465,7 @@ export function ConnectorsTab({ profile, query }: { profile: ProfileScope; query
             busy={busy}
             copy={copy}
             onConnect={() => void startConnect(selected)}
-            onRefreshTools={() =>
-              setToolsRefresh(value => ({ count: (value?.count ?? 0) + 1, slug: selected.slug }))
-            }
+            onRefreshTools={() => setToolsRefresh(value => ({ count: (value?.count ?? 0) + 1, slug: selected.slug }))}
             onRemoveAccount={accountId => void removeAccount(accountId)}
             onToolToggle={(slug, enabled) => void changeToolPolicy(selected, slug, enabled)}
             operation={operation?.slug === selected.slug ? operation : null}
@@ -518,7 +534,10 @@ function ConnectorDetail({
           <p className="text-xs text-muted-foreground">{copy.noAccounts}</p>
         ) : (
           row.accounts.map(account => (
-            <div className="flex items-center gap-2 rounded-md border border-(--ui-stroke-tertiary) px-2.5 py-2" key={account.connection_id}>
+            <div
+              className="flex items-center gap-2 rounded-md border border-(--ui-stroke-tertiary) px-2.5 py-2"
+              key={account.connection_id}
+            >
               <span className="min-w-0 flex-1">
                 <span className="block truncate text-xs font-medium">{account.alias || account.label}</span>
                 <span className="block text-[0.68rem] text-muted-foreground">{account.status}</span>
@@ -555,7 +574,10 @@ function ConnectorDetail({
             const enabled = !toolsDisabled.includes(tool.slug)
 
             return (
-              <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-(--ui-row-hover-background)" key={tool.slug}>
+              <div
+                className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-(--ui-row-hover-background)"
+                key={tool.slug}
+              >
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-xs">{tool.name || tool.slug}</span>
                   <span className="block truncate text-[0.65rem] text-muted-foreground">{tool.description}</span>

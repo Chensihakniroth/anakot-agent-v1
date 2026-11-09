@@ -1,6 +1,7 @@
 import { useStore } from '@nanostores/react'
 import { memo, type ReactNode, useCallback, useEffect, useMemo, useState } from 'react'
 
+import type { ProfileScope } from '@/anakot'
 import { getToolsets, setToolsetEnabled } from '@/api/toolsets'
 import { useGatewayRequest } from '@/app/gateway/hooks/use-gateway-request'
 import { Button } from '@/components/ui/button'
@@ -12,7 +13,6 @@ import { $pluginRecords, enablePackageDesktopHalf, type PluginRecord, setPluginE
 import { useContributions } from '@/contrib/react/use-contributions'
 import { discoverRuntimePlugins, uninstallDiskPlugin } from '@/contrib/runtime-loader'
 import { pluginSettingsRouteHref, SETTINGS_PLUGINS_AREA } from '@/contrib/settings-pages'
-import type { ProfileScope } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { DESKTOP_PLUGIN_TOOLSETS } from '@/lib/desktop-toolsets'
 import { triggerHaptic } from '@/lib/haptics'
@@ -148,7 +148,8 @@ const updateTargetLabel = (agent: AgentPluginRow) =>
   agent.catalog_version ?? agent.catalog_sha?.slice(0, 8) ?? shortTarget(agent.update_target)
 
 /** A full commit shortens to 8 characters; a feed version stays as it is. */
-const shortTarget = (target?: string) => (target && /^[0-9a-f]{40}$/i.test(target) ? target.slice(0, 8) : (target ?? ''))
+const shortTarget = (target?: string) =>
+  target && /^[0-9a-f]{40}$/i.test(target) ? target.slice(0, 8) : (target ?? '')
 
 function KindBadge({ kind }: { kind: PackageKind }) {
   const { t } = useI18n()

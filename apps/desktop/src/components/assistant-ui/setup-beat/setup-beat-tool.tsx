@@ -1,7 +1,7 @@
 'use client'
 
-import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import type { SetupBeat } from '@anakot/shared'
+import type { ToolCallMessagePartProps } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { Puzzle } from 'lucide-react'
 import { type ComponentType, type ReactNode, useState } from 'react'

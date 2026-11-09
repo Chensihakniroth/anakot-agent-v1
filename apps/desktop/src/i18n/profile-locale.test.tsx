@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { afterEach, expect, it, vi } from 'vitest'
 
+import type { AnakotConfigRecord } from '@/anakot'
 import { setApiRequestConnection } from '@/api/client'
 import type { AnakotApiRequest } from '@/global'
-import type { AnakotConfigRecord } from '@/anakot'
 import { $gateway } from '@/store/gateway'
 import { $activeGatewayProfile } from '@/store/profile'
 import { $connection, $gatewayState } from '@/store/session'

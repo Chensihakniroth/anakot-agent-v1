@@ -1,8 +1,8 @@
 import { useState } from 'react'
 
+import type { McpCatalogEntry } from '@/anakot'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import type { McpCatalogEntry } from '@/anakot'
 import { useI18n } from '@/i18n'
 
 export type InstallField = McpCatalogEntry['required_env'][number]

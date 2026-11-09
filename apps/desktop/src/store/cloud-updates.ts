@@ -21,7 +21,10 @@ function connectedToAnakotCloud(connection: AnakotConnection | null): boolean {
 }
 
 /** Whether Anakot Cloud owns updates for `target` under `connection`. */
-export function cloudOwnsUpdates(target: UpdateTarget, connection: AnakotConnection | null = $connection.get()): boolean {
+export function cloudOwnsUpdates(
+  target: UpdateTarget,
+  connection: AnakotConnection | null = $connection.get()
+): boolean {
   return servedByAnakotCloud() || (target === 'backend' && connectedToAnakotCloud(connection))
 }
 

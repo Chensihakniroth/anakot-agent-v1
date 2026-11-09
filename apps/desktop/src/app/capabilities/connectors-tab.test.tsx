@@ -12,7 +12,9 @@ describe('ConnectorsTab', () => {
     requestGatewayForAgent.mockImplementation(async (_connectionId, _profile, method) => {
       switch (method) {
         case 'connectors.catalog':
-          return { connectors: [{ category: 'Mail', description: 'Inbox', logo_url: null, name: 'Gmail', slug: 'gmail' }] }
+          return {
+            connectors: [{ category: 'Mail', description: 'Inbox', logo_url: null, name: 'Gmail', slug: 'gmail' }]
+          }
 
         case 'connectors.list':
           return {

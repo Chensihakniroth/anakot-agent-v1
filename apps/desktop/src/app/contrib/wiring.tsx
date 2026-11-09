@@ -128,10 +128,10 @@ import {
 import { SessionImportView } from '../session-import'
 import { SessionPickerOverlay } from '../session-picker-overlay'
 import { SessionSwitcher } from '../session-switcher'
+import { useAnakotConfig } from '../session/hooks/use-anakot-config'
 import { useBackgroundQueueDrain } from '../session/hooks/use-background-queue-drain'
 import { useContextSuggestions } from '../session/hooks/use-context-suggestions'
 import { useCwdActions } from '../session/hooks/use-cwd-actions'
-import { useAnakotConfig } from '../session/hooks/use-anakot-config'
 import { useMessageStream } from '../session/hooks/use-message-stream'
 import { useModelControls } from '../session/hooks/use-model-controls'
 import { useOwnerQueueReconcile } from '../session/hooks/use-owner-queue-reconcile'
@@ -1410,7 +1410,8 @@ export function ContribWiring({ children }: { children: ReactNode }) {
       <NotificationStack />
 
       {/* Backs confirm() from @/store/confirm — renders only while one is open. */}
-      <ConfirmHost /><PreviewSigninsBoot />
+      <ConfirmHost />
+      <PreviewSigninsBoot />
 
       {/* Send Diagnostics consent/upload dialog — driven by $sendDiagnostics
           (error card action); renders nothing until requested. */}

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 
+import { saveAnakotConfig } from '@/anakot'
 import {
   normalizeTerminalFontFamily,
   resolveTerminalFontFamily,
@@ -7,7 +8,6 @@ import {
   TERMINAL_FONT_SUGGESTIONS
 } from '@/app/right-sidebar/terminal/terminal-font'
 import { Button } from '@/components/ui/button'
-import { saveAnakotConfig } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 import type { AnakotConfigRecord } from '@/types/anakot'

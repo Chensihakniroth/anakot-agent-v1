@@ -15,9 +15,9 @@ import type {
 } from '@/types/anakot'
 
 import {
-  capabilityScoped,
   anakotApi,
   anakotApiAs,
+  capabilityScoped,
   type OwnerScope,
   ownerScoped,
   type ProfileScope,

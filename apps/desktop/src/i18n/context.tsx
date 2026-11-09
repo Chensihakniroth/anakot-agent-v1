@@ -2,7 +2,7 @@ import { applyDocumentLocale, isRecord } from '@anakot/shared/i18n'
 import { useStore } from '@nanostores/react'
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 
-import { getAnakotConfigRecord, type AnakotConfigRecord, retainConfigReadOrigin, saveAnakotConfig } from '@/anakot'
+import { type AnakotConfigRecord, getAnakotConfigRecord, retainConfigReadOrigin, saveAnakotConfig } from '@/anakot'
 
 import { TRANSLATIONS } from './catalog'
 import {

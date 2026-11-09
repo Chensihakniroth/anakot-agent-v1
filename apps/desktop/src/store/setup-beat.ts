@@ -10,7 +10,6 @@
  * completion clears it by tool call id, which covers a card answered in another window.
  */
 
-import type { ToolCallMessagePart } from '@assistant-ui/react'
 import type {
   SetupBeat,
   SetupBeatResult,
@@ -22,6 +21,7 @@ import type {
   SetupThemeAnswer,
   SetupTourAnswer
 } from '@anakot/shared'
+import type { ToolCallMessagePart } from '@assistant-ui/react'
 import { atom } from 'nanostores'
 
 import { recordOf } from '@/lib/connector-tools'

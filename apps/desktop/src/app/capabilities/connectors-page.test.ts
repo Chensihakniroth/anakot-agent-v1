@@ -88,9 +88,6 @@ describe('connector page derivation', () => {
 
     expect(memberPolicyRevision(snapshot.policy)).toBe('rev-1')
     expect(setToolDisabled(disabled, 'GMAIL_SEND_EMAIL', true)).toEqual([])
-    expect(setToolDisabled(disabled, 'GMAIL_LIST_MESSAGES', false)).toEqual([
-      'GMAIL_LIST_MESSAGES',
-      'GMAIL_SEND_EMAIL'
-    ])
+    expect(setToolDisabled(disabled, 'GMAIL_LIST_MESSAGES', false)).toEqual(['GMAIL_LIST_MESSAGES', 'GMAIL_SEND_EMAIL'])
   })
 })

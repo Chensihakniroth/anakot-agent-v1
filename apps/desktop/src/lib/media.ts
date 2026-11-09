@@ -1,6 +1,6 @@
 import { fileUrlToNativePath, LOCAL_CONNECTION_ID } from '@anakot/shared'
 
-import { capabilityScoped, anakotApi, type OwnerScope, sessionFileOwnerScope } from '@/api/client'
+import { anakotApi, capabilityScoped, type OwnerScope, sessionFileOwnerScope } from '@/api/client'
 import type { AnakotConnection } from '@/global'
 import { translateNow } from '@/i18n'
 import { desktopFsCacheKey, isReadFileErrorResult, readDesktopFileDataUrl } from '@/lib/desktop-fs'

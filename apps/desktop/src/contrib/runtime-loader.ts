@@ -43,7 +43,7 @@ import { notifyError } from '@/store/notifications'
 import { forgetPluginPreviewAccess } from '@/store/plugin-preview-grants'
 
 import { trackGatewayEventDisposers } from './events'
-import { createPluginContext, declaredCapabilities, type AnakotPlugin } from './plugin'
+import { type AnakotPlugin, createPluginContext, declaredCapabilities } from './plugin'
 import { $pluginRecords, dropPlugin, pluginActive, type PluginKind, publishPlugin } from './plugins-store'
 
 interface LoadOptions {

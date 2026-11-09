@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 
 import { test } from 'vitest'
 
-import { hasWindowsPathPrefix, isExternalVenvHolder, isAnakotOwnedVenvDaemon } from './venv-holder-select'
+import { hasWindowsPathPrefix, isAnakotOwnedVenvDaemon, isExternalVenvHolder } from './venv-holder-select'
 
 const SCRIPTS = 'C:\\Anakot\\venv\\Scripts'
 

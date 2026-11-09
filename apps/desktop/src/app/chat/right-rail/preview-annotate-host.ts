@@ -62,6 +62,7 @@ export function createPreviewAnnotateGuest(webview: PreviewDriveGuest | null): n
         '({ width: window.innerWidth, height: window.innerHeight })',
         signal
       )) as { height: number; width: number }
+
       signal?.throwIfAborted()
       const dataUrl = await window.anakotDesktop.capturePreview?.({ rect, viewport, webContentsId })
 
@@ -99,7 +100,9 @@ export function overlayInstallScript(source: string, session = ++nextOverlaySess
     `if ((window.__anakotAnnotateSession || 0) >= ${session}) return;` +
     `window.__anakotAnnotateSession = ${session};` +
     'if (window.__anakotAnnotate) window.__anakotAnnotate.teardown();' +
-    'var api=' + source + ';window.__anakotAnnotate=api;api.install();})()'
+    'var api=' +
+    source +
+    ';window.__anakotAnnotate=api;api.install();})()'
   )
 }
 

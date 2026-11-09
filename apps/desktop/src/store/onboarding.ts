@@ -1,7 +1,6 @@
 import type { ModelOptionProvider } from '@anakot/shared'
 import { atom } from 'nanostores'
 
-import { invalidateAllConnectors } from '@/app/capabilities/connectors/data/keys'
 import {
   cancelOAuthSession,
   getGlobalModelOptions,
@@ -15,6 +14,7 @@ import {
   submitOAuthCode,
   validateProviderCredential
 } from '@/anakot'
+import { invalidateAllConnectors } from '@/app/capabilities/connectors/data/keys'
 import { translateNow } from '@/i18n'
 import { writeClipboardText } from '@/lib/clipboard'
 import { restOfLongPollGap } from '@/lib/long-poll'

@@ -1,5 +1,5 @@
-import { type ThreadMessage } from '@assistant-ui/react'
 import type { GatewayEvent } from '@anakot/shared'
+import { type ThreadMessage } from '@assistant-ui/react'
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 

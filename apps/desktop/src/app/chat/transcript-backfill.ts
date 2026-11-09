@@ -15,13 +15,13 @@
  * drift on the next page.
  */
 
+import { getOlderSessionMessages, getSessionMessages, type ProfileScope } from '@/anakot'
 import {
   dropPageFoldsCutByTheBoundary,
   dropPageRowsOfStoppedTurns,
   dropReceiptTurnsThePageHolds
 } from '@/app/chat/transcript-receipt-turns'
 import { transcriptRowIds } from '@/app/session/hooks/use-session-actions/pending-turn-identity'
-import { getOlderSessionMessages, getSessionMessages, type ProfileScope } from '@/anakot'
 import { type ChatMessage, chatMessageText, toChatMessages } from '@/lib/chat-messages'
 import {
   recordTranscriptBackfillPage,

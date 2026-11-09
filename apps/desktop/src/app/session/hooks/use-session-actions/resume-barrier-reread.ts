@@ -1,9 +1,9 @@
+import { getLatestSessionMessages, type ProfileScope } from '@/anakot'
 import {
   extendRefreshPageToOverlap,
   graftRefreshedTailOntoBackfill,
   olderPageReader
 } from '@/app/chat/transcript-backfill'
-import { getLatestSessionMessages, type ProfileScope } from '@/anakot'
 import { type ChatMessage, toChatMessages } from '@/lib/chat-messages'
 import {
   type InFlightRecoveryResult,

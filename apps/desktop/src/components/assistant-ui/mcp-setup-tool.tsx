@@ -1,7 +1,7 @@
 'use client'
 
-import { type ToolCallMessagePartProps, useAuiState } from '@assistant-ui/react'
 import type { ConnectionTargetLaunchKind } from '@anakot/shared'
+import { type ToolCallMessagePartProps, useAuiState } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 

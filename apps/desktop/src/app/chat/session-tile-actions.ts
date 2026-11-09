@@ -8,8 +8,8 @@
  * slice — never the global `$busy`/`$messages`.
  */
 
-import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 import { isUndeliveredCorrectionRefusal } from '@anakot/shared'
+import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 import { useCallback, useMemo, useRef } from 'react'
 
 import type { ClientSessionState } from '@/app/types'

@@ -1,8 +1,8 @@
 import { LOCAL_CONNECTION_ID, registryBackendScopeKey } from '@anakot/shared'
 import { atom, batch, computed } from 'nanostores'
 
+import { anakotApi, getProfiles, setApiRequestProfile, STARTUP_REQUEST_TIMEOUT_MS } from '@/anakot'
 import type { AnakotConnection } from '@/global'
-import { getProfiles, anakotApi, setApiRequestProfile, STARTUP_REQUEST_TIMEOUT_MS } from '@/anakot'
 import { hostHas } from '@/lib/host-capabilities'
 import { persistStore } from '@/lib/persist-store'
 import { initialGatewayProfile } from '@/lib/platform'

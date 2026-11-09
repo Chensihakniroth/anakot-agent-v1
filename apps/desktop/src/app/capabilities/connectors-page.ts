@@ -1,9 +1,4 @@
-import type {
-  ConnectorAccountRow,
-  ConnectorCatalogRow,
-  ConnectorPolicyGetResult,
-  ConnectorRow
-} from '@anakot/shared'
+import type { ConnectorAccountRow, ConnectorCatalogRow, ConnectorPolicyGetResult, ConnectorRow } from '@anakot/shared'
 
 export interface ConnectorPageRow {
   accounts: ConnectorAccountRow[]
@@ -50,7 +45,8 @@ export function deriveConnectorRows(snapshot: ConnectorPageSnapshot): ConnectorP
       const catalog = catalogBySlug.get(slug)
       const listed = listBySlug.get(slug)
       const accounts = accountsBySlug.get(slug) ?? []
-      const connected = listed?.connected === true || accounts.some(account => account.active && account.status === 'active')
+      const connected =
+        listed?.connected === true || accounts.some(account => account.active && account.status === 'active')
 
       return {
         accounts,

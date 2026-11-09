@@ -1,6 +1,6 @@
 import { atom } from 'nanostores'
 
-import { getActionStatus, getStatus, anakotApi, restartGateway } from '@/anakot'
+import { anakotApi, getActionStatus, getStatus, restartGateway } from '@/anakot'
 import { translateNow } from '@/i18n'
 import { sharedGatewayProfiles } from '@/lib/shared-gateway-restart'
 import { isSignedOutStatus } from '@/lib/signed-out-status'

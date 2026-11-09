@@ -1,9 +1,9 @@
 import { renderHook } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type * as AnakotModule from '@/anakot'
 import { reasoningEffortPending } from '@/app/chat/session-view'
 import type { ClientSessionState } from '@/app/types'
-import type * as AnakotModule from '@/anakot'
 import { textPart } from '@/lib/chat-messages'
 import { createClientSessionState } from '@/lib/chat-runtime'
 import { clearSessionDraft, stashSessionDraft, takeSessionDraft } from '@/store/composer'

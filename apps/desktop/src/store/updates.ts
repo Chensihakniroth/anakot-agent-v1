@@ -6,18 +6,18 @@
 import { updateDebt } from '@anakot/shared'
 import { atom } from 'nanostores'
 
+import { checkAnakotUpdate, getActionStatus, updateAnakot } from '@/anakot'
 import { CANONICAL_GATEWAY_PROTOCOL } from '@/api/canonical-protocol'
 import { $apiRequestScope, connectionScoped, profileScoped } from '@/api/client'
 import type {
+  AnakotConnection,
   DesktopUpdateApplyOptions,
   DesktopUpdateApplyResult,
   DesktopUpdateProgress,
   DesktopUpdateStage,
   DesktopUpdateStatus,
-  DesktopVersionInfo,
-  AnakotConnection
+  DesktopVersionInfo
 } from '@/global'
-import { checkAnakotUpdate, getActionStatus, updateAnakot } from '@/anakot'
 import { translateNow } from '@/i18n'
 import { persistString, storedString } from '@/lib/storage'
 import { cloudOwnsUpdates, updateTargetFor } from '@/store/cloud-updates'

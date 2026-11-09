@@ -1,5 +1,5 @@
-import { openGatewaySocket } from '@/api/canonical-protocol'
 import type { ResolvedOwner } from '@/anakot'
+import { openGatewaySocket } from '@/api/canonical-protocol'
 import { resolveSiblingWsUrl } from '@/lib/sibling-ws-url'
 
 /**

@@ -55,7 +55,6 @@ export function ugitGitBinaries(localAppData: string, fs: GitCandidateFs): strin
     .filter(fs.existsSync)
 }
 
-
 /**
  * Find Git installed by Anakot PM under `%LOCALAPPDATA%\anakot\tools`.
  * PM versions the tool directory, so resolve the newest available executable

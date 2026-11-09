@@ -3,8 +3,6 @@
 // stand-ins: enough for the component to render, never enough to assert on. A
 // test that needs one of them to actually report should install its own.
 
-import { vi } from 'vitest'
-
 export class InertResizeObserver {
   disconnect() {}
   observe() {}

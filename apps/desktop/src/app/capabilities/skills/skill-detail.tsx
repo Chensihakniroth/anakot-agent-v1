@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 
+import { getSkillContent, type ProfileScope, profileScopeKey, setSkillLocked } from '@/anakot'
 import { PageLoader } from '@/components/page-loader'
 import { Button } from '@/components/ui/button'
-import { getSkillContent, type ProfileScope, profileScopeKey, setSkillLocked } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { Lock, LockOpen } from '@/lib/icons'
 import { queryClient } from '@/lib/query-client'

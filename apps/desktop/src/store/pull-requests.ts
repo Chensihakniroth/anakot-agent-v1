@@ -1,7 +1,7 @@
 import { atom } from 'nanostores'
 
-import type { AnakotBranchPullRequest } from '@/global'
 import { scanSessionPullRequests, type SessionInfo } from '@/anakot'
+import type { AnakotBranchPullRequest } from '@/global'
 import { desktopGit } from '@/lib/desktop-git'
 import { Codecs, persistentAtom } from '@/lib/persisted'
 

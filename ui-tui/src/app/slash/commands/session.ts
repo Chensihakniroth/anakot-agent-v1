@@ -590,7 +590,9 @@ export const sessionCommands: SlashCommand[] = [
           .rpc<ConfigGetValueResponse>('config.get', { key: 'fast', session_id: ctx.sid })
           .then(
             ctx.guarded<ConfigGetValueResponse>(r =>
-              ctx.transcript.sys(`fast mode: ${r.value === 'fast' ? 'fast' : r.value === 'ultrafast' ? 'ultrafast' : 'normal'}`)
+              ctx.transcript.sys(
+                `fast mode: ${r.value === 'fast' ? 'fast' : r.value === 'ultrafast' ? 'ultrafast' : 'normal'}`
+              )
             )
           )
           .catch(ctx.guardedErr)

@@ -21,6 +21,7 @@
 import { computed, type ReadableAtom } from 'nanostores'
 import type { ReactNode } from 'react'
 
+import { anakotApi, type AnakotGateway, deleteProfile, getLogs, getStatus } from '@/anakot'
 import { capabilityScoped, getApiRequestConnection } from '@/api/client'
 import { mutateSessionFenced } from '@/api/sessions'
 import { PRIMARY_SESSION_VIEW } from '@/app/chat/session-view'
@@ -46,7 +47,6 @@ import {
 import { onGatewayEvent } from '@/contrib/events'
 import { registry } from '@/contrib/registry'
 import type { WorkspaceMode } from '@/contrib/types'
-import { deleteProfile, getLogs, getStatus, anakotApi, type AnakotGateway } from '@/anakot'
 import { traceIdentityChange } from '@/lib/identity-trace'
 import { completeMcpDesktopOAuth } from '@/lib/mcp-dashboard-oauth'
 import {
@@ -1543,6 +1543,9 @@ export type { DesktopSettingKey, DesktopSettingValues } from './settings'
 // -- ui: the design language --------------------------------------------------
 
 export type { ViewportRect } from './viewport'
+/** The live gateway instance type — for typing the `gateway` prop `ConnectorsTab`
+ *  takes; obtain the instance from `host.getGateway()`. */
+export type { AnakotGateway } from '@/anakot'
 /** THE whole Capabilities surface (Skills / Tools / MCP tabs, installed
  *  lists, full-skill detail pane, embedded hub picker with one-click
  *  installs). For plugin dialogs pass `embedded` (tab state stays local —
@@ -1603,12 +1606,12 @@ export { PALETTE_AREA, type PaletteContribution } from '@/app/command-palette/co
  *  over a raw `<Contribute area={WORKSPACE_PAGE_HEADER_AREA}>`, which nothing
  *  paints outside the workspace pane. */
 export { WorkspacePageHeaderControl } from '@/app/contrib/workspace-page-header'
+
 /** THE overdue test for a cron job's `next_run_at`: non-null once the stored slot
  *  sits past the scheduler grace and the job is expected to fire. Every surface
  *  that prints a next run switches its label on this (`t.cron.next` →
  *  `t.cron.overdueSince`) so a dead scheduler never reads as "Next: 7 hr ago". */
 export { nextRunOverdueMs } from '@/app/cron/job-state'
-
 /** Master-detail components for pane content; the overlay-bound Panel root is deliberately private. */
 export {
   PanelAction,
@@ -1769,21 +1772,18 @@ export { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 export { Textarea } from '@/components/ui/textarea'
 export { Tip, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 export type { GatewayEventListener } from '@/contrib/events'
+
+// -- contracts ----------------------------------------------------------------
+
 /** Mount-scoped contribution: while the rendering component is mounted, its
  *  children render in the target area's slot; unmount disposes it. Use for
  *  page-owned chrome (a page's titlebar control leaves with the page) —
  *  `ctx.register` stays the door for permanent contributions. Namespace the
  *  id with your plugin slug (`kanban:board-switcher`). */
 export { Contribute, type ContributeProps } from '@/contrib/react/contribute'
-
-// -- contracts ----------------------------------------------------------------
-
 /** Settings ▸ Plugins entries (`ctx.registerSettingsPage`); `pluginSettingsHref` deep-links one. */
 export { pluginSettingsHref, SETTINGS_PLUGINS_AREA } from '@/contrib/settings-pages'
 export type { Contribution } from '@/contrib/types'
-/** The live gateway instance type — for typing the `gateway` prop `ConnectorsTab`
- *  takes; obtain the instance from `host.getGateway()`. */
-export type { AnakotGateway } from '@/anakot'
 /** Grab-to-pan for overflow containers (boards, timelines, wide tables) —
  *  the shared scrub primitive; don't hand-roll drag-to-scroll. */
 export { type GrabScroll, useGrabScroll } from '@/hooks/use-grab-scroll'
@@ -1811,6 +1811,7 @@ export {
   useI18n,
   usePluginI18n
 } from '@/i18n'
+export type { AnakotOpenTarget } from '@/lib/anakot-open-target'
 /** THE way to run a decorative rAF animation (avatars, shimmer, sprites):
  *  fps budget + hidden/minimized/unfocused pause + idle dormancy + teardown.
  *  Plugins must route animation clocks through this instead of raw rAF loops
@@ -1835,7 +1836,6 @@ export {
   type SurfaceModelSwitchConfirmOptions
 } from '@/lib/guarded-model-switch'
 export { triggerHaptic as haptic } from '@/lib/haptics'
-export type { AnakotOpenTarget } from '@/lib/anakot-open-target'
 /** The app's lucide icon set (RefreshCw, LayoutDashboard, Activity, …). */
 export * as icons from '@/lib/icons'
 /** IME-aware Enter: true only for a real submit Enter, never a CJK composition

@@ -1,10 +1,6 @@
 import { useStore } from '@nanostores/react'
 import { useCallback, useEffect, useState } from 'react'
 
-import { restoreListedSession } from '@/app/session/hooks/use-session-actions/utils'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Tip } from '@/components/ui/tooltip'
 import {
   deleteSession,
   getAnakotConfigRecord,
@@ -13,6 +9,10 @@ import {
   saveAnakotConfig,
   setSessionArchived
 } from '@/anakot'
+import { restoreListedSession } from '@/app/session/hooks/use-session-actions/utils'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Tip } from '@/components/ui/tooltip'
 import { useI18n } from '@/i18n'
 import { sessionTitle } from '@/lib/chat-runtime'
 import { selectDesktopPaths } from '@/lib/desktop-fs'

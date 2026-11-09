@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { AnakotReadDirResult } from '@/global'
 import type * as AnakotModule from '@/anakot'
+import type { AnakotReadDirResult } from '@/global'
 import { $previewScriptGrants, grantPreviewScript } from '@/store/plugin-preview-grants'
 
 import { emitGatewayEvent } from './events'

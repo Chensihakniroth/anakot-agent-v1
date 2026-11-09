@@ -1,6 +1,6 @@
-import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 import { isUndeliveredCorrectionRefusal, JsonRpcGatewayError } from '@anakot/shared'
 import { stripAnsi } from '@anakot/shared/ansi'
+import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 import { useStore } from '@nanostores/react'
 import { type MutableRefObject, useCallback, useEffect, useRef } from 'react'
 
@@ -137,9 +137,10 @@ export async function uploadComposerAttachment(
   // Edit-message drops bypass the main composer store, so also resolve their
   // source descriptor here. Absence means an older browser backend/native file
   // and retains the existing byte-upload rules.
-  const stagedUpload = attachment.kind === 'file'
-    ? attachment.stagedUpload ?? window.anakotDesktop?.getStagedFileForAttach?.(path)
-    : undefined
+  const stagedUpload =
+    attachment.kind === 'file'
+      ? (attachment.stagedUpload ?? window.anakotDesktop?.getStagedFileForAttach?.(path))
+      : undefined
 
   if (stagedUpload && stagedUpload.path !== path) {
     throw new Error(`Could not attach ${label}: staged source changed; select the file again`)
@@ -211,9 +212,7 @@ export async function uploadComposerAttachment(
       session_id: liveSessionId,
       // Omit path as well as bytes for the provenance-aware branch: an older
       // RPC implementation must reject it rather than ignore source ownership.
-      ...(stagedUpload
-        ? { staged_upload: stagedUpload }
-        : { path, ...(fileDataUrl ? { data_url: fileDataUrl } : {}) })
+      ...(stagedUpload ? { staged_upload: stagedUpload } : { path, ...(fileDataUrl ? { data_url: fileDataUrl } : {}) })
     })
 
     if (!result.attached || !result.ref_text) {

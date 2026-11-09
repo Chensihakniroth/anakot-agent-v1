@@ -1,6 +1,7 @@
 import { replaceEqualDeep } from '@tanstack/react-query'
 import { atom, computed } from 'nanostores'
 
+import { anakotApi, type AnakotGateway, getAnakotConfig, type SessionInfo } from '@/anakot'
 import type { NewSessionPlacement } from '@/app/chat/new-session-drag'
 import {
   excludeProjectSessions,
@@ -10,7 +11,6 @@ import {
   type SidebarProjectTree
 } from '@/app/chat/sidebar/projects/workspace-groups'
 import type { AnakotGitBaseBranch, AnakotGitBranch } from '@/global'
-import { getAnakotConfig, anakotApi, type AnakotGateway, type SessionInfo } from '@/anakot'
 import { translateNow } from '@/i18n'
 import { desktopDefaultCwd, isDesktopFsRemoteMode, selectDesktopPaths, writeDesktopFileText } from '@/lib/desktop-fs'
 import { desktopGit, desktopGitFor, type GitOwnerRoute } from '@/lib/desktop-git'

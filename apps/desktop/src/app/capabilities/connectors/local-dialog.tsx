@@ -1,8 +1,8 @@
 import { compactNumber } from '@anakot/shared'
 import { useLocation, useNavigate } from 'react-router'
 
-import { PanelEmpty } from '@/app/overlays/panel'
 import type { ProfileScope } from '@/anakot'
+import { PanelEmpty } from '@/app/overlays/panel'
 import { useI18n } from '@/i18n'
 
 import type { McpServersController } from '../mcp/use-mcp-servers'

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
-import { capabilityScoped, anakotApi, type ProfileScope, sessionReadOwnerPin } from '@/api/client'
+import { anakotApi, capabilityScoped, type ProfileScope, sessionReadOwnerPin } from '@/api/client'
 import {
   cachedTimelineIndex,
   previousPromptRowId,

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
-import type { DesktopConnectionsRegistry, AnakotConnection } from '@/global'
 import type * as Anakot from '@/anakot'
+import type { AnakotConnection, DesktopConnectionsRegistry } from '@/global'
 
 import { deferred } from '../test/deferred'
 

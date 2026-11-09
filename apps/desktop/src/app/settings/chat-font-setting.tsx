@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
-import { Button } from '@/components/ui/button'
 import { saveAnakotConfig } from '@/anakot'
+import { Button } from '@/components/ui/button'
 import { useI18n } from '@/i18n'
 import { notifyError } from '@/store/notifications'
 import {

@@ -1,5 +1,5 @@
-import type { AppendMessage } from '@assistant-ui/react'
 import { JsonRpcGatewayError } from '@anakot/shared'
+import type { AppendMessage } from '@assistant-ui/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { ChatMessage } from '@/lib/chat-messages'

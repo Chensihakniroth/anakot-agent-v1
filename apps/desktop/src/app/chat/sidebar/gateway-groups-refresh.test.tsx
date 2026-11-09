@@ -3,10 +3,10 @@ import { act, cleanup, render, renderHook, within } from '@testing-library/react
 import { MemoryRouter } from 'react-router'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'
 
+import type { SessionInfo, SidebarSessionsResponse } from '@/anakot'
 import { setApiRequestConnection } from '@/api/client'
 import { useSessionListActions } from '@/app/session/hooks/use-session-list-actions'
 import { SidebarProvider } from '@/components/ui/sidebar'
-import type { SessionInfo, SidebarSessionsResponse } from '@/anakot'
 import { $connectionsRegistry } from '@/store/connection-registry-state'
 import { setSidebarGrouping } from '@/store/layout'
 import { $profiles, $showAllProfiles } from '@/store/profile'

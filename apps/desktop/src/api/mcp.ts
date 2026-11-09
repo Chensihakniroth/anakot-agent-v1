@@ -1,6 +1,6 @@
 import type { McpCatalogResponse, McpServerSummary } from '@/types/anakot'
 
-import { capabilityScoped, anakotApi, type ProfileScope, profileScoped } from './client'
+import { anakotApi, capabilityScoped, type ProfileScope, profileScoped } from './client'
 
 /** A catalog read that probes the backend host for installed apps is slower
  *  than the plain read, so it gets its own bounded budget. */

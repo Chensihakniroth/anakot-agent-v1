@@ -1,7 +1,7 @@
 import { foldPersonalityName } from '@/lib/personalities'
 import { asText, normalize } from '@/lib/text'
 import { localShowReasoning } from '@/store/reasoning-disclosure'
-import type { ConfigFieldSchema, AnakotConfig, AnakotConfigRecord, ToolsetInfo } from '@/types/anakot'
+import type { AnakotConfig, AnakotConfigRecord, ConfigFieldSchema, ToolsetInfo } from '@/types/anakot'
 
 import { BUILTIN_PERSONALITIES, ENUM_OPTIONS, PROVIDER_GROUPS, SECTIONS } from './constants'
 

@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query'
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
+import { getOfficialSkills, type ProfileScope, profileScopeKey } from '@/anakot'
 import { capabilityScoped } from '@/api/client'
 import { Loader } from '@/components/ui/loader'
-import { getOfficialSkills, type ProfileScope, profileScopeKey } from '@/anakot'
 import { useI18n } from '@/i18n'
 import { HUB_SOURCES_KEY, installHubSkill, notifyHubActionFailed, OFFICIAL_SKILLS_KEY } from '@/store/hub-actions'
 import { notify } from '@/store/notifications'
@@ -46,11 +46,13 @@ function ScopedSkillCatalog({
 }: SkillCatalogProps) {
   const { t } = useI18n()
   const h = t.skills.hub
+
   // "Try …" nudges from the user's own skills: search reads categories, not just names.
   const searchHints = useMemo(
     () => (skills.length ? skillSearchTerms(skills).map(term => t.common.tryHint(term)) : undefined),
     [skills, t]
   )
+
   const mounted = useRef(true)
   const pending = useRef(new Set<string>())
   const [installing, setInstalling] = useState<ReadonlySet<string>>(new Set())

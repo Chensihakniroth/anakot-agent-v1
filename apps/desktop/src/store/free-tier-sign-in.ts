@@ -1,7 +1,6 @@
 import type { FreeTierClaimNudgeResult } from '@anakot/shared'
 import { atom } from 'nanostores'
 
-import { invalidateAllConnectors } from '@/app/capabilities/connectors/data/keys'
 import {
   cancelOAuthSession,
   getNousHandoffStatus,
@@ -11,6 +10,7 @@ import {
   type ProfileScope,
   startOAuthLogin
 } from '@/anakot'
+import { invalidateAllConnectors } from '@/app/capabilities/connectors/data/keys'
 import { LONG_POLL_MIN_GAP_MS, pause, restOfLongPollGap } from '@/lib/long-poll'
 import { gatewayActivationEpoch } from '@/store/gateway'
 import type { AppHandoffStatus, FreeTierStatus, OAuthPollResponse } from '@/types/anakot'

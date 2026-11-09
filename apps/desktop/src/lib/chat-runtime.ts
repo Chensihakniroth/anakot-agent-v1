@@ -1,6 +1,6 @@
-import type { ThreadMessage } from '@assistant-ui/react'
 import type { ModelOptionsResult } from '@anakot/shared'
 import { SLASH_COMMAND_RE } from '@anakot/shared'
+import type { ThreadMessage } from '@assistant-ui/react'
 
 import type { QuickModelOption } from '@/app/chat/composer/types'
 import type { ClientSessionState } from '@/app/types'

@@ -9,11 +9,11 @@
  * — so each caller keeps its own state-write + error-handling wiring.
  */
 
-import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 import { JsonRpcGatewayError } from '@anakot/shared'
+import type { AppendMessage, ThreadMessage } from '@assistant-ui/react'
 
-import type { ClientSessionState } from '@/app/types'
 import { PROMPT_SUBMIT_REQUEST_TIMEOUT_MS } from '@/anakot'
+import type { ClientSessionState } from '@/app/types'
 import {
   branchGroupForUser,
   type ChatMessage,
