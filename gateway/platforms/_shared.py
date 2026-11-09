@@ -50,6 +50,15 @@ def _current_scope():
 _UNSCOPED_PROFILE_SECRETS: Optional[dict] = None
 
 
+def config_connected_extra(*keys: str) -> Callable[[Any], bool]:
+    """Helper returning an is_connected predicate checking config.extra keys."""
+    def _is_connected(config: Any) -> bool:
+        extra = getattr(config, "extra", {}) or {}
+        return all(bool(extra.get(k)) for k in keys)
+    return _is_connected
+
+
+
 def _unscoped_profile_secrets() -> dict:
     """Process-cached profile secret mapping (external resolvers are slow); failures degrade to {}."""
     global _UNSCOPED_PROFILE_SECRETS

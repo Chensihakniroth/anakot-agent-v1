@@ -801,6 +801,14 @@ class PluginContext(PluginCapabilityCtxMixin):
         ``platform_hint``, ``ensure_deps_fn``) forward to ``PlatformEntry``; unknown keys raise TypeError."""
         from gateway.platform_registry import platform_registry, PlatformEntry
         entry_kwargs.setdefault("plugin_name", self.manifest.name)
+        if "target_ref_syntax_fn" in entry_kwargs:
+            entry_kwargs.setdefault("parse_target_ref_fn", entry_kwargs.pop("target_ref_syntax_fn"))
+        if "config_connected_fn" in entry_kwargs:
+            entry_kwargs.setdefault("is_connected", entry_kwargs.pop("config_connected_fn"))
+        # Filter kwargs to only those accepted by PlatformEntry dataclass
+        import dataclasses
+        valid_fields = {f.name for f in dataclasses.fields(PlatformEntry)}
+        entry_kwargs = {k: v for k, v in entry_kwargs.items() if k in valid_fields}
         entry = PlatformEntry(
             name=name, label=label, adapter_factory=adapter_factory, check_fn=check_fn,
             validate_config=validate_config, required_env=required_env or [],
