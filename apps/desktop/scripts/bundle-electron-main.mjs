@@ -14,6 +14,7 @@ import { build } from 'esbuild'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { mkdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { buildCommandScreenshotMonitor } from './build-command-screenshot-monitor.mjs'
 
 const here = dirname(fileURLToPath(import.meta.url))
@@ -22,6 +23,9 @@ const distDir = resolve(root, 'dist')
 mkdirSync(distDir, { recursive: true })
 // Stage for both --dev and release bundles; non-mac hosts skip this helper.
 buildCommandScreenshotMonitor({ distDir })
+
+const requireFromHere = createRequire(import.meta.url)
+const productIdentity = requireFromHere(resolve(root, 'product-identity.cjs'))
 
 const mainEntry = resolve(root, 'electron/entry.ts')
 const mainOut = resolve(distDir, 'electron-main.mjs')
@@ -33,9 +37,10 @@ const external = ['electron', 'node-pty', 'get-windows', 'fs']
 // behaves like a packaged build. Dev bundles (`--dev`) leave the env alone
 // so ANAKOT_DESKTOP_DEV_SERVER / source-tree resolution keep working.
 const isDev = process.argv.includes('--dev')
-const define = isDev
-  ? {}
-  : { 'process.env.ANAKOT_DESKTOP_IS_PACKAGED': JSON.stringify(true) }
+const define = {
+  __HERMES_PRODUCT_IDENTITY__: JSON.stringify(productIdentity),
+  ...(isDev ? {} : { 'process.env.ANAKOT_DESKTOP_IS_PACKAGED': JSON.stringify(true) }),
+}
 
 // Bundle main.ts → dist/electron-main.mjs
 await build({

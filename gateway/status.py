@@ -283,6 +283,11 @@ def _start_times_agree(current: Any, *recorded: Any) -> bool:
     return cur > 0 and all(r > 0 and abs(r - cur) <= 0.001 for r in map(float, recorded))
 
 
+def start_time_fingerprints_match(recorded: Any, current: Any) -> bool:
+    """True when recorded start-time fingerprints agree with ``current`` (public alias)."""
+    return _start_times_agree(current, recorded)
+
+
 def _scope_hash(identity: str) -> str:
     return hashlib.sha256(identity.encode("utf-8")).hexdigest()[:16]
 

@@ -33,7 +33,8 @@ def _add_system_flag(parser: argparse.ArgumentParser) -> None:
 
 
 def build_gateway_parser(
-    subparsers, *, cmd_gateway: Callable, cmd_proxy: Callable, cmd_gateway_enroll: Callable
+    subparsers, *, cmd_gateway: Callable, cmd_proxy: Callable, cmd_gateway_enroll: Callable,
+    cmd_gateway_ensure: Callable
 ) -> None:
     """Attach the ``gateway`` and ``proxy`` subcommands to ``subparsers``."""
     gateway_parser = subparsers.add_parser("gateway", help="Messaging gateway management",
@@ -170,6 +171,15 @@ def build_gateway_parser(
             "Optional — without it the gateway still drains whenever it next "
             "reconnects on its own.")
     gateway_enroll.set_defaults(func=cmd_gateway_enroll)
+
+    # ensure: machine-readable gateway attach-or-start boundary used by the Desktop app.
+    # Prints a single-line JSON GatewayDiscovery payload to stdout.
+    gateway_ensure = gateway_subparsers.add_parser(
+        "ensure", help="Ensure a gateway is running for this profile (machine-readable JSON output)")
+    gateway_ensure.add_argument("--json", action="store_true", help=argparse.SUPPRESS)
+    gateway_ensure.add_argument("--timeout", type=float, default=60.0,
+        help="Seconds to wait for the gateway to become ready")
+    gateway_ensure.set_defaults(func=cmd_gateway_ensure)
 
     # proxy: local OpenAI-compatible proxy attaching the user's OAuth provider credentials,
     # so external apps (Open WebUI, Karakeep, ...) ride a logged-in subscription.

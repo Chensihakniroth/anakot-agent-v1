@@ -13,6 +13,11 @@ Reading never raises: a malformed file reads as ``{}`` — still drain-active
 from __future__ import annotations
 
 import contextlib
+
+# Reason code stamped on a GatewayDiscovery when an owner is draining after a
+# requested restart: clients may attach to answer parked turns while the
+# replacement boots (#139041).
+RESTART_WAIT_REASON = "restart_wait"
 import functools
 import json
 import logging

@@ -14,6 +14,14 @@ from typing import Any
 
 from anakot_state_holders import read_only_db_uri
 
+# Budget (seconds) for browse reconciliation before the gateway's profile-reserve wait.
+# run_bootstrap._browse_reconcile_reserve_wait_s adds 2.0 s to this for the total wait.
+BROWSE_RECONCILE_BUDGET_S = 3.0
+
+# Purpose marker written into gateway.lock during browse reconciliation reserve, so a contender
+# can tell a short maintenance holder from a gateway runtime owner (see live_runtime_owner).
+BROWSE_RECONCILE_PURPOSE = "browse_reconcile"
+
 
 def schema_drift_reason(path: Path) -> str | None:
     """Return the first missing declared table/column, or ``None`` when the schema is current."""

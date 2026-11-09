@@ -30,6 +30,16 @@ def test_schtasks_encoding_falls_back_to_utf8(monkeypatch):
     assert gateway_windows._schtasks_encoding() == "utf-8"
 
 
+def test_decode_schtasks_output_handles_utf16_bom():
+    text = "Task name"
+    assert gateway_windows._decode_schtasks_output(text.encode("utf-16")) == text
+
+
+def test_decode_schtasks_output_uses_console_encoding(monkeypatch):
+    monkeypatch.setattr(gateway_windows, "_schtasks_encoding", lambda: "cp1252")
+    assert gateway_windows._decode_schtasks_output("café".encode("cp1252")) == "café"
+
+
 
 
 @pytest.mark.windows_only

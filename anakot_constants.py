@@ -196,6 +196,11 @@ def get_default_anakot_root() -> Path:
     return result
 
 
+def account_default_anakot_home() -> Path:
+    """The account's default Anakot home: the platform default, never overridden by ANAKOT_HOME."""
+    return _get_platform_default_anakot_home()
+
+
 # Tombstone lives beside the profile dir (not inside) so a stale mkdir or rmtree cannot erase it.
 _DELETED_PROFILES_DIR = ".deleted"
 # Files marking a real Anakot home; arbitrary dirs with a ``profiles`` segment lack them.

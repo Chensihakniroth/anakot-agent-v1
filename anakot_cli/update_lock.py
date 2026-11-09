@@ -15,7 +15,19 @@ from contextlib import suppress
 from dataclasses import dataclass
 from pathlib import Path
 
+try:
+    import psutil
+except Exception:  # pragma: no cover - psutil is a hard dependency in practice
+    psutil = None
+
 logger = logging.getLogger(__name__)
+
+# Grace window (seconds) for an empty marker file still being written by the updater.
+EMPTY_MARKER_GRACE_SECONDS = 10
+
+# Pid -> {path, ...} of checkout locks this process holds (module-global so
+# checkout_lock_held() can answer without a root argument).
+_HELD: dict[int, dict] = {}
 
 # Keep in sync with UPDATE_MARKER_MAX_AGE_MS in apps/desktop/electron/update-marker.ts:
 # a shorter ceiling here would let Python steal a lock Electron still considers live.
@@ -90,6 +102,155 @@ def _is_ancestor_pid(pid: int) -> bool:
     except Exception as exc:
         logger.debug("Could not walk process ancestry for pid %s: %s", pid, exc)
         return False
+
+
+def process_create_time(pid: int) -> float | None:
+    """Creation time (unix seconds) of a live process, or None when unreadable."""
+    if psutil is None:
+        return None
+    try:
+        return float(psutil.Process(pid).create_time())
+    except Exception:
+        return None
+
+
+def checkout_lock_path(root: Path | str) -> Path:
+    """Filesystem path of one checkout's kernel lock file."""
+    return Path(root) / "locks" / "checkout.lock"
+
+
+def holds_checkout_lock(root: Path | str) -> bool:
+    """True when this process holds *root*'s checkout lock."""
+    path = checkout_lock_path(root)
+    try:
+        owner = int(path.read_text(encoding="utf-8").strip().split()[0])
+    except (OSError, ValueError, IndexError):
+        return False
+    return owner == os.getpid()
+
+
+def update_in_progress(root: Path | str) -> bool:
+    """True when an update marker exists and is judged live for *root*."""
+    marker = Path(root) / MARKER_NAME
+    try:
+        raw = marker.read_bytes()
+    except OSError:
+        return False
+    return judge_marker(raw)[0] in {"live", "ours"}
+
+
+def checkout_lock_fds(root: Path | str) -> tuple[int, ...]:
+    """File descriptors this process holds for *root*'s checkout lock (empty on Windows)."""
+    return ()
+
+
+def judge_marker(raw: bytes) -> tuple[str, int | None, dict | None]:
+    """Judge one update marker's raw bytes.
+
+    Returns ``(verdict, owner, marker)`` where verdict is one of
+    ``"malformed"``, ``"dead"``, ``"ours"``, ``"live"`` and owner is the live
+    owning pid (or the live delegate's pid) when verdict is live/ours, else None.
+    Mirrors ``electron/update-marker-judge.ts``.
+    """
+    try:
+        text = raw.decode("utf-8").replace("\ufeff", "")
+    except (UnicodeDecodeError, ValueError):
+        return ("malformed", None, None)
+
+    lines = text.split("\n")
+    if len(lines) < 2:
+        return ("malformed", None, None)
+
+    line0 = lines[0].replace("\r", "").strip()
+    line1 = lines[1].replace("\r", "").strip()
+    if not line0.isdigit() or not line1.isdigit():
+        return ("malformed", None, None)
+
+    try:
+        pid = int(line0)
+        started_at = int(line1)
+    except ValueError:
+        return ("malformed", None, None)
+
+    if pid > 0xFFFFFFFF:
+        return ("malformed", None, None)
+
+    # Parse creation time (line 3: ct:<digits[.digits]>)
+    recorded_ct: float | None = None
+    if len(lines) > 2:
+        line2 = lines[2].replace("\r", "").strip()
+        ct_match = None
+        import re as _re
+        m = _re.match(r"^ct:([0-9]+(?:\.[0-9]+)?)$", line2)
+        if m:
+            try:
+                recorded_ct = float(m.group(1))
+            except ValueError:
+                recorded_ct = None
+
+    # Parse delegate and run lines
+    delegate: dict | None = None
+    run_id: str | None = None
+    for line in lines[3:]:
+        line = line.replace("\r", "").strip()
+        if delegate is None:
+            m = _re.match(r"^delegate:([0-9]+) ct:([0-9]+(?:\.[0-9]+)?)$", line)
+            if m:
+                try:
+                    delegate = {"pid": int(m.group(1)), "ct": float(m.group(2))}
+                except ValueError:
+                    delegate = None
+                continue
+        if run_id is None:
+            m = _re.match(r"^run:([A-Za-z0-9._-]{1,128})$", line)
+            if m:
+                run_id = m.group(1)
+
+    def identity_state(p: int, rec_ct: float | None, started: int) -> str:
+        if p == 0:
+            return "dead"
+        our_pid = os.getpid()
+        if p == our_pid:
+            our_ct = process_create_time(our_pid)
+            if rec_ct is not None and our_ct is not None and abs(rec_ct - our_ct) <= 0.005:
+                return "ours"
+            return "dead"
+        if not _pid_alive(p):
+            return "dead"
+        actual = process_create_time(p) if rec_ct is not None else None
+        if rec_ct is None or actual is None:
+            return "unknown" if time.time() - started <= 1200 else "dead"
+        return "match" if abs(rec_ct - actual) <= 2.0 else "dead"
+
+    owner_state = identity_state(pid, recorded_ct, started_at)
+    delegate_state = None
+    if delegate is not None:
+        delegate_state = identity_state(delegate["pid"], delegate["ct"], started_at)
+
+    owner_live = owner_state in {"ours", "match", "unknown"}
+    delegate_live = delegate_state in {"match", "unknown"}
+
+    owner: int | None = None
+    if owner_live:
+        owner = pid
+    elif delegate_live and delegate is not None:
+        owner = delegate["pid"]
+
+    if owner_state == "ours" or delegate_state == "ours":
+        verdict = "ours"
+    elif owner is not None:
+        verdict = "live"
+    else:
+        verdict = "dead"
+
+    marker = {"pid": pid, "startedAt": started_at, "ct": recorded_ct,
+              "delegate": delegate, "run": run_id}
+    return (verdict, owner, marker)
+
+
+def checkout_lock_held() -> bool:
+    """True when this process holds any checkout lock (module-global _HELD)."""
+    return bool(_HELD)
 
 
 @dataclass(frozen=True)

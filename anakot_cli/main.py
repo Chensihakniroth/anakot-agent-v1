@@ -1898,6 +1898,7 @@ cmd_skin = _forward_command("cmd_skin", "anakot_cli.skin_cmd", "skin_command", d
 cmd_import = _forward_command("cmd_import", "anakot_cli.backup", "run_import", doc='Restore a Anakot backup from a zip file.')
 cmd_dashboard_register = _forward_command("cmd_dashboard_register", "anakot_cli.dashboard_register", "cmd_dashboard_register", doc='Register a self-hosted dashboard OAuth client with Nous Portal.')
 cmd_gateway_enroll = _forward_command("cmd_gateway_enroll", "anakot_cli.gateway_enroll", "cmd_gateway_enroll", doc='Enroll a self-hosted gateway with a relay connector.')
+cmd_gateway_ensure = _forward_command("cmd_gateway_ensure", "anakot_cli.gateway_runtime_cli", "cmd_gateway_ensure", doc='Ensure a gateway is running for this profile (machine-readable JSON output).')
 cmd_prompt_size = _forward_command("cmd_prompt_size", "anakot_cli.prompt_size", "cmd_prompt_size", doc='Show a byte/char breakdown of the system prompt + tool schemas.')
 cmd_pairing = _forward_command("cmd_pairing", "anakot_cli.pairing", "pairing_command")
 cmd_plugins = _forward_command("cmd_plugins", "anakot_cli.plugins_cmd", "plugins_command")
@@ -3317,7 +3318,8 @@ def _build_cli_parser():
     build_migrate_parser(subparsers)
     build_codex_runtime_parser(subparsers)
     build_gateway_parser(
-        subparsers, cmd_gateway=cmd_gateway, cmd_proxy=cmd_proxy, cmd_gateway_enroll=cmd_gateway_enroll
+        subparsers, cmd_gateway=cmd_gateway, cmd_proxy=cmd_proxy, cmd_gateway_enroll=cmd_gateway_enroll,
+        cmd_gateway_ensure=cmd_gateway_ensure
     )
 
     # LSP is optional — a registration failure must not break the CLI.
@@ -3454,6 +3456,12 @@ def _default_to_chat(args) -> None:
 
 def main():
     """Main entry point for anakot CLI."""
+    if len(sys.argv) >= 2 and sys.argv[1] == "--print-runtime-command":
+        from pathlib import Path
+        from anakot_cli._launchers import print_runtime_command
+        print_runtime_command(Path(__file__).resolve().parents[1], sys.argv[2:])
+        raise SystemExit(0)
+
     _set_process_title()
     _warn_if_unsupervised_pid1()
     _advertise_agent_env()

@@ -66,6 +66,28 @@ def _schtasks_encoding() -> str:
         return "utf-8"
 
 
+def _decode_schtasks_output(raw: bytes) -> str:
+    """Decode ``schtasks.exe`` (or ``whoami.exe``) output bytes to text.
+
+    schtasks /XML emits UTF-16 with a BOM; /FO CSV and whoami use the console code page.
+    Try UTF-16 (BOM-aware), then the locale codec, then UTF-8 with replacement.
+    """
+    if not raw:
+        return ""
+    # UTF-16 with BOM (schtasks /XML)
+    if raw[:2] in (b"\xff\xfe", b"\xfe\xff"):
+        try:
+            return raw.decode("utf-16")
+        except UnicodeDecodeError:
+            pass
+    # Console code page (schtasks /FO CSV, whoami)
+    enc = _schtasks_encoding()
+    try:
+        return raw.decode(enc)
+    except (UnicodeDecodeError, LookupError):
+        return raw.decode("utf-8", errors="replace")
+
+
 def _assert_windows() -> None:
     if sys.platform != "win32":
         raise RuntimeError("gateway_windows is Windows-only")

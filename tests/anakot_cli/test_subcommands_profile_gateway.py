@@ -24,6 +24,10 @@ def _h_gateway_enroll(args):  # pragma: no cover - identity only
     return "gateway_enroll"
 
 
+def _h_gateway_ensure(args):  # pragma: no cover - identity only
+    return "gateway_ensure"
+
+
 def _h_profile(args):  # pragma: no cover - identity only
     return "profile"
 
@@ -43,6 +47,7 @@ def _gateway_parser():
         cmd_gateway=_h_gateway,
         cmd_proxy=_h_proxy,
         cmd_gateway_enroll=_h_gateway_enroll,
+        cmd_gateway_ensure=_h_gateway_ensure,
     )
     return p
 
@@ -83,3 +88,12 @@ def test_gateway_enroll_dispatch():
     assert ns.token == "tok"
     assert ns.connector_url == "wss://connector.example.com/relay"
     assert ns.gateway_id == "gw-1"
+
+
+def test_gateway_ensure_dispatch():
+    ns = _gateway_parser().parse_args(["gateway", "ensure", "--timeout", "12"])
+
+    assert ns.command == "gateway"
+    assert ns.gateway_command == "ensure"
+    assert ns.timeout == 12
+    assert ns.func is _h_gateway_ensure
